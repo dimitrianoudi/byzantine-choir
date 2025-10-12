@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import clsx from 'clsx';
-import PdfThumb from '@/components/pdfThumb';
+import PdfThumb from './PdfThumb';
 
 type Role = 'member' | 'admin';
 

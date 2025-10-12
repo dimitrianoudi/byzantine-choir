@@ -1,18 +1,9 @@
 'use client';
 import { useEffect, useMemo, useState } from 'react';
-import {
-  GlobalWorkerOptions,
-  getDocument,
-  type PDFDocumentProxy,
-} from 'pdfjs-dist';
-
-// worker (CDN) – avoids bundling the worker
-GlobalWorkerOptions.workerSrc =
-  'https://cdn.jsdelivr.net/npm/pdfjs-dist@4.6.82/build/pdf.worker.min.js';
 
 type Props = {
-  storageKey: string;
-  getUrl: (key: string) => Promise<string>;
+  storageKey: string;                         // S3 key (e.g., "pdfs/foo.pdf")
+  getUrl: (key: string) => Promise<string>;   // your presign fetcher
   width?: number;
 };
 
@@ -21,12 +12,17 @@ const cache = new Map<string, string>(); // key -> dataURL
 export default function PdfThumb({ storageKey, getUrl, width = 220 }: Props) {
   const [src, setSrc] = useState<string | null>(cache.get(storageKey) ?? null);
   const [err, setErr] = useState<string | null>(null);
+  const [ready, setReady] = useState(false); // guard against SSR
   const height = useMemo(() => Math.round((width * 4) / 3), [width]);
 
+  // mark as mounted (prevents any pdf.js work during SSR)
+  useEffect(() => { setReady(true); }, []);
+
   useEffect(() => {
+    if (!ready || src) return;
     let cancelled = false;
 
-    const run = async () => {
+    (async () => {
       try {
         setErr(null);
         if (cache.has(storageKey)) {
@@ -36,7 +32,13 @@ export default function PdfThumb({ storageKey, getUrl, width = 220 }: Props) {
 
         const url = await getUrl(storageKey);
 
-        const pdf: PDFDocumentProxy = await getDocument({ url }).promise;
+        // Dynamically import pdf.js only in the browser
+        const pdfjs: any = await import('pdfjs-dist');
+        // Set worker from CDN (avoids bundling the worker)
+        pdfjs.GlobalWorkerOptions.workerSrc =
+          'https://cdn.jsdelivr.net/npm/pdfjs-dist@4.6.82/build/pdf.worker.min.js';
+
+        const pdf = await pdfjs.getDocument({ url }).promise;
         const page = await pdf.getPage(1);
 
         const viewport = page.getViewport({ scale: 1 });
@@ -50,14 +52,12 @@ export default function PdfThumb({ storageKey, getUrl, width = 220 }: Props) {
         canvas.width = Math.ceil(scaledViewport.width);
         canvas.height = Math.ceil(scaledViewport.height);
 
-        // ✅ v4 typings often expect the canvas element as well
-        await page
-          .render({
-            canvasContext: ctx,
-            viewport: scaledViewport,
-            canvas,
-          })
-          .promise;
+        // Some pdfjs distributions expect a `canvas` prop alongside context
+        await page.render({
+          canvasContext: ctx,
+          viewport: scaledViewport,
+          canvas,
+        }).promise;
 
         const dataUrl = canvas.toDataURL('image/png');
         cache.set(storageKey, dataUrl);
@@ -69,13 +69,10 @@ export default function PdfThumb({ storageKey, getUrl, width = 220 }: Props) {
       } catch (e: any) {
         if (!cancelled) setErr(e?.message || 'PDF render error');
       }
-    };
+    })();
 
-    if (!src) run();
-    return () => {
-      cancelled = true;
-    };
-  }, [storageKey, getUrl, src, width]);
+    return () => { cancelled = true; };
+  }, [ready, src, storageKey, getUrl, width]);
 
   return (
     <div className="w-full">

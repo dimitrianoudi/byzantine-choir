@@ -1,0 +1,57 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Theme tokens */
+:root {
+  --bg: #0f0f13;
+  --card: #15151c;
+  --muted: #a9acb6;
+}
+
+html, body { height: 100%; }
+body { background: var(--bg); color: white; }
+
+/* Plain CSS versions of the previous @apply rules
+   so we avoid Tailwind's @apply resolver entirely. */
+.container {
+  max-width: 64rem;          /* ~max-w-screen-lg (≈1024px) */
+  margin-left: auto;         /* mx-auto */
+  margin-right: auto;
+  padding-left: 1rem;        /* px-4 */
+  padding-right: 1rem;
+}
+
+.card {
+  background: var(--card);
+  border-radius: 0.75rem;    /* rounded-xl */
+  border: 1px solid rgba(255,255,255,0.1); /* border-white/10 */
+  box-shadow: 0 1px 2px rgba(0,0,0,0.1);   /* shadow */
+}
+
+.btn {
+  display: inline-flex;      /* inline-flex */
+  align-items: center;       /* items-center */
+  gap: 0.5rem;               /* gap-2 */
+  border-radius: 0.5rem;     /* rounded-lg */
+  padding: 0.5rem 0.75rem;   /* py-2 px-3 */
+  border: 1px solid rgba(255,255,255,0.1);
+  transition: border-color 150ms;
+}
+.btn:hover {
+  border-color: rgba(255,255,255,0.2);     /* hover:border-white/20 */
+}
+
+.input {
+  background: rgba(0,0,0,0.3);             /* bg-black/30 */
+  border: 1px solid rgba(255,255,255,0.1); /* border-white/10 */
+  border-radius: 0.5rem;                    /* rounded-lg */
+  padding: 0.5rem 0.75rem;                  /* py-2 px-3 */
+  width: 100%;
+  outline: none;
+}
+.input:focus {
+  border-color: rgba(255,255,255,0.3);     /* focus:border-white/30 */
+}
+
+label { font-size: 0.875rem; color: rgba(255,255,255,0.8); } /* text-sm text-white/80 */

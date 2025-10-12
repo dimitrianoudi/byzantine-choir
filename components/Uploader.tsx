@@ -21,10 +21,10 @@ export default function Uploader() {
 
     setBusy(true); setStatus("Requesting upload URL...");
     try {
-      const presignRes = await fetch("/api/files/presign-upload", {
+      const presignRes = await fetch("/api/files/presign", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ filename: file.name, type: file.type }),
+        body: JSON.stringify({ filename: file.name, mime: file.type }),
       });
       if (!presignRes.ok) throw new Error(await presignRes.text());
       const { url, key } = await presignRes.json();

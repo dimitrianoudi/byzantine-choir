@@ -1,4 +1,3 @@
-// app/api/files/presign/route.ts
 export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
@@ -15,7 +14,7 @@ export async function POST(req: Request) {
 
   const body = await req.json().catch(() => ({} as any));
 
-  // 1) DOWNLOAD presign: expects { key }
+  // ===== 1) DOWNLOAD presign: { key } =====
   if (body?.key && !body?.filename && !body?.mime) {
     try {
       const url = await presignGet(body.key, 60 * 60);
@@ -26,7 +25,7 @@ export async function POST(req: Request) {
     }
   }
 
-  // 2) UPLOAD presign: expects { filename, mime } and requires admin
+  // ===== 2) UPLOAD presign: { filename, mime } (admin only) =====
   if (body?.filename && body?.mime) {
     if (session.user?.role !== "admin") {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -49,5 +48,8 @@ export async function POST(req: Request) {
     }
   }
 
-  return NextResponse.json({ error: "Invalid body. Use { key } for download OR { filename, mime } for upload." }, { status: 400 });
+  return NextResponse.json(
+    { error: "Invalid body. Use { key } for download OR { filename, mime } for upload." },
+    { status: 400 }
+  );
 }

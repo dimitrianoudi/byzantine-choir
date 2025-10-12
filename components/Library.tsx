@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import clsx from 'clsx';
+import PdfThumb from '@/components/pdfThumb';
 
 type Role = 'member' | 'admin';
 
@@ -160,22 +161,24 @@ export default function Library({ role }: { role: Role }) {
             </div>
           )}
 
-          {activeTab === 'pdf' && (
+          {activeTab === "pdf" && (
             <div className="grid sm:grid-cols-2 gap-4">
               {pdfs.length === 0 && <div className="card p-4 text-white/60">Δεν υπάρχουν ακόμη PDF.</div>}
               {pdfs.map((pdf) => (
-                <div key={pdf.key} className="card p-4 flex flex-col gap-2">
-                  <div className="font-medium break-all">{pdf.name}</div>
-                  <div className="text-xs text-white/50">
-                    {pdf.lastModified ? new Date(pdf.lastModified).toLocaleDateString() : ''}
+                <div key={pdf.key} className="card p-4 flex flex-col gap-3">
+                  <div className="flex items-start gap-3">
+                    <PdfThumb storageKey={pdf.key} getUrl={getUrl} width={220} />
+                    <div className="flex-1 min-w-0">
+                      <div className="font-medium break-all">{pdf.name}</div>
+                      <div className="text-xs text-white/50">
+                        {pdf.lastModified ? new Date(pdf.lastModified).toLocaleDateString() : ''}
+                      </div>
+                    </div>
                   </div>
+
                   <div className="mt-auto flex gap-2">
-                    <button className="btn" onClick={() => openPdf(pdf.key)}>
-                      Άνοιγμα
-                    </button>
-                    <button className="btn" onClick={() => downloadKey(pdf.key, pdf.name)}>
-                      Λήψη
-                    </button>
+                    <button className="btn" onClick={() => openPdf(pdf.key)}>Άνοιγμα</button>
+                    <button className="btn" onClick={() => downloadKey(pdf.key, pdf.name)}>Λήψη</button>
                   </div>
                 </div>
               ))}

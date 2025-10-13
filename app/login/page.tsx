@@ -33,7 +33,7 @@ export default function LoginPage() {
     <main className="container">
       <div className="max-w-md mx-auto mt-16">
         {/* Brand / heading */}
-        <h1 className="font-heading text-blue" style={{ fontWeight: 700, fontSize: 22 }}>
+        <h1 className="font-heading text-blue" style={{ fontWeight: 700, fontSize: 22, fontFamily: 'inherit' }}>
           Είσοδος Μελών
         </h1>
         <p className="text-sm text-muted mt-1">

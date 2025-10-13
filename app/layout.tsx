@@ -30,7 +30,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
       <body>
         <Header role={role} />
         <main className="container py-6">{children}</main>
-        <footer className="container py-10 text-center text-white/50 text-sm">© {new Date().getFullYear()} Βυζαντινή Χορωδία</footer>
+        <footer className="container py-10 text-center text-white/50 text-sm">© {new Date().getFullYear()}  Ψαλτικοί Χοροί Αγ. Αθανασίου &amp; Ευαγγελισμού Ευόσμου</footer>
       </body>
     </html>
   )

@@ -11,7 +11,7 @@ export default function Logo({
         role="img"
         aria-labelledby="logoTitle logoDesc"
       >
-        <title id="logoTitle">Βυζαντινή Χορωδία</title>
+        <title id="logoTitle">Ψαλτικοί Χοροί Αγ. Αθανασίου &amp; Ευαγγελισμού Ευόσμου</title>
         <desc id="logoDesc">Σήμα με λύρα (τρία σύρματα) σε μπλε και χρυσό</desc>
 
         {/* White tile background */}
@@ -50,7 +50,7 @@ export default function Logo({
           className="font-heading font-semibold text-blue wordmark"
           style={{ fontWeight: 700, fontSize: "clamp(14px, 1.8vw, 18px)" }}
         >
-          Βυζαντινή Χορωδία Αγ. Αθανασίου <br />&amp; Ευαγγελισμού Ευόσμου
+          Ψαλτικοί Χοροί Αγ. Αθανασίου <br />&amp; Ευαγγελισμού Ευόσμου
         </span>
       )}
     </div>

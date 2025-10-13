@@ -2,56 +2,230 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Theme tokens */
-:root {
-  --bg: #0f0f13;
-  --card: #15151c;
-  --muted: #a9acb6;
+/* ---------- Theme tokens ---------- */
+:root{
+  /* Let next/font own these via <html class="...">; keep only as fallbacks when referenced */
+  /* --font-heading / --font-text are provided by next/font in layout.tsx */
+  --bg: #ffffff;             /* white */
+  --text: #0A1B3F;           /* deep navy-blue for body text */
+  --blue-600: #1E40AF;       /* primary blue */
+  --blue-700: #1B3A99;
+  --blue-200: #C7D2FE;       /* light blue accents */
+  --gold-500: #C69200;       /* gold */
+  --gold-600: #A87E00;
+  --border: #E5E7EB;         /* light gray border (reads as white UI) */
+  --muted: #3B4A7A;          /* muted blue for secondary text */
 }
 
 html, body { height: 100%; }
-body { background: var(--bg); color: white; }
+body {
+  font-family: var(--font-text, ui-sans-serif), system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
 
-/* Plain CSS versions of the previous @apply rules
-   so we avoid Tailwind's @apply resolver entirely. */
+/* Heading font utility (use on any element that must use the heading face) */
+.font-heading { font-family: var(--font-heading, ui-serif), Georgia, "Times New Roman", serif; }
+
+h1, h2, h3, .brand, .heading {
+  font-family: var(--font-heading, ui-serif);
+  letter-spacing: 0.2px;
+}
+
+/* Optional: slightly larger, elegant headings */
+h1 { font-weight: 700; font-size: 2rem; }
+h2 { font-weight: 700; font-size: 1.5rem; }
+h3 { font-weight: 600; font-size: 1.25rem; }
+
+/* Layout helpers */
 .container {
-  max-width: 64rem;          /* ~max-w-screen-lg (≈1024px) */
-  margin-left: auto;         /* mx-auto */
+  max-width: 64rem; /* ~1024px */
+  margin-left: auto;
   margin-right: auto;
-  padding-left: 1rem;        /* px-4 */
+  padding-left: 1rem;
   padding-right: 1rem;
 }
 
+/* Cards, inputs, buttons — white/blue/gold only */
 .card {
-  background: var(--card);
-  border-radius: 0.75rem;    /* rounded-xl */
-  border: 1px solid rgba(255,255,255,0.1); /* border-white/10 */
-  box-shadow: 0 1px 2px rgba(0,0,0,0.1);   /* shadow */
-}
-
-.btn {
-  display: inline-flex;      /* inline-flex */
-  align-items: center;       /* items-center */
-  gap: 0.5rem;               /* gap-2 */
-  border-radius: 0.5rem;     /* rounded-lg */
-  padding: 0.5rem 0.75rem;   /* py-2 px-3 */
-  border: 1px solid rgba(255,255,255,0.1);
-  transition: border-color 150ms;
-}
-.btn:hover {
-  border-color: rgba(255,255,255,0.2);     /* hover:border-white/20 */
+  background: #fff;
+  border: 1px solid var(--border);
+  border-radius: 0.75rem;
+  box-shadow: 0 1px 2px rgba(10,27,63,0.05);
 }
 
 .input {
-  background: rgba(0,0,0,0.3);             /* bg-black/30 */
-  border: 1px solid rgba(255,255,255,0.1); /* border-white/10 */
-  border-radius: 0.5rem;                    /* rounded-lg */
-  padding: 0.5rem 0.75rem;                  /* py-2 px-3 */
+  background: #fff;
+  border: 1px solid var(--border);
+  border-radius: 0.5rem;
+  padding: 0.5rem 0.75rem;
   width: 100%;
   outline: none;
 }
 .input:focus {
-  border-color: rgba(255,255,255,0.3);     /* focus:border-white/30 */
+  border-color: var(--blue-600);
+  box-shadow: 0 0 0 3px rgba(30,64,175,0.18);
 }
 
-label { font-size: 0.875rem; color: rgba(255,255,255,0.8); } /* text-sm text-white/80 */
+label { font-size: 0.875rem; color: var(--muted); }
+
+/* Hand cursor on all interactive buttons/links */
+button,
+[role="button"],
+.btn {
+  cursor: pointer;
+}
+
+/* Disabled state: no hand + visual hint */
+button:disabled,
+.btn:disabled,
+[aria-disabled="true"] {
+  cursor: not-allowed;
+  opacity: 0.6;
+  filter: saturate(0.85);
+}
+
+/* Primary button (blue) */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  border-radius: 0.5rem;
+  padding: 0.5rem 0.75rem; /* will be normalized below */
+  border: 1px solid var(--blue-600);
+  background: var(--blue-600);
+  color: #fff;
+  transition: transform 120ms ease, box-shadow 120ms ease, background 120ms ease, border-color 120ms ease;
+  text-decoration: none;
+}
+.btn:hover { background: var(--blue-700); border-color: var(--blue-700); }
+.btn:active { transform: translateY(1px); }
+
+/* Ghost/outline variant (for toggles) */
+.btn-outline {
+  background: #fff;
+  color: var(--blue-600);
+  border-color: var(--blue-600);
+}
+.btn-outline:hover {
+  background: var(--blue-200);
+  color: var(--blue-700);
+  border-color: var(--blue-700);
+}
+
+/* Selected state ring for tab-like buttons */
+.btn--selected {
+  box-shadow: 0 0 0 3px rgba(30,64,175,0.18);
+}
+
+/* Gold accent button */
+.btn-gold {
+  border-color: var(--gold-500);
+  background: var(--gold-500);
+  color: #fff;
+}
+.btn-gold:hover { background: var(--gold-600); border-color: var(--gold-600); }
+
+/* Utility text colors in-theme */
+.text-muted { color: var(--muted); }
+.text-gold { color: var(--gold-500); }
+.text-blue { color: var(--blue-600); }
+.border-subtle { border-color: var(--border); }
+
+/* ---------- spacing helpers ---------- */
+.section { padding: 1rem; }
+@media (min-width: 640px) { .section { padding: 1.5rem; } }
+
+.toolbar { display:flex; align-items:center; gap:.75rem; flex-wrap:wrap; }
+.actions { display:flex; align-items:center; gap:.5rem; flex-wrap:wrap; }
+
+/* a subtle “soft” variant you can use if needed */
+.btn-soft {
+  background: #fff;
+  color: var(--text);
+  border-color: var(--border);
+}
+.btn-soft:hover { border-color: var(--blue-600); box-shadow: 0 0 0 3px rgba(30,64,175,0.12); }
+
+/* ---------- media controls ---------- */
+audio { accent-color: var(--blue-600); }
+
+/* ----- header ----- */
+.header { position: sticky; top: 0; background: #fff; border-bottom: 1px solid var(--border); z-index: 40; }
+.header-inner {
+  max-width: 64rem; margin: 0 auto; padding: .75rem 1rem;
+  display: flex; align-items: center; gap: .75rem; flex-wrap: wrap;
+}
+.header-spacer { flex: 1 1 auto; }
+.nav { display: flex; gap: .5rem; flex-wrap: wrap; }
+
+/* small badge for role */
+.badge {
+  display:inline-flex; align-items:center; gap:.375rem;
+  font-size:.75rem; padding:.25rem .5rem; border-radius:.5rem;
+  background: var(--blue-200); color: var(--blue-700);
+}
+
+/* =========================================================
+   CONSISTENT BUTTON SIZING (fixed height, same for all variants)
+   ========================================================= */
+   :root{
+    --btn-h: 40px;      /* total height */
+    --btn-fz: 15px;     /* font-size */
+    --btn-fw: 600;      /* font-weight */
+    --btn-px: 14px;     /* horizontal padding */
+    --btn-minw: 120px;  /* min width for consistent look */
+  }
+  
+  .btn,
+  .btn-outline,
+  .btn-gold,
+  button.btn,
+  a.btn {
+    box-sizing: border-box;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: .5rem;
+  
+    height: var(--btn-h);
+    padding: 0 var(--btn-px);
+    min-width: var(--btn-minw);
+  
+    font-size: var(--btn-fz);
+    line-height: 1;
+    font-weight: var(--btn-fw);
+    white-space: nowrap;
+  
+    border-width: 1px;
+    border-style: solid;
+    border-radius: .5rem;
+  }
+  
+  /* Keep colors-only differences */
+  .btn { background: var(--blue-600); border-color: var(--blue-600); color:#fff; }
+  .btn:hover { background: var(--blue-700); border-color: var(--blue-700); }
+  
+  .btn-outline { background:#fff; color: var(--blue-600); border-color: var(--blue-600); }
+  .btn-outline:hover { background: var(--blue-200); color: var(--blue-700); border-color: var(--blue-700); }
+  
+  .btn-gold { background: var(--gold-500); border-color: var(--gold-500); color:#fff; }
+  .btn-gold:hover { background: var(--gold-600); border-color: var(--gold-600); }
+  
+  /* Optional: smaller/larger variants if needed */
+  .btn-sm { --btn-h: 34px; --btn-fz: 14px; --btn-px: 12px; --btn-minw: 100px; }
+  .btn-lg { --btn-h: 46px; --btn-fz: 16px; --btn-px: 16px; --btn-minw: 140px; }
+  
+
+  .wordmark {
+    display: inline-block;
+    max-width: 40ch;          /* ~two lines on most screens */
+    line-height: 1.15;
+    white-space: normal;
+    font-family: inherit;       /* allow wrapping */
+  }
+  @media (min-width: 640px) {
+    .wordmark { max-width: 48ch; }
+  }

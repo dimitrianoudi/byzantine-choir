@@ -116,74 +116,80 @@ export default function Library({ role }: { role: Role }) {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center gap-2">
+      <div className="toolbar">
         <button
-          className={clsx('btn', activeTab === 'podcast' && 'border-white/40')}
+          className={clsx('btn btn-outline', activeTab === 'podcast' && 'btn--selected')}
           onClick={() => setActiveTab('podcast')}
         >
           Podcasts
         </button>
         <button
-          className={clsx('btn', activeTab === 'pdf' && 'border-white/40')}
+          className={clsx('btn btn-outline', activeTab === 'pdf' && 'btn--selected')}
           onClick={() => setActiveTab('pdf')}
         >
-          PDF Βιβλία
+          PDF
         </button>
-        <div className="ml-auto text-sm text-white/60">{role === 'admin' ? 'Διαχειριστής' : 'Μέλος'}</div>
       </div>
-
       {loading && <div className="card p-6">Φόρτωση...</div>}
       {error && <div className="card p-6 text-red-400">{error}</div>}
       {actionMsg && <div className="card p-4 text-amber-300 text-sm">{actionMsg}</div>}
 
       {!loading && !error && (
         <>
-          {activeTab === 'podcast' && (
-            <div className="card p-4 divide-y divide-white/10">
-              {podcasts.length === 0 && <div className="p-4 text-white/60">Δεν υπάρχουν ακόμη podcasts.</div>}
-              {podcasts.map((p) => (
-                <div key={p.key} className="flex items-center gap-3 py-3">
-                  <div className="flex-1">
+
+        {activeTab === 'podcast' && (
+          <div className="card p-6 divide-y divide-[color:var(--border)]">
+            {podcasts.length === 0 && <div className="p-4 text-muted">Δεν υπάρχουν ακόμη podcasts.</div>}
+            {podcasts.map((p) => (
+              <div key={p.key} className="py-4">
+                <div className="flex items-center gap-4">
+                  <div className="flex-1 min-w-0">
                     <div className="font-medium break-all">{p.name}</div>
-                    <div className="text-xs text-white/50">
+                    <div className="text-xs text-muted">
                       {p.lastModified ? new Date(p.lastModified).toLocaleString() : ''}
                     </div>
                   </div>
-                  <button className="btn" onClick={() => play(p.key)}>
-                    {playingKey === p.key ? 'Παίζει...' : 'Αναπαραγωγή'}
-                  </button>
-                  <button className="btn" onClick={() => downloadKey(p.key, p.name)}>
-                    Λήψη
-                  </button>
+                  <div className="actions">
+                    <button className="btn" onClick={() => play(p.key)}>
+                      {playingKey === p.key ? 'Παίζει...' : 'Αναπαραγωγή'}
+                    </button>
+                    <button
+                      className="btn btn-gold"
+                      onClick={() => downloadKey(p.key, p.name)}
+                    >
+                      Λήψη
+                    </button>
+                  </div>
                 </div>
-              ))}
-              <audio id="audio-player" className="w-full mt-3" controls />
-            </div>
-          )}
+              </div>
+            ))}
+            <audio id="audio-player" className="w-full mt-4" controls />
+          </div>
+        )}
 
-          {activeTab === "pdf" && (
-            <div className="grid sm:grid-cols-2 gap-4">
-              {pdfs.length === 0 && <div className="card p-4 text-white/60">Δεν υπάρχουν ακόμη PDF.</div>}
-              {pdfs.map((pdf) => (
-                <div key={pdf.key} className="card p-4 flex flex-col gap-3">
-                  <div className="flex items-start gap-3">
-                    <PdfThumb storageKey={pdf.key} getUrl={getUrl} width={220} />
-                    <div className="flex-1 min-w-0">
-                      <div className="font-medium break-all">{pdf.name}</div>
-                      <div className="text-xs text-white/50">
-                        {pdf.lastModified ? new Date(pdf.lastModified).toLocaleDateString() : ''}
-                      </div>
+        {activeTab === 'pdf' && (
+          <div className="grid gap-6 sm:grid-cols-2">
+            {pdfs.length === 0 && <div className="card p-6 text-muted">Δεν υπάρχουν ακόμη PDF.</div>}
+            {pdfs.map((pdf) => (
+              <div key={pdf.key} className="card p-6 flex flex-col gap-4">
+                <div className="flex items-start gap-4">
+                  <PdfThumb storageKey={pdf.key} getUrl={getUrl} width={200} />
+                  <div className="flex-1 min-w-0">
+                    <div className="font-medium break-all">{pdf.name}</div>
+                    <div className="text-xs text-muted">
+                      {pdf.lastModified ? new Date(pdf.lastModified).toLocaleDateString() : ''}
                     </div>
                   </div>
-
-                  <div className="mt-auto flex gap-2">
-                    <button className="btn" onClick={() => openPdf(pdf.key)}>Άνοιγμα</button>
-                    <button className="btn" onClick={() => downloadKey(pdf.key, pdf.name)}>Λήψη</button>
-                  </div>
                 </div>
-              ))}
-            </div>
-          )}
+                <div className="actions mt-auto">
+                  <button className="btn" onClick={() => openPdf(pdf.key)}>Άνοιγμα</button>
+                  <button className="btn btn-gold" onClick={() => downloadKey(pdf.key, pdf.name)}>Λήψη</button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
         </>
       )}
     </div>

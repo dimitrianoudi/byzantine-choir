@@ -33,7 +33,3 @@ S3_FORCE_PATH_STYLE=1               # optional
 pnpm i    # or npm i / yarn
 pnpm dev  # http://localhost:3000
 ```
-
-## Notes
-- For larger file volumes, consider organizing with folders/prefixes per lesson/date.
-```

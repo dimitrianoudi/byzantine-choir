@@ -1,3 +1,5 @@
+import SocialRegisterButton from "@/components/SocialRegisterButton";
+
 export default function HomePage() {
   return (
     <main className="container container--flush-left section section--flush-left">
@@ -15,12 +17,12 @@ export default function HomePage() {
         {/* Buttons */}
         <section className="stack">
           <div className="actions justify-center gap-4 sm:gap-6 block-gap">
-            <a href="/register" className="btn btn-gold">
-              Ἐγγραφή για φυσική παρουσία στο Φροντιστήριο
-            </a>
-            <a href="/calendar" className="btn btn-outline">
-              Πρόγραμμα
-            </a>
+            <SocialRegisterButton
+              label="Ἐγγραφή για φυσική παρουσία στο Φροντιστήριο"
+              className="btn btn-gold"
+              redirectTo="/material"
+            />
+            <a href="/calendar" className="btn btn-outline">Πρόγραμμα</a>
           </div>
         </section>
 

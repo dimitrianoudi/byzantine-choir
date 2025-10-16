@@ -1,36 +1,30 @@
 import { cookies } from "next/headers";
-import {
-  getIronSession,
-  type IronSession,
-  type SessionOptions,
-} from "iron-session";
+import { getIronSession, type SessionOptions } from "iron-session";
 
 export type Role = "member" | "admin";
 
-export type SessionData = {
-  user?: { role: Role };
-  isLoggedIn: boolean;
+export type SessionUser = {
+  role: Role;
+  email?: string;        // ← add this
 };
 
-const sessionOptions: SessionOptions = {
+export type SessionData = {
+  isLoggedIn: boolean;
+  user?: SessionUser;    // ← use the new type
+};
+
+export const sessionOptions: SessionOptions = {
   password: process.env.IRON_SESSION_PASSWORD!,
-  cookieName: process.env.IRON_SESSION_COOKIE_NAME ?? "choir_session",
+  cookieName: process.env.IRON_SESSION_COOKIE_NAME || "choir_session",
   cookieOptions: {
     secure: process.env.NODE_ENV === "production",
+    sameSite: "lax",
+    httpOnly: true,
   },
 };
 
-export async function getSession(): Promise<IronSession<SessionData>> {
-  // Next 15+: cookies() returns a Promise
+export async function getSession() {
+  // Next 15: cookies() returns a CookieStore-like object
   const cookieStore = await cookies();
-
-  // iron-session expects a CookieStore-like interface.
-  // In Next 15.5 the type is ReadonlyRequestCookies; cast is harmless here.
-  const session = await getIronSession<SessionData>(
-    cookieStore as unknown as any,
-    sessionOptions
-  );
-
-  session.isLoggedIn = Boolean(session.user);
-  return session;
+  return getIronSession<SessionData>(cookieStore as any, sessionOptions);
 }

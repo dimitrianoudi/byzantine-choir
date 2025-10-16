@@ -1,6 +1,4 @@
-# Byzantine Choir Portal - A Next.js app for podcasts & PDF's.
-
-Next.js (TypeScript) app for podcasts & PDF member files using Amazon S3.
+# A Next.js / Typescript app for podcasts & PDF member files integrated with AWS S3.
 
 ## Features
 - Protected sign-in with a shared member code and a separate admin code
@@ -32,7 +30,7 @@ S3_FORCE_PATH_STYLE=1               # optional
 
 ## Setup
 ```
-pnpm i    # ή npm i / yarn
+pnpm i    # or npm i / yarn
 pnpm dev  # http://localhost:3000
 ```
 

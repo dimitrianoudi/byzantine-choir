@@ -29,7 +29,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
     <html lang="el" className={`${heading.variable} ${text.variable}`}>
       <body>
         <Header role={role} />
-        <main className="container py-6">{children}</main>
+        <main className="section section--flush-right container container--flush-right space-y-6">{children}</main>
         <footer className="container py-10 text-center text-white/50 text-sm">© {new Date().getFullYear()}  Ψαλτικοί Χοροί Αγ. Αθανασίου &amp; Ευαγγελισμού Ευόσμου</footer>
       </body>
     </html>

@@ -8,6 +8,7 @@
   /* --font-heading / --font-text are provided by next/font in layout.tsx */
   --bg: #ffffff;             /* white */
   --text: #0A1B3F;           /* deep navy-blue for body text */
+  --black: #000000;
   --blue-600: #1E40AF;       /* primary blue */
   --blue-700: #1B3A99;
   --blue-200: #C7D2FE;       /* light blue accents */
@@ -147,6 +148,7 @@ button:disabled,
 .text-muted { color: var(--muted); }
 .text-gold { color: var(--gold-500); }
 .text-blue { color: var(--blue-600); }
+.text-black { color: var(--black); }
 .border-subtle { border-color: var(--border); }
 
 /* ---------- spacing helpers ---------- */

@@ -67,9 +67,26 @@ export default function Header({
     <header className="header">
       <div className="header-inner">
         {/* Left: brand/logo + wordmark */}
-        <div className="flex items-center gap-3 min-w-0">
+        {/* <div className="flex items-center gap-3 min-w-0">
           <Logo size={66} withWordmark />
-        </div>
+        </div> */}
+
+        <Link href="/" className="flex items-center gap-3 min-w-0 no-underline">
+          <img
+            src="/logo.svg"
+            alt="Ψαλτικοί Χοροί Αγ. Αθανασίου & Ευαγγελισμού Ευόσμου"
+            className="h-[66px] w-auto"   // <- set desired height
+          />
+          <span
+            className="text-black font-semibold leading-tight text-base sm:text-lg max-w-[28ch]"
+            style={{ fontWeight: 300 }}
+          >
+            Φροντιστήριο Ψαλτικής Παιδείας
+            <br className="hidden sm:block" />
+            &nbsp; Αγ. Αθανασίου&amp; Ευαγγελισμού Ευόσμου
+          </span>
+          <span className="sr-only">Αρχική</span>
+        </Link>
 
         {/* Right column: NAV (top-right) + user area (below) */}
         <div className="header-right">

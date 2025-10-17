@@ -1,8 +1,8 @@
-import "./globals.css"
-import Header from '@/components/Header';
-import { getSession } from '@/lib/session';
+// app/layout.tsx
+import "./globals.css";
 import { EB_Garamond, Noto_Sans } from "next/font/google";
-
+import Header from "@/components/Header";
+import { getSession } from "@/lib/session";
 
 const heading = EB_Garamond({
   subsets: ["greek", "latin"],
@@ -16,22 +16,32 @@ const text = Noto_Sans({
 });
 
 export const metadata = {
-  title: "Βυζαντινή Χορωδία · Ψαλτική Υλικό",
-  description: "Podcast και PDF αρχεία για τα μέλη της χορωδίας"
-}
+  title: "Ψαλτική Παιδεία",
+  description: "Εκπαίδευση στη Βυζαντινή Μουσική",
+};
 
-export default async function RootLayout({ children }: { children: React.ReactNode }) {
-
+export default async function RootLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
   const session = await getSession();
-  const role = session.user?.role ?? 'member';
+  const user = session.user ?? { role: "member" as const, email: undefined };
 
   return (
     <html lang="el" className={`${heading.variable} ${text.variable}`}>
       <body>
-        <Header role={role} />
-        <main className="section section--flush-right container container--flush-right space-y-6">{children}</main>
-        <footer className="container py-10 text-center text-white/50 text-sm">© {new Date().getFullYear()}  Ψαλτικοί Χοροί Αγ. Αθανασίου &amp; Ευαγγελισμού Ευόσμου</footer>
+        <Header
+          isLoggedIn={!!session.isLoggedIn}
+          user={{ role: user.role, email: user.email }}
+        />
+        <main className="section section--flush-right container container--flush-right space-y-6">
+          {children}
+        </main>
+        <footer className="container py-10 text-white/50 text-sm text-center">
+          © {new Date().getFullYear()} Ψαλτικοί Χοροί Αγ. Αθανασίου &amp; Ευαγγελισμού Ευόσμου
+        </footer>
       </body>
     </html>
-  )
+  );
 }

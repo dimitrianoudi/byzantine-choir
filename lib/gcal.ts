@@ -1,49 +1,141 @@
-export type RecurrenceInput = {
-  freq: 'DAILY' | 'WEEKLY' | 'MONTHLY' | 'YEARLY';
-  interval?: number;      // default 1
-  until?: string;         // ISO date (YYYY-MM-DD) or local datetime
+// lib/gcal.ts
+import { google } from "googleapis";
+
+/** ---------- Public Types ---------- */
+export type ChoirEvent = {
+  id: string;
+  title: string;
+  startsAt: string;   // RFC3339, may be local (no 'Z'); server applies tz
+  endsAt?: string;    // same format as startsAt
+  location?: string;
 };
 
-// helper: make RRULE from input
+export type RecurrenceInput = {
+  freq: "DAILY" | "WEEKLY" | "MONTHLY" | "YEARLY";
+  interval?: number; // default 1
+  until?: string;    // YYYY-MM-DD (optional end date)
+};
+
+/** ---------- Internal: env + client ---------- */
+
+function requireEnv(name: string): string {
+  const v = process.env[name];
+  if (!v) {
+    throw new Error(
+      `[gcal] Missing env ${name}. Set it in Vercel Project → Settings → Environment Variables.`
+    );
+  }
+  return v;
+}
+
+let calendarSingleton:
+  | {
+      calendar: ReturnType<typeof google.calendar>;
+      calendarId: string;
+      tz: string;
+    }
+  | null = null;
+
+function getCalendar() {
+  if (calendarSingleton) return calendarSingleton;
+
+  const clientEmail = requireEnv("GCAL_CLIENT_EMAIL");
+  const rawKey = requireEnv("GCAL_PRIVATE_KEY");
+  // Accept both literal "\n" or true multiline paste
+  const privateKey = rawKey.includes("\\n") ? rawKey.replace(/\\n/g, "\n") : rawKey;
+
+  const calendarId = requireEnv("GCAL_CALENDAR_ID");
+  const tz = process.env.GCAL_TIMEZONE || "Europe/Athens";
+
+  const jwt = new google.auth.JWT({
+    email: clientEmail,
+    key: privateKey,
+    scopes: ["https://www.googleapis.com/auth/calendar"],
+  });
+
+  const calendar = google.calendar({ version: "v3", auth: jwt });
+  calendarSingleton = { calendar, calendarId, tz };
+  return calendarSingleton;
+}
+
+/** ---------- Internal: recurrence helper (RRULE) ---------- */
+
 function rruleFrom(rec: RecurrenceInput, startsAt: string) {
   const parts: string[] = [`FREQ=${rec.freq}`, `INTERVAL=${rec.interval ?? 1}`];
 
-  // For weekly repeats, include the weekday of the start date (MO..SU)
-  if (rec.freq === 'WEEKLY') {
-    const d = new Date(startsAt);
-    const days = ['SU','MO','TU','WE','TH','FR','SA'];
-    parts.push(`BYDAY=${days[d.getUTCDay()]}`); // ok since Google applies tz in requestBody.start/end
+  // For WEEKLY, include the weekday from the local start date.
+  // (We pass requestBody.start/end with timeZone, so Google interprets in tz.)
+  if (rec.freq === "WEEKLY") {
+    const d = new Date(startsAt); // interpret as local when no 'Z'
+    const days = ["SU", "MO", "TU", "WE", "TH", "FR", "SA"];
+    parts.push(`BYDAY=${days[d.getDay()]}`);
   }
 
-  // Optional end date (UNTIL must be in UTC “basic” format: YYYYMMDDTHHMMSSZ)
+  // Optional end date (UNTIL must be UTC basic format YYYYMMDDTHHMMSSZ)
   if (rec.until) {
     const u = new Date(rec.until);
     if (!isNaN(u.getTime())) {
+      // End-of-day UTC so the "until" date is included
       const utc = new Date(Date.UTC(u.getFullYear(), u.getMonth(), u.getDate(), 23, 59, 59));
       const y = utc.getUTCFullYear();
-      const m = String(utc.getUTCMonth() + 1).padStart(2, '0');
-      const d = String(utc.getUTCDate()).padStart(2, '0');
-      const hh = String(utc.getUTCHours()).padStart(2, '0');
-      const mm = String(utc.getUTCMinutes()).padStart(2, '0');
-      const ss = String(utc.getUTCSeconds()).padStart(2, '0');
+      const m = String(utc.getUTCMonth() + 1).padStart(2, "0");
+      const d = String(utc.getUTCDate()).padStart(2, "0");
+      const hh = String(utc.getUTCHours()).padStart(2, "0");
+      const mm = String(utc.getUTCMinutes()).padStart(2, "0");
+      const ss = String(utc.getUTCSeconds()).padStart(2, "0");
       parts.push(`UNTIL=${y}${m}${d}T${hh}${mm}${ss}Z`);
     }
   }
 
-  return `RRULE:${parts.join(';')}`;
+  return `RRULE:${parts.join(";")}`;
 }
 
-export type ChoirEvent = {
-  id: string;
-  title: string;
-  startsAt: string;
-  endsAt?: string;
-  location?: string;
-  // (we don’t need to return recurrence here because we request singleEvents=true,
-  // which expands instances. But you can add it if you want to show the rule.)
-};
+/** ---------- Public API ---------- */
 
-export async function createEvent(evt: Omit<ChoirEvent, "id"> & { recurrence?: RecurrenceInput }) {
+/**
+ * List events within [timeMin, timeMax].
+ * Uses singleEvents=true to expand recurring instances.
+ */
+export async function listEvents(timeMin: string, timeMax: string): Promise<ChoirEvent[]> {
+  const { calendar, calendarId } = getCalendar();
+
+  const res = await calendar.events.list({
+    calendarId,
+    timeMin,
+    timeMax,
+    singleEvents: true,   // expand recurrences into instances
+    orderBy: "startTime",
+    maxResults: 2500,
+  });
+
+  const items = res.data.items || [];
+  return items
+    .filter((e) => e.status !== "cancelled")
+    .map((e) => {
+      const start =
+        e.start?.dateTime ||
+        (e.start?.date ? `${e.start.date}T00:00:00` : ""); // all-day → midnight local (no Z)
+      const end =
+        e.end?.dateTime ||
+        (e.end?.date ? `${e.end.date}T00:00:00` : undefined);
+
+      return {
+        id: e.id!,
+        title: e.summary || "(Χωρίς τίτλο)",
+        startsAt: start!,
+        endsAt: end,
+        location: e.location || undefined,
+      };
+    });
+}
+
+/**
+ * Create a new event. `startsAt` / `endsAt` can be local RFC3339 (no Z).
+ * We send timeZone so Google interprets them in `tz` (default Europe/Athens).
+ */
+export async function createEvent(
+  evt: Omit<ChoirEvent, "id"> & { recurrence?: RecurrenceInput }
+): Promise<ChoirEvent> {
   const { calendar, calendarId, tz } = getCalendar();
   const recurrence = evt.recurrence ? [rruleFrom(evt.recurrence, evt.startsAt)] : undefined;
 
@@ -57,6 +149,7 @@ export async function createEvent(evt: Omit<ChoirEvent, "id"> & { recurrence?: R
       recurrence,
     },
   });
+
   const e = res.data;
   return {
     id: e.id!,
@@ -64,16 +157,23 @@ export async function createEvent(evt: Omit<ChoirEvent, "id"> & { recurrence?: R
     startsAt: e.start?.dateTime || evt.startsAt,
     endsAt: e.end?.dateTime || evt.endsAt,
     location: e.location || evt.location,
-  } as ChoirEvent;
+  };
 }
 
-export async function updateEvent(evt: ChoirEvent & { recurrence?: RecurrenceInput | null }) {
+/**
+ * Update an event. Recurrence handling:
+ *  - recurrence: undefined → leave as-is
+ *  - recurrence: object   → set to that RRULE
+ *  - recurrence: null     → clear recurrence
+ */
+export async function updateEvent(
+  evt: ChoirEvent & { recurrence?: RecurrenceInput | null }
+): Promise<ChoirEvent> {
   const { calendar, calendarId, tz } = getCalendar();
 
-  // If recurrence===null we clear it; if provided we set it; if undefined we leave as-is
-  let recurrence: string[] | undefined | null = undefined;
+  let recurrence: string[] | null | undefined = undefined;
   if (evt.recurrence === null) recurrence = null;
-  if (evt.recurrence && typeof evt.recurrence === 'object') {
+  if (evt.recurrence && typeof evt.recurrence === "object") {
     recurrence = [rruleFrom(evt.recurrence, evt.startsAt)];
   }
 
@@ -88,6 +188,7 @@ export async function updateEvent(evt: ChoirEvent & { recurrence?: RecurrenceInp
       ...(recurrence !== undefined ? { recurrence } : {}),
     },
   });
+
   const e = res.data;
   return {
     id: e.id!,
@@ -95,5 +196,11 @@ export async function updateEvent(evt: ChoirEvent & { recurrence?: RecurrenceInp
     startsAt: e.start?.dateTime || evt.startsAt,
     endsAt: e.end?.dateTime || evt.endsAt,
     location: e.location || evt.location,
-  } as ChoirEvent;
+  };
+}
+
+/** Delete an event by id. */
+export async function deleteEvent(id: string): Promise<void> {
+  const { calendar, calendarId } = getCalendar();
+  await calendar.events.delete({ calendarId, eventId: id });
 }

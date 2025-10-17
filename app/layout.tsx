@@ -30,8 +30,9 @@ export default async function RootLayout({
 
   return (
     <html lang="el" className={`${heading.variable} ${text.variable}`}>
-      <body className="with-left-ornament">
+      <body className="with-left-ornament with-right-ornament">
         <div aria-hidden="true" className="left-ornament" />
+        <div aria-hidden="true" className="right-ornament" />
         <Header
           isLoggedIn={!!session.isLoggedIn}
           user={{ role: user.role, email: user.email }}

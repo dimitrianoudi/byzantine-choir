@@ -14,6 +14,7 @@
   --blue-200: #C7D2FE;       /* light blue accents */
   --gold-500: #C69200;       /* gold */
   --gold-600: #A87E00;
+  --red-600: #af4b55;
   --border: #E5E7EB;         /* light gray border (reads as white UI) */
   --muted: #3B4A7A;          /* muted blue for secondary text */
   --field-max: 28rem; /* ~448px; adjust if you want tighter/looser */
@@ -150,6 +151,7 @@ button:disabled,
 .text-gold { color: var(--gold-500); }
 .text-blue { color: var(--blue-600); }
 .text-black { color: var(--black); }
+.text-red { color: var(--red-600); }
 .border-subtle { border-color: var(--border); }
 
 /* ---------- spacing helpers ---------- */
@@ -331,35 +333,84 @@ a.btn {
 }
 
 :root {
-  --left-ornament: 0px;          /* mobile: hidden */
+  --left-ornament: 0px;
 }
-
-@media (min-width: 640px) {
-  :root { --left-ornament: 88px; }   /* sm */
-}
-@media (min-width: 1024px) {
-  :root { --left-ornament: 120px; }  /* lg */
-}
+@media (min-width: 640px) { :root { --left-ornament: 88px; } }   /* sm */
+@media (min-width: 1024px){ :root { --left-ornament: 120px; } }  /* lg */
 
 /* The vertical SVG on the far left */
 .left-ornament {
   position: fixed;
-  inset: 0 auto 0 0;                     /* top:0 right:auto bottom:0 left:0 */
+  inset: 0 auto 0 0;
   width: var(--left-ornament);
   background: url('/byzantine_vertical.svg') left center / contain no-repeat;
-  pointer-events: none;                   /* don’t block clicks */
-  z-index: 100;                             /* behind header/nav if they’re >5 */
-  opacity: 1;                             /* adjust if you want subtler */
+  pointer-events: none;
+  z-index: 100; /* above header */
 }
 
-/* When ornament is visible, push header + main to the right */
-.with-left-ornament .header-inner,
-.with-left-ornament main.container,
-.with-left-ornament main {
+.with-left-ornament .container {
+  /* default .container has padding-left: 1rem; we neutralize it: */
+  padding-left: 0;
+  /* then add exactly the ornament width plus a small gutter */
   padding-left: calc(var(--left-ornament) + 12px);
+  /* keep the usual right padding so layout feels centered again */
+  padding-right: 1rem;
 }
 
-/* On very small screens, just hide it */
+/* On very small screens, hide ornament; container returns to normal */
 @media (max-width: 639px) {
   .left-ornament { display: none; }
+  .with-left-ornament .container {
+    padding-left: 1rem; /* back to normal small-screen padding */
+    padding-right: 1rem;
+  }
+}
+
+/* Divider */
+.divider-wrap {
+  display: block;
+  margin: 2rem auto;               /* vertical spacing */
+  text-align: center;
+}
+
+.divider-img {
+  display: inline-block;
+  max-width: 640px;                 /* control the visual width */
+  width: 100%;
+  height: auto;
+  opacity: 1;                       /* adjust if you want subtler */
+}
+
+/* Optional: tighter/looser spacing variants */
+.divider-wrap.divider--tight { margin: 1.25rem auto; }
+.divider-wrap.divider--loose { margin: 3rem auto; }
+
+
+:root{
+  --right-ornament-offset: 15px; /* distance from the right edge */
+  --right-ornament-width: 120px;  /* visual width of the SVG */
+}
+
+/* bottom-right decorative SVG */
+.right-ornament {
+  position: fixed;
+  bottom: 0;
+  right: var(--right-ornament-offset);
+  width: var(--right-ornament-width);
+  height: auto;
+  aspect-ratio: 3 / 4; /* adjust if your SVG is wider/taller */
+  background: url('/standing.svg') center bottom / contain no-repeat;
+  pointer-events: none;  /* don't block clicks */
+  z-index: 100;          /* above content; raise if needed */
+}
+
+/* Optional: keep content clear of it on large screens */
+.with-right-ornament .container {
+  padding-right: calc(var(--right-ornament-offset) + 12px);
+}
+
+/* Hide or shrink on small screens */
+@media (max-width: 640px) {
+  .right-ornament { display: none; }
+  .with-right-ornament .container { padding-right: 1rem; }
 }

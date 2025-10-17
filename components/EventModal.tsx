@@ -1,18 +1,23 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
+import { createPortal } from 'react-dom';
 import type { ChoirEvent } from '@/lib/gcal';
 
 type Props = {
   open: boolean;
   onClose: () => void;
-  initial?: ChoirEvent | null;
+  initial?: ChoirEvent | null; // edit mode if present
   onSave: (evt: Omit<ChoirEvent, 'id'> & { id?: string }) => Promise<void>;
 };
 
 export default function EventModal({ open, onClose, initial, onSave }: Props) {
   const isEdit = !!initial?.id;
 
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => { setMounted(true); return () => setMounted(false); }, []);
+
+  // Local form state
   const [title, setTitle] = useState('');
   const [startsLocal, setStartsLocal] = useState('');
   const [endsLocal, setEndsLocal] = useState('');
@@ -20,6 +25,7 @@ export default function EventModal({ open, onClose, initial, onSave }: Props) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // Prefill on open
   useEffect(() => {
     if (!open) return;
     setError(null);
@@ -45,14 +51,14 @@ export default function EventModal({ open, onClose, initial, onSave }: Props) {
     return isNaN(d.getTime()) ? '' : d.toISOString();
   };
 
-  const canSubmit = useMemo(() => title.trim() && startsLocal, [title, startsLocal]);
+  const canSubmit = useMemo(() => !!title.trim() && !!startsLocal, [title, startsLocal]);
 
-  if (!open) return null;
+  if (!mounted || !open) return null;
 
-  return (
+  const modalUI = (
     <div
       className="fixed inset-0 flex items-center justify-center"
-      style={{ background: 'rgba(10,27,63,0.35)', zIndex: 1000 }}
+      style={{ background: 'rgba(10,27,63,0.35)', zIndex: 2000 }}
       onClick={onClose}
       aria-modal="true"
       role="dialog"
@@ -68,29 +74,51 @@ export default function EventModal({ open, onClose, initial, onSave }: Props) {
         <div className="space-y-3 mt-3">
           <div>
             <label className="text-sm text-muted">Τίτλος</label>
-            <input className="input mt-1" value={title} onChange={e=>setTitle(e.target.value)} placeholder="π.χ. Μάθημα Ψαλτικής" />
+            <input
+              className="input mt-1"
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              placeholder="π.χ. Μάθημα Ψαλτικής"
+            />
           </div>
           <div>
             <label className="text-sm text-muted">Έναρξη</label>
-            <input className="input mt-1" type="datetime-local" value={startsLocal} onChange={e=>setStartsLocal(e.target.value)} />
+            <input
+              className="input mt-1"
+              type="datetime-local"
+              value={startsLocal}
+              onChange={(e) => setStartsLocal(e.target.value)}
+            />
           </div>
           <div>
             <label className="text-sm text-muted">Λήξη (προαιρετικό)</label>
-            <input className="input mt-1" type="datetime-local" value={endsLocal} onChange={e=>setEndsLocal(e.target.value)} />
+            <input
+              className="input mt-1"
+              type="datetime-local"
+              value={endsLocal}
+              onChange={(e) => setEndsLocal(e.target.value)}
+            />
           </div>
           <div>
             <label className="text-sm text-muted">Τοποθεσία (προαιρετικό)</label>
-            <input className="input mt-1" value={location} onChange={e=>setLocation(e.target.value)} placeholder="π.χ. Ι.Ν. Αγ. Αθανασίου" />
+            <input
+              className="input mt-1"
+              value={location}
+              onChange={(e) => setLocation(e.target.value)}
+              placeholder="π.χ. Ι.Ν. Αγ. Αθανασίου"
+            />
           </div>
           {error && <div className="text-sm text-red-500">{error}</div>}
         </div>
 
         <div className="actions justify-end mt-4">
-          <button type="button" className="btn btn-outline" onClick={onClose} disabled={busy}>Άκυρο</button>
+          <button type="button" className="btn btn-outline" onClick={onClose} disabled={busy}>
+            Άκυρο
+          </button>
           <button
             type="button"
             className="btn btn-gold"
-            disabled={!canSubmit || !!busy}
+            disabled={!canSubmit || busy}
             onClick={async () => {
               try {
                 setBusy(true);
@@ -115,4 +143,7 @@ export default function EventModal({ open, onClose, initial, onSave }: Props) {
       </div>
     </div>
   );
+
+  // Render above everything else
+  return createPortal(modalUI, document.body);
 }

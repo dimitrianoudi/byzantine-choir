@@ -115,12 +115,7 @@ export default function CalendarView({ role }: { role: Role }) {
             <button
               type="button"
               className="btn btn-gold btn-sm"
-              onClick={() => {
-                console.log("NEW_EVENT_CLICK");   // <-- should appear in console
-                alert("Opening modal test");        // <-- should pop
-                setEditing(null);
-                setModalOpen(true);
-              }}
+              onClick={() => { setEditing(null); setModalOpen(true); }}
             >
               Νέα Εκδήλωση
             </button>

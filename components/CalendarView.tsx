@@ -189,7 +189,7 @@ export default function CalendarView({ role }: { role: Role }) {
                               {/* SMALL 25×25 CIRCULAR ICON BUTTONS */}
                               <button
                                 type="button"
-                                className="btn btn-outline icon-btn"
+                                className="icon-btn"
                                 title="Επεξεργασία"
                                 aria-label="Επεξεργασία"
                                 onClick={() => { setEditing(e); setModalOpen(true); }}
@@ -201,7 +201,7 @@ export default function CalendarView({ role }: { role: Role }) {
                               </button>
                               <button
                                 type="button"
-                                className="btn btn-outline icon-btn"
+                                className="icon-btn"
                                 title="Διαγραφή"
                                 aria-label="Διαγραφή"
                                 onClick={() => deleteEvent(e.id)}

@@ -40,8 +40,8 @@ function toApiError(err: any, fallback: string) {
 /** Pulls a sensible time window: prev month → next month */
 function monthWindow() {
   const now = new Date();
-  const start = new Date(now.getFullYear(), now.getMonth() - 1, 1);
-  const end = new Date(now.getFullYear(), now.getMonth() + 2, 0, 23, 59, 59);
+  const start = new Date(now.getFullYear(), now.getMonth() - 6, 1);
+  const end = new Date(now.getFullYear(), now.getMonth() + 12, 0, 23, 59, 59);
   return { timeMin: start.toISOString(), timeMax: end.toISOString() };
 }
 

@@ -15,6 +15,7 @@
   --gold-600: #A87E00;
   --border: #E5E7EB;         /* light gray border (reads as white UI) */
   --muted: #3B4A7A;          /* muted blue for secondary text */
+  --field-max: 28rem; /* ~448px; adjust if you want tighter/looser */
 }
 
 html, body { height: 100%; }
@@ -57,16 +58,30 @@ h3 { font-weight: 600; font-size: 1.25rem; }
 }
 
 .input {
+  box-sizing: border-box;
+  display: block;
+  width: 100%;
+  max-width: min(100%, var(--field-max));
   background: #fff;
   border: 1px solid var(--border);
   border-radius: 0.5rem;
   padding: 0.5rem 0.75rem;
-  width: 100%;
   outline: none;
 }
+
 .input:focus {
   border-color: var(--blue-600);
   box-shadow: 0 0 0 3px rgba(30,64,175,0.18);
+}
+
+/* When you truly want full-width (rare): */
+.input--full {
+  max-width: 100% !important;
+}
+
+/* Medium-wide variant (e.g., long titles): */
+.input--wide {
+  --field-max: 36rem; /* ~576px */
 }
 
 label { font-size: 0.875rem; color: var(--muted); }
@@ -279,3 +294,5 @@ audio { accent-color: var(--blue-600); }
   @media (min-width: 640px) {
     .wordmark { max-width: 48ch; }
   }
+
+

@@ -7,21 +7,26 @@ type Role = 'member' | 'admin';
 type ChoirEvent = {
   id: string;
   title: string;
-  startsAt: string; // ISO-like
+  startsAt: string; // RFC3339-ish (no Z needed)
   endsAt?: string;
   location?: string;
 };
 
 type RecurrenceInput = {
-  freq: 'DAILY' | 'WEEKLY' | 'MONTHLY' | 'YEARLY';
-  interval?: number; // default 1
-  until?: string;    // YYYY-MM-DD
+  freq: "DAILY" | "WEEKLY" | "MONTHLY" | "YEARLY";
+  interval?: number;
+  until?: string; // YYYY-MM-DD
 };
 
 function startOfMonth(d: Date) { return new Date(d.getFullYear(), d.getMonth(), 1); }
 function endOfMonth(d: Date) { return new Date(d.getFullYear(), d.getMonth() + 1, 0); }
-function sameDay(a: Date, b: Date) { return a.toDateString() === b.toDateString(); }
-function toKey(d: Date) { return d.toISOString().split('T')[0]; }
+function sameDay(a: Date, b: Date) { return a.getFullYear()===b.getFullYear() && a.getMonth()===b.getMonth() && a.getDate()===b.getDate(); }
+function keyFromLocalDate(d: Date) {
+  const y = d.getFullYear();
+  const m = String(d.getMonth()+1).padStart(2,'0');
+  const da = String(d.getDate()).padStart(2,'0');
+  return `${y}-${m}-${da}`; // LOCAL (no UTC conversion)
+}
 
 export default function CalendarView({ role }: { role: Role }) {
   const today = useMemo(() => new Date(), []);
@@ -45,11 +50,12 @@ export default function CalendarView({ role }: { role: Role }) {
   }
   useEffect(() => { fetchEvents(); }, []);
 
+  // Index by LOCAL day (no UTC conversion)
   const eventsByDay = useMemo(() => {
     const map: Record<string, ChoirEvent[]> = {};
     for (const e of events) {
       const d = new Date(e.startsAt);
-      const key = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+      const key = keyFromLocalDate(d);
       (map[key] ||= []).push(e);
     }
     return map;
@@ -79,24 +85,22 @@ export default function CalendarView({ role }: { role: Role }) {
 
   const upcoming = useMemo(() => {
     const now = new Date();
+    const floor = new Date(now.getFullYear(), now.getMonth(), now.getDate());
     return [...events]
-      .filter(e => new Date(e.startsAt) >= new Date(now.getFullYear(), now.getMonth(), now.getDate()))
+      .filter(e => new Date(e.startsAt) >= floor)
       .sort((a,b) => +new Date(a.startsAt) - +new Date(b.startsAt))
       .slice(0, 6);
   }, [events]);
 
-  // Convert ISO → <input type="datetime-local"> value
   const isoToLocal = (iso?: string) => {
     if (!iso) return '';
     const d = new Date(iso); if (isNaN(d.getTime())) return '';
     const pad = (n: number) => String(n).padStart(2,'0');
     return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
   };
-
-  // Send local RFC3339 (no Z) so server (Google API) applies Europe/Athens tz (set in lib/gcal.ts)
   const localToRFC3339 = (local: string) => local ? `${local}:00` : '';
 
-  // Create/Update via API (supports optional recurrence)
+  // API calls
   const saveEvent = async (evt: Omit<ChoirEvent, 'id'> & { id?: string; recurrence?: RecurrenceInput }) => {
     const method = evt.id ? 'PUT' : 'POST';
     const res = await fetch('/api/events', {
@@ -112,7 +116,6 @@ export default function CalendarView({ role }: { role: Role }) {
     await fetchEvents();
   };
 
-  // Delete via API
   const deleteEvent = async (id: string) => {
     if (!confirm('Διαγραφή εκδήλωσης;')) return;
     const res = await fetch('/api/events', {
@@ -164,7 +167,7 @@ export default function CalendarView({ role }: { role: Role }) {
             {days.map((d, i) => {
               const inMonth = d.getMonth() === cursor.getMonth();
               const isToday = sameDay(d, today);
-              const key = toKey(d);
+              const key = keyFromLocalDate(d);
               const evts = eventsByDay[key] || [];
               return (
                 <div key={i} className="border-subtle rounded-md border p-2 min-h-[84px] flex flex-col" style={{ background: inMonth ? '#fff' : '#f8fafc' }}>
@@ -182,11 +185,11 @@ export default function CalendarView({ role }: { role: Role }) {
                           <span className="truncate">{e.title}</span>
                           {role === 'admin' && (
                             <span className="ml-auto flex gap-1">
-                              {/* Edit icon button */}
+                              {/* SMALL CIRCULAR ICON BUTTONS */}
                               <button
                                 type="button"
                                 className="btn btn-outline"
-                                style={{ padding: '2px 6px' }}
+                                style={{ width: 26, height: 26, padding: 0, borderRadius: '9999px', display:'inline-flex', alignItems:'center', justifyContent:'center' }}
                                 title="Επεξεργασία"
                                 aria-label="Επεξεργασία"
                                 onClick={() => { setEditing(e); setModalOpen(true); }}
@@ -196,11 +199,10 @@ export default function CalendarView({ role }: { role: Role }) {
                                   <path d="M14.06 4.94l3.75 3.75" stroke="currentColor" strokeWidth="1.5"/>
                                 </svg>
                               </button>
-                              {/* Delete icon button */}
                               <button
                                 type="button"
                                 className="btn btn-outline"
-                                style={{ padding: '2px 6px' }}
+                                style={{ width: 26, height: 26, padding: 0, borderRadius: '9999px', display:'inline-flex', alignItems:'center', justifyContent:'center' }}
                                 title="Διαγραφή"
                                 aria-label="Διαγραφή"
                                 onClick={() => deleteEvent(e.id)}
@@ -331,23 +333,21 @@ export default function CalendarView({ role }: { role: Role }) {
 
                   if (!title || !startsLocal) { alert('Τίτλος και Έναρξη απαιτούνται'); return; }
 
-                  // Build recurrence param
                   let recurrence: RecurrenceInput | undefined = undefined;
                   if (repeat !== 'none') {
                     const freq: RecurrenceInput['freq'] =
                       repeat === 'weekly' ? 'WEEKLY' :
-                      repeat === 'monthly' ? 'MONTHLY' :
-                      'YEARLY';
+                      repeat === 'monthly' ? 'MONTHLY' : 'YEARLY';
                     recurrence = { freq, interval: 1, ...(until ? { until } : {}) };
                   }
 
                   await saveEvent({
                     id: editing?.id,
                     title,
-                    startsAt: localToRFC3339(startsLocal),             // keep local, server applies tz
+                    startsAt: localToRFC3339(startsLocal),             // local (no Z) -> server tz
                     endsAt: endsLocal ? localToRFC3339(endsLocal) : undefined,
                     location: location || undefined,
-                    recurrence,                                        // pass to API
+                    recurrence,
                   });
 
                   setModalOpen(false);

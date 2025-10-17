@@ -171,7 +171,12 @@ button:disabled,
 audio { accent-color: var(--blue-600); }
 
 /* ----- header ----- */
-.header { position: sticky; top: 0; background: #fff; border-bottom: 1px solid var(--border); z-index: 40; }
+.header { 
+  position: sticky; 
+  top: 0; 
+  background: none; 
+  border-bottom: 1px solid var(--border); z-index: 40; 
+}
 .header-inner{
   max-width: 64rem;
   margin: 0 auto;
@@ -325,3 +330,36 @@ a.btn {
   z-index: 2000;
 }
 
+:root {
+  --left-ornament: 0px;          /* mobile: hidden */
+}
+
+@media (min-width: 640px) {
+  :root { --left-ornament: 88px; }   /* sm */
+}
+@media (min-width: 1024px) {
+  :root { --left-ornament: 120px; }  /* lg */
+}
+
+/* The vertical SVG on the far left */
+.left-ornament {
+  position: fixed;
+  inset: 0 auto 0 0;                     /* top:0 right:auto bottom:0 left:0 */
+  width: var(--left-ornament);
+  background: url('/byzantine_vertical.svg') left center / contain no-repeat;
+  pointer-events: none;                   /* don’t block clicks */
+  z-index: 5;                             /* behind header/nav if they’re >5 */
+  opacity: 1;                             /* adjust if you want subtler */
+}
+
+/* When ornament is visible, push header + main to the right */
+.with-left-ornament .header-inner,
+.with-left-ornament main.container,
+.with-left-ornament main {
+  padding-left: calc(var(--left-ornament) + 12px);
+}
+
+/* On very small screens, just hide it */
+@media (max-width: 639px) {
+  .left-ornament { display: none; }
+}

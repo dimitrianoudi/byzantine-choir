@@ -2,13 +2,12 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import EventModal from '@/components/EventModal';
-import type { ChoirEvent } from '@/lib/events';
+import type { ChoirEvent } from '@/lib/gcal';
 
 type Role = "member" | "admin";
 
 function startOfMonth(d: Date) { return new Date(d.getFullYear(), d.getMonth(), 1); }
 function endOfMonth(d: Date) { return new Date(d.getFullYear(), d.getMonth() + 1, 0); }
-function addMonths(d: Date, m: number) { return new Date(d.getFullYear(), d.getMonth() + m, 1); }
 function sameDay(a: Date, b: Date) { return a.toDateString() === b.toDateString(); }
 function toKey(d: Date) { return d.toISOString().split('T')[0]; }
 
@@ -34,7 +33,7 @@ export default function CalendarView({ role }: { role: Role }) {
     const map: Record<string, ChoirEvent[]> = {};
     for (const e of events) {
       const d = new Date(e.startsAt);
-      const key = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+      const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
       (map[key] ||= []).push(e);
     }
     return map;
@@ -43,8 +42,9 @@ export default function CalendarView({ role }: { role: Role }) {
   const first = startOfMonth(cursor);
   const last  = endOfMonth(cursor);
 
-  const weekStartsOn = 1; // Monday
-  const firstWeekday = (first.getDay() + 6) % 7;
+  // Build grid (Mon–Sun)
+  const weekStartsOn = 1;
+  const firstWeekday = (first.getDay() + 6) % 7; // 0=Mon
   const days: Date[] = [];
   for (let i = 0; i < firstWeekday; i++) {
     const d = new Date(first); d.setDate(first.getDate() - (firstWeekday - i));
@@ -70,7 +70,8 @@ export default function CalendarView({ role }: { role: Role }) {
       .slice(0, 6);
   }, [events]);
 
-  const saveEvent = async (evt: Partial<ChoirEvent> & { title: string; startsAt: string }) => {
+  // ⬇️ Match EventModal's onSave signature exactly
+  const saveEvent = async (evt: Omit<ChoirEvent, "id"> & { id?: string }) => {
     const method = evt.id ? "PUT" : "POST";
     const res = await fetch("/api/events", {
       method,

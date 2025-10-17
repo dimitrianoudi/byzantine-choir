@@ -48,7 +48,7 @@ export default function Logo({
       {withWordmark && (
         <span
           className="font-heading font-semibold text-blue wordmark"
-          style={{ fontWeight: 700, fontSize: "clamp(14px, 1.8vw, 18px)" }}
+          style={{ fontWeight: 400, fontSize: "clamp(14px, 1.8vw, 20px)" }}
         >
           Ψαλτικοί Χοροί Αγ. Αθανασίου <br />&amp; Ευαγγελισμού Ευόσμου
         </span>

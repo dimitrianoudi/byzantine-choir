@@ -112,7 +112,15 @@ export default function CalendarView({ role }: { role: Role }) {
           <button className="btn btn-outline btn-sm" onClick={() => setCursor(new Date(cursor.getFullYear(), cursor.getMonth() - 1, 1))}>‹ Προηγ.</button>
           <button className="btn btn-outline btn-sm" onClick={() => setCursor(new Date(cursor.getFullYear(), cursor.getMonth() + 1, 1))}>Επόμ. ›</button>
           {role === "admin" && (
-            <button className="btn btn-gold btn-sm" onClick={() => { setEditing(null); setModalOpen(true); }}>
+            <button
+              type="button"
+              className="btn btn-gold btn-sm"
+              onClick={() => { 
+                console.debug("NEW_EVENT_CLICK");
+                setEditing(null);
+                setModalOpen(true);
+              }}
+            >
               Νέα Εκδήλωση
             </button>
           )}

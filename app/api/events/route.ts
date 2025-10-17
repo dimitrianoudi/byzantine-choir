@@ -11,6 +11,31 @@ import {
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
+// (optional) disable ISR for this route entirely
+// export const revalidate = 0;
+
+/** Include real details from googleapis error responses */
+function toApiError(err: any, fallback: string) {
+  // googleapis shape: err.response?.status / err.response?.data?.error?.{code,message}
+  const status =
+    err?.response?.status ??
+    err?.code === "ENOTFOUND"
+      ? 502
+      : 500;
+
+  const code =
+    err?.response?.data?.error?.code ??
+    err?.code ??
+    "GCAL_ERROR";
+
+  const msg =
+    err?.response?.data?.error?.message ??
+    err?.message ??
+    fallback;
+
+  console.error("GCAL_API_ERROR", { status, code, msg });
+  return NextResponse.json({ error: msg, code }, { status });
+}
 
 /** Pulls a sensible time window: prev month → next month */
 function monthWindow() {
@@ -31,8 +56,7 @@ export async function GET() {
     const events = await listEvents(timeMin, timeMax);
     return NextResponse.json({ events });
   } catch (err) {
-    console.error("EVENTS_GET_ERROR", err);
-    return NextResponse.json({ error: "Failed to list events" }, { status: 500 });
+    return toApiError(err, "Failed to list events");
   }
 }
 
@@ -42,7 +66,6 @@ export async function POST(req: Request) {
   if (!ensureAdmin(session)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
-
   try {
     const { event } = await req.json().catch(() => ({}));
     if (!event?.title || !event?.startsAt) {
@@ -58,8 +81,7 @@ export async function POST(req: Request) {
 
     return NextResponse.json({ ok: true, event: created });
   } catch (err) {
-    console.error("EVENTS_POST_ERROR", err);
-    return NextResponse.json({ error: "Failed to create event" }, { status: 500 });
+    return toApiError(err, "Failed to create event");
   }
 }
 
@@ -69,14 +91,12 @@ export async function PUT(req: Request) {
   if (!ensureAdmin(session)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
-
   try {
     const { event } = await req.json().catch(() => ({}));
     if (!event?.id) {
       return NextResponse.json({ error: "Missing id" }, { status: 400 });
     }
 
-    // Build a ChoirEvent payload with reasonable fallbacks
     const payload: ChoirEvent = {
       id: String(event.id),
       title: String(event.title ?? "(Χωρίς τίτλο)"),
@@ -88,8 +108,7 @@ export async function PUT(req: Request) {
     const updated = await updateEvent(payload);
     return NextResponse.json({ ok: true, event: updated });
   } catch (err) {
-    console.error("EVENTS_PUT_ERROR", err);
-    return NextResponse.json({ error: "Failed to update event" }, { status: 500 });
+    return toApiError(err, "Failed to update event");
   }
 }
 
@@ -99,7 +118,6 @@ export async function DELETE(req: Request) {
   if (!ensureAdmin(session)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
-
   try {
     const { id } = await req.json().catch(() => ({}));
     if (!id) {
@@ -109,7 +127,6 @@ export async function DELETE(req: Request) {
     await deleteEvent(String(id));
     return NextResponse.json({ ok: true });
   } catch (err) {
-    console.error("EVENTS_DELETE_ERROR", err);
-    return NextResponse.json({ error: "Failed to delete event" }, { status: 500 });
+    return toApiError(err, "Failed to delete event");
   }
 }

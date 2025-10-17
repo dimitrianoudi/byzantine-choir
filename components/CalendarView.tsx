@@ -188,29 +188,31 @@ export default function CalendarView({ role }: { role: Role }) {
                               {/* SMALL CIRCULAR ICON BUTTONS */}
                               <button
                                 type="button"
-                                className="btn btn-outline"
-                                style={{ width: 26, height: 26, padding: 0, borderRadius: '9999px', display:'inline-flex', alignItems:'center', justifyContent:'center' }}
+                                className="btn btn-outline icon-btn"
                                 title="Επεξεργασία"
                                 aria-label="Επεξεργασία"
                                 onClick={() => { setEditing(e); setModalOpen(true); }}
                               >
-                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" aria-hidden="true">
                                   <path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25z" stroke="currentColor" strokeWidth="1.5" fill="none"/>
                                   <path d="M14.06 4.94l3.75 3.75" stroke="currentColor" strokeWidth="1.5"/>
                                 </svg>
                               </button>
+
+
                               <button
                                 type="button"
-                                className="btn btn-outline"
-                                style={{ width: 26, height: 26, padding: 0, borderRadius: '9999px', display:'inline-flex', alignItems:'center', justifyContent:'center' }}
+                                className="btn btn-outline icon-btn"
                                 title="Διαγραφή"
                                 aria-label="Διαγραφή"
                                 onClick={() => deleteEvent(e.id)}
                               >
-                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" aria-hidden="true">
                                   <path d="M9 3h6m-9 4h12M9 7v12m6-12v12M5 7l1 14h12l1-14" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
                                 </svg>
                               </button>
+
+
                             </span>
                           )}
                         </div>

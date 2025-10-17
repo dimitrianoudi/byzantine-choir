@@ -236,63 +236,73 @@ audio { accent-color: var(--blue-600); }
 /* =========================================================
    CONSISTENT BUTTON SIZING (fixed height, same for all variants)
    ========================================================= */
-   :root{
-    --btn-h: 40px;      /* total height */
-    --btn-fz: 15px;     /* font-size */
-    --btn-fw: 600;      /* font-weight */
-    --btn-px: 14px;     /* horizontal padding */
-    --btn-minw: 120px;  /* min width for consistent look */
-  }
-  
-  .btn,
-  .btn-outline,
-  .btn-gold,
-  button.btn,
-  a.btn {
-    box-sizing: border-box;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    gap: .5rem;
-  
-    height: var(--btn-h);
-    padding: 0 var(--btn-px);
-    min-width: var(--btn-minw);
-  
-    font-size: var(--btn-fz);
-    line-height: 1;
-    font-weight: var(--btn-fw);
-    white-space: nowrap;
-  
-    border-width: 1px;
-    border-style: solid;
-    border-radius: .5rem;
-  }
-  
-  /* Keep colors-only differences */
-  .btn { background: var(--blue-600); border-color: var(--blue-600); color:#fff; }
-  .btn:hover { background: var(--blue-700); border-color: var(--blue-700); }
-  
-  .btn-outline { background:#fff; color: var(--blue-600); border-color: var(--blue-600); }
-  .btn-outline:hover { background: var(--blue-200); color: var(--blue-700); border-color: var(--blue-700); }
-  
-  .btn-gold { background: var(--gold-500); border-color: var(--gold-500); color:#fff; }
-  .btn-gold:hover { background: var(--gold-600); border-color: var(--gold-600); }
-  
-  /* Optional: smaller/larger variants if needed */
-  .btn-sm { --btn-h: 34px; --btn-fz: 14px; --btn-px: 12px; --btn-minw: 100px; }
-  .btn-lg { --btn-h: 46px; --btn-fz: 16px; --btn-px: 16px; --btn-minw: 140px; }
-  
+:root{
+  --btn-h: 40px;      /* total height */
+  --btn-fz: 15px;     /* font-size */
+  --btn-fw: 600;      /* font-weight */
+  --btn-px: 14px;     /* horizontal padding */
+  --btn-minw: 120px;  /* min width for consistent look */
+}
 
-  .wordmark {
-    display: inline-block;
-    max-width: 40ch;          /* ~two lines on most screens */
-    line-height: 1.15;
-    white-space: normal;
-    font-family: inherit;       /* allow wrapping */
-  }
-  @media (min-width: 640px) {
-    .wordmark { max-width: 48ch; }
-  }
+.btn,
+.btn-outline,
+.btn-gold,
+button.btn,
+a.btn {
+  box-sizing: border-box;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: .5rem;
 
+  height: var(--btn-h);
+  padding: 0 var(--btn-px);
+  min-width: var(--btn-minw);
+
+  font-size: var(--btn-fz);
+  line-height: 1;
+  font-weight: var(--btn-fw);
+  white-space: nowrap;
+
+  border-width: 1px;
+  border-style: solid;
+  border-radius: .5rem;
+}
+
+/* Keep colors-only differences */
+.btn { background: var(--blue-600); border-color: var(--blue-600); color:#fff; }
+.btn:hover { background: var(--blue-700); border-color: var(--blue-700); }
+
+.btn-outline { background:#fff; color: var(--blue-600); border-color: var(--blue-600); }
+.btn-outline:hover { background: var(--blue-200); color: var(--blue-700); border-color: var(--blue-700); }
+
+.btn-gold { background: var(--gold-500); border-color: var(--gold-500); color:#fff; }
+.btn-gold:hover { background: var(--gold-600); border-color: var(--gold-600); }
+
+/* Optional: smaller/larger variants if needed */
+.btn-sm { --btn-h: 34px; --btn-fz: 14px; --btn-px: 12px; --btn-minw: 100px; }
+.btn-lg { --btn-h: 46px; --btn-fz: 16px; --btn-px: 16px; --btn-minw: 140px; }
+
+
+.wordmark {
+  display: inline-block;
+  max-width: 40ch;          /* ~two lines on most screens */
+  line-height: 1.15;
+  white-space: normal;
+  font-family: inherit;       /* allow wrapping */
+}
+@media (min-width: 640px) {
+  .wordmark { max-width: 48ch; }
+}
+
+
+.icon-btn {
+  width: 25px;
+  height: 25px;
+  padding: 0;
+  border-radius: 9999px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
 

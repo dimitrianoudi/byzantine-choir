@@ -14,6 +14,7 @@
     "@aws-sdk/s3-request-presigner": "^3.908.0",
     "clsx": "^2.1.1",
     "google-auth-library": "^10.4.1",
+    "googleapis": "^164.0.0",
     "iron-session": "^8.0.4",
     "next": "^15.5.4",
     "pdfjs-dist": "^5.4.296",

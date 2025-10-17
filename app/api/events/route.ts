@@ -11,27 +11,14 @@ import {
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-// ---- helper: better error body for Google API issues ----
 function toApiError(err: any, fallback: string) {
-  const status =
-    err?.response?.status ??
-    (err?.code === "ENOTFOUND" ? 502 : 500);
-
-  const code =
-    err?.response?.data?.error?.code ??
-    err?.code ??
-    "GCAL_ERROR";
-
-  const msg =
-    err?.response?.data?.error?.message ??
-    err?.message ??
-    fallback;
-
+  const status = err?.response?.status ?? (err?.code === "ENOTFOUND" ? 502 : 500);
+  const code = err?.response?.data?.error?.code ?? err?.code ?? "GCAL_ERROR";
+  const msg = err?.response?.data?.error?.message ?? err?.message ?? fallback;
   console.error("GCAL_API_ERROR", { status, code, msg });
   return NextResponse.json({ error: msg, code }, { status });
 }
 
-// widen window if you want more months
 function monthWindow() {
   const now = new Date();
   const start = new Date(now.getFullYear(), now.getMonth() - 1, 1);
@@ -43,7 +30,6 @@ function ensureAdmin(session: any) {
   return !!session?.isLoggedIn && session.user?.role === "admin";
 }
 
-// ---- GET: list events ----
 export async function GET() {
   try {
     const { timeMin, timeMax } = monthWindow();
@@ -54,7 +40,6 @@ export async function GET() {
   }
 }
 
-// ---- POST: create (admin) ----
 export async function POST(req: Request) {
   const session = await getSession();
   if (!ensureAdmin(session)) {
@@ -66,16 +51,12 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Missing title/startsAt" }, { status: 400 });
     }
 
-    const attendees =
-      Array.isArray(event.attendees) ? event.attendees.map((e: any) => String(e).trim()).filter(Boolean) : undefined;
-
     const created = await createEvent({
       title: String(event.title),
       startsAt: String(event.startsAt),
       endsAt: event.endsAt ? String(event.endsAt) : undefined,
       location: event.location ? String(event.location) : undefined,
       recurrence: event.recurrence,
-      attendees, // <-- pass through
     });
 
     return NextResponse.json({ ok: true, event: created });
@@ -84,7 +65,6 @@ export async function POST(req: Request) {
   }
 }
 
-// ---- PUT: update (admin) ----
 export async function PUT(req: Request) {
   const session = await getSession();
   if (!ensureAdmin(session)) {
@@ -96,17 +76,13 @@ export async function PUT(req: Request) {
       return NextResponse.json({ error: "Missing id" }, { status: 400 });
     }
 
-    const attendees =
-      Array.isArray(event.attendees) ? event.attendees.map((e: any) => String(e).trim()).filter(Boolean) : undefined;
-
     const payload: ChoirEvent & { recurrence?: any } = {
       id: String(event.id),
       title: String(event.title ?? "(Χωρίς τίτλο)"),
       startsAt: String(event.startsAt ?? new Date().toISOString()),
       endsAt: event.endsAt ? String(event.endsAt) : undefined,
       location: event.location ? String(event.location) : undefined,
-      attendees, // <-- pass through
-      recurrence: event.recurrence, // undefined=leave, object=set, null=clear (handled in lib)
+      recurrence: event.recurrence,
     };
 
     const updated = await updateEvent(payload);
@@ -116,7 +92,6 @@ export async function PUT(req: Request) {
   }
 }
 
-// ---- DELETE: delete (admin) ----
 export async function DELETE(req: Request) {
   const session = await getSession();
   if (!ensureAdmin(session)) {

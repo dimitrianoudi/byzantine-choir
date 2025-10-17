@@ -7,16 +7,15 @@ type Role = 'member' | 'admin';
 type ChoirEvent = {
   id: string;
   title: string;
-  startsAt: string; // RFC3339-ish (no Z needed)
+  startsAt: string;
   endsAt?: string;
   location?: string;
-  attendees?: string[]; // <-- NEW
 };
 
 type RecurrenceInput = {
   freq: "DAILY" | "WEEKLY" | "MONTHLY" | "YEARLY";
   interval?: number;
-  until?: string; // YYYY-MM-DD
+  until?: string;
 };
 
 function startOfMonth(d: Date) { return new Date(d.getFullYear(), d.getMonth(), 1); }
@@ -26,7 +25,7 @@ function keyFromLocalDate(d: Date) {
   const y = d.getFullYear();
   const m = String(d.getMonth()+1).padStart(2,'0');
   const da = String(d.getDate()).padStart(2,'0');
-  return `${y}-${m}-${da}`; // LOCAL (no UTC conversion)
+  return `${y}-${m}-${da}`;
 }
 
 export default function CalendarView({ role }: { role: Role }) {
@@ -35,7 +34,6 @@ export default function CalendarView({ role }: { role: Role }) {
   const [events, setEvents] = useState<ChoirEvent[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // Modal state
   const [modalOpen, setModalOpen] = useState(false);
   const [editing, setEditing] = useState<ChoirEvent | null>(null);
 
@@ -51,7 +49,6 @@ export default function CalendarView({ role }: { role: Role }) {
   }
   useEffect(() => { fetchEvents(); }, []);
 
-  // Index by LOCAL day (no UTC conversion)
   const eventsByDay = useMemo(() => {
     const map: Record<string, ChoirEvent[]> = {};
     for (const e of events) {
@@ -65,7 +62,6 @@ export default function CalendarView({ role }: { role: Role }) {
   const first = startOfMonth(cursor);
   const last  = endOfMonth(cursor);
 
-  // Build calendar grid (Mon→Sun)
   const firstWeekday = (first.getDay() + 6) % 7; // Monday=0
   const days: Date[] = [];
   for (let i = 0; i < firstWeekday; i++) {
@@ -101,7 +97,6 @@ export default function CalendarView({ role }: { role: Role }) {
   };
   const localToRFC3339 = (local: string) => local ? `${local}:00` : '';
 
-  // API calls
   const saveEvent = async (evt: Omit<ChoirEvent, 'id'> & { id?: string; recurrence?: RecurrenceInput }) => {
     const method = evt.id ? 'PUT' : 'POST';
     const res = await fetch('/api/events', {
@@ -186,7 +181,6 @@ export default function CalendarView({ role }: { role: Role }) {
                           <span className="truncate">{e.title}</span>
                           {role === 'admin' && (
                             <span className="ml-auto flex gap-1">
-                              {/* SMALL 25×25 CIRCULAR ICON BUTTONS */}
                               <button
                                 type="button"
                                 className="icon-btn"
@@ -313,17 +307,6 @@ export default function CalendarView({ role }: { role: Role }) {
                   <input className="input mt-1" id="evt-until" type="date" />
                 </div>
               </div>
-
-              {/* Attendees */}
-              <div>
-                <label className="text-sm text-muted">Προσκεκλημένοι (emails, χωρισμένα με κόμμα)</label>
-                <input
-                  className="input input--wide mt-1"
-                  id="evt-guests"
-                  defaultValue={editing?.attendees?.join(', ') || ''}
-                  placeholder="user1@example.com, user2@example.com"
-                />
-              </div>
             </div>
 
             <div className="actions justify-end mt-4">
@@ -340,8 +323,6 @@ export default function CalendarView({ role }: { role: Role }) {
                   const location = (document.getElementById('evt-loc') as HTMLInputElement)?.value?.trim();
                   const repeat = (document.getElementById('evt-repeat') as HTMLSelectElement)?.value as 'none'|'weekly'|'monthly'|'yearly';
                   const until = (document.getElementById('evt-until') as HTMLInputElement)?.value || undefined;
-                  const guestsRaw = (document.getElementById('evt-guests') as HTMLInputElement)?.value || '';
-                  const attendees = guestsRaw.split(',').map(s => s.trim()).filter(Boolean);
 
                   if (!title || !startsLocal) { alert('Τίτλος και Έναρξη απαιτούνται'); return; }
 
@@ -356,11 +337,10 @@ export default function CalendarView({ role }: { role: Role }) {
                   await saveEvent({
                     id: editing?.id,
                     title,
-                    startsAt: localToRFC3339(startsLocal),             // local (no Z) -> server tz
+                    startsAt: localToRFC3339(startsLocal),
                     endsAt: endsLocal ? localToRFC3339(endsLocal) : undefined,
                     location: location || undefined,
                     recurrence,
-                    attendees,
                   });
 
                   setModalOpen(false);

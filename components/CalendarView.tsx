@@ -115,8 +115,9 @@ export default function CalendarView({ role }: { role: Role }) {
             <button
               type="button"
               className="btn btn-gold btn-sm"
-              onClick={() => { 
-                console.debug("NEW_EVENT_CLICK");
+              onClick={() => {
+                console.log("NEW_EVENT_CLICK");   // <-- should appear in console
+                alert("Opening modal test");        // <-- should pop
                 setEditing(null);
                 setModalOpen(true);
               }}

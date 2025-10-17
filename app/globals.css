@@ -174,7 +174,7 @@ audio { accent-color: var(--blue-600); }
 .header { 
   position: sticky; 
   top: 0; 
-  background: none; 
+  background: #ffffff; 
   border-bottom: 1px solid var(--border); z-index: 40; 
 }
 .header-inner{
@@ -348,7 +348,7 @@ a.btn {
   width: var(--left-ornament);
   background: url('/byzantine_vertical.svg') left center / contain no-repeat;
   pointer-events: none;                   /* don’t block clicks */
-  z-index: 5;                             /* behind header/nav if they’re >5 */
+  z-index: 100;                             /* behind header/nav if they’re >5 */
   opacity: 1;                             /* adjust if you want subtler */
 }
 

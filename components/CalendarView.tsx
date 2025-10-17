@@ -7,9 +7,15 @@ type Role = 'member' | 'admin';
 type ChoirEvent = {
   id: string;
   title: string;
-  startsAt: string; // ISO
+  startsAt: string; // ISO-like
   endsAt?: string;
   location?: string;
+};
+
+type RecurrenceInput = {
+  freq: 'DAILY' | 'WEEKLY' | 'MONTHLY' | 'YEARLY';
+  interval?: number; // default 1
+  until?: string;    // YYYY-MM-DD
 };
 
 function startOfMonth(d: Date) { return new Date(d.getFullYear(), d.getMonth(), 1); }
@@ -52,6 +58,7 @@ export default function CalendarView({ role }: { role: Role }) {
   const first = startOfMonth(cursor);
   const last  = endOfMonth(cursor);
 
+  // Build calendar grid (Mon→Sun)
   const firstWeekday = (first.getDay() + 6) % 7; // Monday=0
   const days: Date[] = [];
   for (let i = 0; i < firstWeekday; i++) {
@@ -78,7 +85,19 @@ export default function CalendarView({ role }: { role: Role }) {
       .slice(0, 6);
   }, [events]);
 
-  const saveEvent = async (evt: Omit<ChoirEvent, 'id'> & { id?: string }) => {
+  // Convert ISO → <input type="datetime-local"> value
+  const isoToLocal = (iso?: string) => {
+    if (!iso) return '';
+    const d = new Date(iso); if (isNaN(d.getTime())) return '';
+    const pad = (n: number) => String(n).padStart(2,'0');
+    return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  };
+
+  // Send local RFC3339 (no Z) so server (Google API) applies Europe/Athens tz (set in lib/gcal.ts)
+  const localToRFC3339 = (local: string) => local ? `${local}:00` : '';
+
+  // Create/Update via API (supports optional recurrence)
+  const saveEvent = async (evt: Omit<ChoirEvent, 'id'> & { id?: string; recurrence?: RecurrenceInput }) => {
     const method = evt.id ? 'PUT' : 'POST';
     const res = await fetch('/api/events', {
       method,
@@ -93,6 +112,7 @@ export default function CalendarView({ role }: { role: Role }) {
     await fetchEvents();
   };
 
+  // Delete via API
   const deleteEvent = async (id: string) => {
     if (!confirm('Διαγραφή εκδήλωσης;')) return;
     const res = await fetch('/api/events', {
@@ -108,23 +128,8 @@ export default function CalendarView({ role }: { role: Role }) {
     await fetchEvents();
   };
 
-  const isoToLocal = (iso?: string) => {
-    if (!iso) return '';
-    const d = new Date(iso); if (isNaN(d.getTime())) return '';
-    const pad = (n: number) => String(n).padStart(2,'0');
-    return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
-  };
-  const localToISO = (local: string) => {
-    if (!local) return '';
-    const d = new Date(local);
-    return isNaN(d.getTime()) ? '' : d.toISOString();
-  };
-
   return (
     <div className="space-y-6">
-      {/* DEBUG: remove later */}
-      <div className="text-xs text-muted">modalOpen: {String(modalOpen)} · role: {role} · events: {events.length}</div>
-
       {/* Toolbar */}
       <div className="toolbar">
         <h1 className="font-heading text-blue" style={{ fontWeight: 700, fontSize: 22 }}>
@@ -177,8 +182,33 @@ export default function CalendarView({ role }: { role: Role }) {
                           <span className="truncate">{e.title}</span>
                           {role === 'admin' && (
                             <span className="ml-auto flex gap-1">
-                              <button type="button" className="text-[11px] btn btn-outline" onClick={() => { setEditing(e); setModalOpen(true); }}>Επεξ.</button>
-                              <button type="button" className="text-[11px] btn btn-outline" onClick={() => deleteEvent(e.id)}>Διαγρ.</button>
+                              {/* Edit icon button */}
+                              <button
+                                type="button"
+                                className="btn btn-outline"
+                                style={{ padding: '2px 6px' }}
+                                title="Επεξεργασία"
+                                aria-label="Επεξεργασία"
+                                onClick={() => { setEditing(e); setModalOpen(true); }}
+                              >
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                                  <path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25z" stroke="currentColor" strokeWidth="1.5" fill="none"/>
+                                  <path d="M14.06 4.94l3.75 3.75" stroke="currentColor" strokeWidth="1.5"/>
+                                </svg>
+                              </button>
+                              {/* Delete icon button */}
+                              <button
+                                type="button"
+                                className="btn btn-outline"
+                                style={{ padding: '2px 6px' }}
+                                title="Διαγραφή"
+                                aria-label="Διαγραφή"
+                                onClick={() => deleteEvent(e.id)}
+                              >
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                                  <path d="M9 3h6m-9 4h12M9 7v12m6-12v12M5 7l1 14h12l1-14" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+                                </svg>
+                              </button>
                             </span>
                           )}
                         </div>
@@ -212,7 +242,7 @@ export default function CalendarView({ role }: { role: Role }) {
         </div>
       </div>
 
-      {/* Inline modal with pure inline styles (no Tailwind utilities) */}
+      {/* Inline Modal (centered, constrained width) */}
       {role === 'admin' && modalOpen && (
         <div
           onClick={() => { setModalOpen(false); setEditing(null); }}
@@ -220,18 +250,25 @@ export default function CalendarView({ role }: { role: Role }) {
           role="dialog"
           style={{
             position: 'fixed',
-            inset: 0 as any,
+            top: 0, left: 0, right: 0, bottom: 0,
             background: 'rgba(10,27,63,0.35)',
             zIndex: 2000,
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
+            padding: '16px'
           }}
         >
           <div
-            className="card p-5 w-full max-w-md"
+            className="card"
             onClick={(e) => e.stopPropagation()}
-            style={{ background: '#fff' }}
+            style={{
+              width: '100%',
+              maxWidth: '560px',
+              padding: '20px',
+              borderRadius: '12px',
+              background: '#fff'
+            }}
           >
             <h3 className="font-heading text-blue" style={{ fontWeight: 700, fontSize: 18 }}>
               {editing ? 'Επεξεργασία Εκδήλωσης' : 'Νέα Εκδήλωση'}
@@ -242,22 +279,45 @@ export default function CalendarView({ role }: { role: Role }) {
                 <label className="text-sm text-muted">Τίτλος</label>
                 <input className="input mt-1" id="evt-title" defaultValue={editing?.title || ''} placeholder="π.χ. Μάθημα Ψαλτικής" />
               </div>
-              <div>
-                <label className="text-sm text-muted">Έναρξη</label>
-                <input className="input mt-1" id="evt-start" type="datetime-local" defaultValue={editing?.startsAt ? isoToLocal(editing.startsAt) : ''} />
+
+              <div className="grid sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="text-sm text-muted">Έναρξη</label>
+                  <input className="input mt-1" id="evt-start" type="datetime-local" defaultValue={editing?.startsAt ? isoToLocal(editing.startsAt) : ''} />
+                </div>
+                <div>
+                  <label className="text-sm text-muted">Λήξη (προαιρετικό)</label>
+                  <input className="input mt-1" id="evt-end" type="datetime-local" defaultValue={editing?.endsAt ? isoToLocal(editing.endsAt) : ''} />
+                </div>
               </div>
-              <div>
-                <label className="text-sm text-muted">Λήξη (προαιρετικό)</label>
-                <input className="input mt-1" id="evt-end" type="datetime-local" defaultValue={editing?.endsAt ? isoToLocal(editing.endsAt) : ''} />
-              </div>
+
               <div>
                 <label className="text-sm text-muted">Τοποθεσία (προαιρετικό)</label>
                 <input className="input mt-1" id="evt-loc" defaultValue={editing?.location || ''} placeholder="π.χ. Ι.Ν. Αγ. Αθανασίου" />
               </div>
+
+              {/* Recurrence */}
+              <div className="grid sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="text-sm text-muted">Επανάληψη</label>
+                  <select className="input mt-1" id="evt-repeat" defaultValue="none">
+                    <option value="none">Καμία</option>
+                    <option value="weekly">Κάθε εβδομάδα</option>
+                    <option value="monthly">Κάθε μήνα</option>
+                    <option value="yearly">Κάθε χρόνο</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="text-sm text-muted">Μέχρι (προαιρετικό)</label>
+                  <input className="input mt-1" id="evt-until" type="date" />
+                </div>
+              </div>
             </div>
 
             <div className="actions justify-end mt-4">
-              <button type="button" className="btn btn-outline" onClick={() => { setModalOpen(false); setEditing(null); }}>Άκυρο</button>
+              <button type="button" className="btn btn-outline" onClick={() => { setModalOpen(false); setEditing(null); }}>
+                Άκυρο
+              </button>
               <button
                 type="button"
                 className="btn btn-gold"
@@ -266,14 +326,30 @@ export default function CalendarView({ role }: { role: Role }) {
                   const startsLocal = (document.getElementById('evt-start') as HTMLInputElement)?.value;
                   const endsLocal = (document.getElementById('evt-end') as HTMLInputElement)?.value;
                   const location = (document.getElementById('evt-loc') as HTMLInputElement)?.value?.trim();
+                  const repeat = (document.getElementById('evt-repeat') as HTMLSelectElement)?.value as 'none'|'weekly'|'monthly'|'yearly';
+                  const until = (document.getElementById('evt-until') as HTMLInputElement)?.value || undefined;
+
                   if (!title || !startsLocal) { alert('Τίτλος και Έναρξη απαιτούνται'); return; }
+
+                  // Build recurrence param
+                  let recurrence: RecurrenceInput | undefined = undefined;
+                  if (repeat !== 'none') {
+                    const freq: RecurrenceInput['freq'] =
+                      repeat === 'weekly' ? 'WEEKLY' :
+                      repeat === 'monthly' ? 'MONTHLY' :
+                      'YEARLY';
+                    recurrence = { freq, interval: 1, ...(until ? { until } : {}) };
+                  }
+
                   await saveEvent({
                     id: editing?.id,
                     title,
-                    startsAt: localToISO(startsLocal),
-                    endsAt: endsLocal ? localToISO(endsLocal) : undefined,
+                    startsAt: localToRFC3339(startsLocal),             // keep local, server applies tz
+                    endsAt: endsLocal ? localToRFC3339(endsLocal) : undefined,
                     location: location || undefined,
+                    recurrence,                                        // pass to API
                   });
+
                   setModalOpen(false);
                   setEditing(null);
                 }}

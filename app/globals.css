@@ -9,7 +9,7 @@
   --bg: #ffffff;             /* white */
   --text: #0A1B3F;           /* deep navy-blue for body text */
   --black: #000000;
-  --blue-600: #1E40AF;       /* primary blue */
+  --blue-600: #000000;       /* primary blue */
   --blue-700: #1B3A99;
   --blue-200: #C7D2FE;       /* light blue accents */
   --gold-500: #C69200;       /* gold */
@@ -17,6 +17,7 @@
   --border: #E5E7EB;         /* light gray border (reads as white UI) */
   --muted: #3B4A7A;          /* muted blue for secondary text */
   --field-max: 28rem; /* ~448px; adjust if you want tighter/looser */
+  --overlay: rgba(0,0,0,.55);
 }
 
 html, body { height: 100%; }
@@ -306,5 +307,21 @@ a.btn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
+}
+
+.mr-4 { 
+  margin-right: 1rem; 
+}
+
+@media (min-width: 640px) {
+  .mr-4 { margin-right: 1.5rem; }
+}
+
+.overlay {
+  position: fixed;
+  inset: 0;
+  background: var(--overlay);
+  backdrop-filter: blur(3px);
+  z-index: 2000;
 }
 

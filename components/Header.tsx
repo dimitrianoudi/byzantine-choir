@@ -75,10 +75,10 @@ export default function Header({
           <img
             src="/logo.svg"
             alt="Ψαλτικοί Χοροί Αγ. Αθανασίου & Ευαγγελισμού Ευόσμου"
-            className="h-[66px] w-auto"   // <- set desired height
+            className="h-[66px] w-auto shrink-0 mr-4"   // <- set desired height
           />
           <span
-            className="text-black font-semibold leading-tight text-base sm:text-lg max-w-[28ch]"
+            className="ml-4 text-black font-semibold leading-tight text-base sm:text-lg max-w-[28ch]"
             style={{ fontWeight: 300 }}
           >
             Φροντιστήριο Ψαλτικής Παιδείας

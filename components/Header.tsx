@@ -21,9 +21,17 @@ export default function Header({ role }: { role: Role }) {
 
   const logout = async () => {
     try {
-      await fetch('/api/logout', { method: 'POST' });
-      window.location.href = '/login';
-    } catch {}
+      await fetch("/api/logout", { method: "POST" });
+  
+      // Prevent Google One Tap / auto-select from immediately signing back in
+      if (typeof window !== "undefined" && (window as any).google?.accounts?.id) {
+        (window as any).google.accounts.id.disableAutoSelect();
+      }
+  
+      window.location.href = "/login";
+    } catch {
+      window.location.href = "/login";
+    }
   };
 
   return (

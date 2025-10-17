@@ -10,6 +10,7 @@ type ChoirEvent = {
   startsAt: string; // RFC3339-ish (no Z needed)
   endsAt?: string;
   location?: string;
+  attendees?: string[]; // <-- NEW
 };
 
 type RecurrenceInput = {
@@ -185,10 +186,10 @@ export default function CalendarView({ role }: { role: Role }) {
                           <span className="truncate">{e.title}</span>
                           {role === 'admin' && (
                             <span className="ml-auto flex gap-1">
-                              {/* SMALL CIRCULAR ICON BUTTONS */}
+                              {/* SMALL 25×25 CIRCULAR ICON BUTTONS */}
                               <button
                                 type="button"
-                                className="icon-btn"
+                                className="btn btn-outline icon-btn"
                                 title="Επεξεργασία"
                                 aria-label="Επεξεργασία"
                                 onClick={() => { setEditing(e); setModalOpen(true); }}
@@ -198,11 +199,9 @@ export default function CalendarView({ role }: { role: Role }) {
                                   <path d="M14.06 4.94l3.75 3.75" stroke="currentColor" strokeWidth="1.5"/>
                                 </svg>
                               </button>
-
-
                               <button
                                 type="button"
-                                className="icon-btn"
+                                className="btn btn-outline icon-btn"
                                 title="Διαγραφή"
                                 aria-label="Διαγραφή"
                                 onClick={() => deleteEvent(e.id)}
@@ -211,8 +210,6 @@ export default function CalendarView({ role }: { role: Role }) {
                                   <path d="M9 3h6m-9 4h12M9 7v12m6-12v12M5 7l1 14h12l1-14" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
                                 </svg>
                               </button>
-
-
                             </span>
                           )}
                         </div>
@@ -281,7 +278,7 @@ export default function CalendarView({ role }: { role: Role }) {
             <div className="space-y-3 mt-3">
               <div>
                 <label className="text-sm text-muted">Τίτλος</label>
-                <input className="input mt-1" id="evt-title" defaultValue={editing?.title || ''} placeholder="π.χ. Μάθημα Ψαλτικής" />
+                <input className="input input--wide mt-1" id="evt-title" defaultValue={editing?.title || ''} placeholder="π.χ. Μάθημα Ψαλτικής" />
               </div>
 
               <div className="grid sm:grid-cols-2 gap-3">
@@ -316,6 +313,17 @@ export default function CalendarView({ role }: { role: Role }) {
                   <input className="input mt-1" id="evt-until" type="date" />
                 </div>
               </div>
+
+              {/* Attendees */}
+              <div>
+                <label className="text-sm text-muted">Προσκεκλημένοι (emails, χωρισμένα με κόμμα)</label>
+                <input
+                  className="input input--wide mt-1"
+                  id="evt-guests"
+                  defaultValue={editing?.attendees?.join(', ') || ''}
+                  placeholder="user1@example.com, user2@example.com"
+                />
+              </div>
             </div>
 
             <div className="actions justify-end mt-4">
@@ -332,6 +340,8 @@ export default function CalendarView({ role }: { role: Role }) {
                   const location = (document.getElementById('evt-loc') as HTMLInputElement)?.value?.trim();
                   const repeat = (document.getElementById('evt-repeat') as HTMLSelectElement)?.value as 'none'|'weekly'|'monthly'|'yearly';
                   const until = (document.getElementById('evt-until') as HTMLInputElement)?.value || undefined;
+                  const guestsRaw = (document.getElementById('evt-guests') as HTMLInputElement)?.value || '';
+                  const attendees = guestsRaw.split(',').map(s => s.trim()).filter(Boolean);
 
                   if (!title || !startsLocal) { alert('Τίτλος και Έναρξη απαιτούνται'); return; }
 
@@ -350,6 +360,7 @@ export default function CalendarView({ role }: { role: Role }) {
                     endsAt: endsLocal ? localToRFC3339(endsLocal) : undefined,
                     location: location || undefined,
                     recurrence,
+                    attendees,
                   });
 
                   setModalOpen(false);

@@ -1,4 +1,3 @@
-// app/api/events/route.ts
 import { NextResponse } from "next/server";
 import { getSession } from "@/lib/session";
 import {
@@ -67,12 +66,16 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Missing title/startsAt" }, { status: 400 });
     }
 
+    const attendees =
+      Array.isArray(event.attendees) ? event.attendees.map((e: any) => String(e).trim()).filter(Boolean) : undefined;
+
     const created = await createEvent({
       title: String(event.title),
       startsAt: String(event.startsAt),
       endsAt: event.endsAt ? String(event.endsAt) : undefined,
       location: event.location ? String(event.location) : undefined,
-      recurrence: event.recurrence, // optional
+      recurrence: event.recurrence,
+      attendees, // <-- pass through
     });
 
     return NextResponse.json({ ok: true, event: created });
@@ -93,12 +96,16 @@ export async function PUT(req: Request) {
       return NextResponse.json({ error: "Missing id" }, { status: 400 });
     }
 
+    const attendees =
+      Array.isArray(event.attendees) ? event.attendees.map((e: any) => String(e).trim()).filter(Boolean) : undefined;
+
     const payload: ChoirEvent & { recurrence?: any } = {
       id: String(event.id),
       title: String(event.title ?? "(Χωρίς τίτλο)"),
       startsAt: String(event.startsAt ?? new Date().toISOString()),
       endsAt: event.endsAt ? String(event.endsAt) : undefined,
       location: event.location ? String(event.location) : undefined,
+      attendees, // <-- pass through
       recurrence: event.recurrence, // undefined=leave, object=set, null=clear (handled in lib)
     };
 

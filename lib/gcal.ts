@@ -1,13 +1,13 @@
-// lib/gcal.ts
 import { google } from "googleapis";
 
 /** ---------- Public Types ---------- */
 export type ChoirEvent = {
   id: string;
   title: string;
-  startsAt: string;   // RFC3339, may be local (no 'Z'); server applies tz
-  endsAt?: string;    // same format as startsAt
+  startsAt: string;   // RFC3339 (local allowed; server applies tz)
+  endsAt?: string;
   location?: string;
+  attendees?: string[]; // <-- NEW: email addresses
 };
 
 export type RecurrenceInput = {
@@ -125,6 +125,7 @@ export async function listEvents(timeMin: string, timeMax: string): Promise<Choi
         startsAt: start!,
         endsAt: end,
         location: e.location || undefined,
+        attendees: e.attendees?.map(a => a.email!).filter(Boolean),
       };
     });
 }
@@ -132,6 +133,7 @@ export async function listEvents(timeMin: string, timeMax: string): Promise<Choi
 /**
  * Create a new event. `startsAt` / `endsAt` can be local RFC3339 (no Z).
  * We send timeZone so Google interprets them in `tz` (default Europe/Athens).
+ * Also sends invitations via sendUpdates: "all".
  */
 export async function createEvent(
   evt: Omit<ChoirEvent, "id"> & { recurrence?: RecurrenceInput }
@@ -141,12 +143,16 @@ export async function createEvent(
 
   const res = await calendar.events.insert({
     calendarId,
+    sendUpdates: "all", // email invites/updates
     requestBody: {
       summary: evt.title,
       location: evt.location,
       start: { dateTime: evt.startsAt, timeZone: tz },
       end:   { dateTime: evt.endsAt || evt.startsAt, timeZone: tz },
       recurrence,
+      attendees: evt.attendees?.map(email => ({ email })),
+      guestsCanInviteOthers: false,
+      guestsCanSeeOtherGuests: true,
     },
   });
 
@@ -157,6 +163,7 @@ export async function createEvent(
     startsAt: e.start?.dateTime || evt.startsAt,
     endsAt: e.end?.dateTime || evt.endsAt,
     location: e.location || evt.location,
+    attendees: e.attendees?.map(a => a.email!).filter(Boolean),
   };
 }
 
@@ -165,6 +172,7 @@ export async function createEvent(
  *  - recurrence: undefined → leave as-is
  *  - recurrence: object   → set to that RRULE
  *  - recurrence: null     → clear recurrence
+ * Also sends invitations/updates via sendUpdates: "all".
  */
 export async function updateEvent(
   evt: ChoirEvent & { recurrence?: RecurrenceInput | null }
@@ -180,12 +188,16 @@ export async function updateEvent(
   const res = await calendar.events.patch({
     calendarId,
     eventId: evt.id,
+    sendUpdates: "all",
     requestBody: {
       summary: evt.title,
       location: evt.location,
       start: { dateTime: evt.startsAt, timeZone: tz },
       end:   { dateTime: evt.endsAt || evt.startsAt, timeZone: tz },
       ...(recurrence !== undefined ? { recurrence } : {}),
+      attendees: evt.attendees?.map(email => ({ email })),
+      guestsCanInviteOthers: false,
+      guestsCanSeeOtherGuests: true,
     },
   });
 
@@ -196,11 +208,12 @@ export async function updateEvent(
     startsAt: e.start?.dateTime || evt.startsAt,
     endsAt: e.end?.dateTime || evt.endsAt,
     location: e.location || evt.location,
+    attendees: e.attendees?.map(a => a.email!).filter(Boolean),
   };
 }
 
 /** Delete an event by id. */
 export async function deleteEvent(id: string): Promise<void> {
   const { calendar, calendarId } = getCalendar();
-  await calendar.events.delete({ calendarId, eventId: id });
+  await calendar.events.delete({ calendarId, eventId: id, sendUpdates: "all" });
 }

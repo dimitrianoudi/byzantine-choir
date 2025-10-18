@@ -45,11 +45,9 @@ h3 { font-weight: 600; font-size: 1.25rem; }
 
 /* Layout helpers */
 .container {
-  max-width: 64rem; /* ~1024px */
-  margin-left: auto;
-  margin-right: auto;
-  padding-left: 1rem;
-  padding-right: 1rem;
+  max-width: 64rem;            /* your content width */
+  margin-inline: auto;         /* center */
+  padding-inline: 1rem;        /* equal left/right padding */
 }
 
 /* Cards, inputs, buttons — white/blue/gold only */
@@ -179,11 +177,14 @@ audio { accent-color: var(--blue-600); }
   background: #ffffff; 
   border-bottom: 1px solid var(--border); z-index: 40; 
 }
-.header-inner{
+.header-inner {
   max-width: 64rem;
-  margin: 0 auto;
-  padding: .75rem 0 .75rem 1rem; /* no right padding */
-  display: flex; align-items: center; gap: .75rem; flex-wrap: wrap;
+  margin-inline: auto;
+  padding: .75rem 1rem;        /* equal left/right */
+  display: flex;
+  align-items: center;
+  gap: .75rem;
+  flex-wrap: wrap;
 }
 
 @media (min-width: 640px){
@@ -338,33 +339,6 @@ a.btn {
 @media (min-width: 640px) { :root { --left-ornament: 88px; } }   /* sm */
 @media (min-width: 1024px){ :root { --left-ornament: 120px; } }  /* lg */
 
-/* The vertical SVG on the far left */
-.left-ornament {
-  position: fixed;
-  inset: 0 auto 0 0;
-  width: var(--left-ornament);
-  background: url('/byzantine_vertical.svg') left center / contain no-repeat;
-  pointer-events: none;
-  z-index: 100; /* above header */
-}
-
-.with-left-ornament .container {
-  /* default .container has padding-left: 1rem; we neutralize it: */
-  padding-left: 0;
-  /* then add exactly the ornament width plus a small gutter */
-  padding-left: calc(var(--left-ornament) + 12px);
-  /* keep the usual right padding so layout feels centered again */
-  padding-right: 1rem;
-}
-
-/* On very small screens, hide ornament; container returns to normal */
-@media (max-width: 639px) {
-  .left-ornament { display: none; }
-  .with-left-ornament .container {
-    padding-left: 1rem; /* back to normal small-screen padding */
-    padding-right: 1rem;
-  }
-}
 
 /* Divider */
 .divider-wrap {
@@ -392,25 +366,26 @@ a.btn {
 }
 
 /* bottom-right decorative SVG */
+.left-ornament {
+  position: fixed;
+  inset: 0 auto 0 0;
+  width: var(--left-ornament);  /* you already set via media queries */
+  background: url('/byzantine_vertical.svg') left center / contain no-repeat;
+  pointer-events: none;
+  z-index: 100;
+}
+
 .right-ornament {
   position: fixed;
   bottom: 0;
-  right: var(--right-ornament-offset);
+  right: var(--right-ornament-offset);  /* now 100px per your change */
   width: var(--right-ornament-width);
-  height: auto;
-  aspect-ratio: 3 / 4; /* adjust if your SVG is wider/taller */
   background: url('/standing.svg') center bottom / contain no-repeat;
-  pointer-events: none;  /* don't block clicks */
-  z-index: 100;          /* above content; raise if needed */
+  pointer-events: none;
+  z-index: 100;
 }
 
-/* Optional: keep content clear of it on large screens */
-.with-right-ornament .container {
-  padding-right: calc(var(--right-ornament-offset) + 12px);
-}
-
-/* Hide or shrink on small screens */
+/* Responsive: hide ornaments on small screens so nothing overlaps */
 @media (max-width: 640px) {
-  .right-ornament { display: none; }
-  .with-right-ornament .container { padding-right: 1rem; }
+  .left-ornament, .right-ornament { display: none; }
 }

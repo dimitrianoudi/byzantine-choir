@@ -33,7 +33,7 @@ export default async function RootLayout({
       <head>
         <script src="https://accounts.google.com/gsi/client" async defer></script>
       </head>
-      <body className="with-left-ornament with-right-ornament">
+      <body className="overflow-x-hidden with-left-ornament with-right-ornament">
         <div aria-hidden="true" className="left-ornament" />
         <div aria-hidden="true" className="right-ornament" />
         <Header

@@ -422,9 +422,36 @@ a.btn {
 
 /* Responsive: hide ornaments on small screens so nothing overlaps */
 @media (max-width: 640px) {
-  .left-ornament, .right-ornament { display: none; }
+  .left-ornament, .right-ornament { display: none !important; }
 }
 
 @media (max-width: 1000px), (max-height: 700px) {
   .right-ornament { display: none; }
+}
+
+/* Prevent horizontal scrollbars on small screens */
+html, body {
+  overflow-x: hidden;
+}
+
+/* Make sizing predictable so borders/padding don’t push width */
+*, *::before, *::after {
+  box-sizing: border-box;
+}
+
+/* Media that can overflow (images, iframes, audio) */
+img, svg, canvas, video, audio, iframe {
+  max-width: 100%;
+  height: auto;
+}
+
+/* Long words/titles won’t force a wide line */
+.break-anywhere {
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+/* Containers: symmetric padding on mobile */
+@media (max-width: 640px) {
+  .container { padding-left: 12px; padding-right: 12px; }
 }

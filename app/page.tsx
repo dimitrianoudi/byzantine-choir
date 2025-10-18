@@ -32,11 +32,11 @@ export default function HomePage() {
 
         {/* Mission */}
         <section>
-          <div className="p-6 sm:p-8 text-center space-y-4">
+          <div className="mx-auto max-w-[760px] p-6 sm:p-8 text-center space-y-4">
             <h2 className="font-heading text-red" style={{ fontWeight: 700, fontSize: 20 }}>
               Αποστολή
             </h2>
-            <p className="text-[15px] leading-relaxed text-muted max-w-3xl mx-auto">
+            <p className="text-[15px] leading-relaxed text-muted max-w-lg mx-auto">
               Η Ψαλτική Παιδεία είναι ενοριακό πρόγραμμα της Ενορίας Αγίου Αθανασίου &amp; Ευαγγελισμού Ευόσμου.
               Στόχος μας είναι να σας βοηθήσουμε να καλλιεργήσετε τις μουσικές σας δεξιότητες και να συμμετάσχετε
               ενεργά στη λειτουργική ζωή της Ορθόδοξης Εκκλησίας.

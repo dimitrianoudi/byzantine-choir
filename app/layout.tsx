@@ -30,6 +30,9 @@ export default async function RootLayout({
 
   return (
     <html lang="el" className={`${heading.variable} ${text.variable}`}>
+      <head>
+        <script src="https://accounts.google.com/gsi/client" async defer></script>
+      </head>
       <body className="with-left-ornament with-right-ornament">
         <div aria-hidden="true" className="left-ornament" />
         <div aria-hidden="true" className="right-ornament" />
@@ -40,7 +43,7 @@ export default async function RootLayout({
         <main className="section section--flush-right container container--flush-right space-y-6">
           {children}
         </main>
-        <footer className="container py-10 text-white/50 text-sm text-center">
+        <footer className="container py-10 text-white/50 text-[14px] text-center">
           © {new Date().getFullYear()} Ψαλτικοί Χοροί Αγ. Αθανασίου &amp; Ευαγγελισμού Ευόσμου
         </footer>
       </body>

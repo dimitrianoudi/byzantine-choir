@@ -4,7 +4,6 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import clsx from 'clsx';
 import { useEffect, useRef, useState } from 'react';
-import Logo from '@/components/Logo';
 
 type Role = 'member' | 'admin';
 type HeaderUser = { role: Role; email?: string };
@@ -66,10 +65,6 @@ export default function Header({
   return (
     <header className="header">
       <div className="header-inner">
-        {/* Left: brand/logo + wordmark */}
-        {/* <div className="flex items-center gap-3 min-w-0">
-          <Logo size={66} withWordmark />
-        </div> */}
 
         <Link href="/" className="flex items-center gap-3 min-w-0 no-underline">
           <img
@@ -98,7 +93,7 @@ export default function Header({
             {user?.role === 'admin' && <NavLink href="/upload" label="Ανέβασμα" />}
 
             {!isLoggedIn && (
-              <button className="btn btn-gold" onClick={login}>Είσοδος</button>
+              <button className="btn login-btn btn-gold" onClick={login}>Είσοδος</button>
             )}
           </nav>
 

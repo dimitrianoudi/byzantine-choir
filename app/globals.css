@@ -19,6 +19,10 @@
   --muted: #608bb3;          /* muted blue for secondary text */
   --field-max: 28rem; /* ~448px; adjust if you want tighter/looser */
   --overlay: rgba(0,0,0,.55);
+
+  --btn-sky: #608bb3;             /* hover color */
+  --btn-sky-light: #edf3f8;       /* default background */
+  --btn-sky-border: #cdddea;      /* default border */
 }
 
 html, body { height: 100%; }
@@ -140,6 +144,36 @@ button:disabled,
   color: #fff;
 }
 .btn-gold:hover { background: var(--gold-600); border-color: var(--gold-600); }
+
+/* Apply to all buttons except gold + login */
+.btn:not(.btn-gold):not(.login-btn) {
+  background: var(--btn-sky-light);
+  border-color: var(--btn-sky-border);
+  color: var(--text);
+}
+
+.btn:not(.btn-gold):not(.login-btn):hover {
+  background: var(--btn-sky);
+  border-color: var(--btn-sky);
+  color: #fff;
+}
+
+.btn:not(.btn-gold):not(.login-btn):active {
+  transform: translateY(1px);
+}
+
+/* If you use outline variant, keep it consistent */
+.btn-outline:not(.btn-gold):not(.login-btn) {
+  background: var(--btn-sky-light);
+  border-color: var(--btn-sky-border);
+  color: var(--text);
+}
+.btn-outline:not(.btn-gold):not(.login-btn):hover {
+  background: var(--btn-sky);
+  border-color: var(--btn-sky);
+  color: #fff;
+}
+
 
 /* Utility text colors in-theme */
 .text-muted { color: var(--muted); }
@@ -386,4 +420,8 @@ a.btn {
 /* Responsive: hide ornaments on small screens so nothing overlaps */
 @media (max-width: 640px) {
   .left-ornament, .right-ornament { display: none; }
+}
+
+@media (max-width: 1000px), (max-height: 700px) {
+  .right-ornament { display: none; }
 }

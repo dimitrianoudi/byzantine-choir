@@ -176,7 +176,7 @@ export default function CalendarView({ role }: { role: Role }) {
 
                   <div className="mt-1 space-y-1">
                     {evts.slice(0, 3).map(e => (
-                      <div key={e.id} className="text-xs truncate px-2 py-1 rounded-md" style={{ background: 'var(--blue-200)', color: 'var(--blue-700)' }} title={e.title + (e.location ? ` — ${e.location}` : '')}>
+                      <div key={e.id} className="text-[11px] truncate px-2 py-1 rounded-md" style={{ background: 'var(--blue-200)', color: 'var(--blue-700)' }} title={e.title + (e.location ? ` — ${e.location}` : '')}>
                         <div className="flex items-center gap-2">
                           <span className="truncate">{e.title}</span>
                           {role === 'admin' && (

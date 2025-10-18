@@ -33,7 +33,7 @@ export default function HomePage() {
         {/* Mission */}
         <section>
           <div className="p-6 sm:p-8 text-center space-y-4">
-            <h2 className="font-heading text-blue" style={{ fontWeight: 700, fontSize: 20 }}>
+            <h2 className="font-heading text-red" style={{ fontWeight: 700, fontSize: 20 }}>
               Αποστολή
             </h2>
             <p className="text-[15px] leading-relaxed text-muted max-w-3xl mx-auto">

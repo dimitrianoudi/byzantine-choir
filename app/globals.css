@@ -6,17 +6,17 @@
 :root{
   /* Let next/font own these via <html class="...">; keep only as fallbacks when referenced */
   /* --font-heading / --font-text are provided by next/font in layout.tsx */
-  --bg: #ffffff;             /* white */
+  --bg: #FFFFFF;             /* white */
   --text: #0A1B3F;           /* deep navy-blue for body text */
   --black: #000000;
   --blue-600: #000000;       /* primary blue */
   --blue-700: #1B3A99;
   --blue-200: #C7D2FE;       /* light blue accents */
-  --gold-500: #C69200;       /* gold */
-  --gold-600: #A87E00;
+  --gold-500: #ea9b6d;       /* gold */
+  --gold-600: #af4b66;
   --red-600: #af4b55;
   --border: #E5E7EB;         /* light gray border (reads as white UI) */
-  --muted: #3B4A7A;          /* muted blue for secondary text */
+  --muted: #608bb3;          /* muted blue for secondary text */
   --field-max: 28rem; /* ~448px; adjust if you want tighter/looser */
   --overlay: rgba(0,0,0,.55);
 }
@@ -110,7 +110,6 @@ button:disabled,
   gap: 0.5rem;
   border-radius: 0.5rem;
   padding: 0.5rem 0.75rem; /* will be normalized below */
-  border: 1px solid var(--blue-600);
   background: var(--blue-600);
   color: #fff;
   transition: transform 120ms ease, box-shadow 120ms ease, background 120ms ease, border-color 120ms ease;
@@ -123,12 +122,10 @@ button:disabled,
 .btn-outline {
   background: #fff;
   color: var(--blue-600);
-  border-color: var(--blue-600);
 }
 .btn-outline:hover {
   background: var(--blue-200);
   color: var(--blue-700);
-  border-color: var(--blue-700);
 }
 
 /* Selected state ring for tab-like buttons */
@@ -163,7 +160,6 @@ button:disabled,
 .btn-soft {
   background: #fff;
   color: var(--text);
-  border-color: var(--border);
 }
 .btn-soft:hover { border-color: var(--blue-600); box-shadow: 0 0 0 3px rgba(30,64,175,0.12); }
 
@@ -174,7 +170,7 @@ audio { accent-color: var(--blue-600); }
 .header { 
   position: sticky; 
   top: 0; 
-  background: #ffffff; 
+  background: var(--bg); 
   border-bottom: 1px solid var(--border); z-index: 40; 
 }
 .header-inner {

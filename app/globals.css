@@ -218,8 +218,29 @@ audio { accent-color: var(--blue-600); }
 }
 
 @media (min-width: 640px){
-  .header-inner{ padding: 1rem 0 1rem 1rem; } /* still no right padding on larger screens */
+  .header-inner { padding: 1rem 1rem; }  /* equal left/right */
 }
+
+@media (max-width: 640px) {
+  .header-inner { justify-content: center; }
+
+  .header-right {
+    margin-left: 0;
+    align-items: center;
+    width: 100%;
+  }
+
+  .nav {
+    justify-content: center;   /* center nav buttons */
+    width: 100%;
+  }
+
+  .actions-right {
+    justify-content: center;   /* center user/login row */
+    width: 100%;
+  }
+}
+
 .header-right{
   margin-left: auto;
   display: flex;

@@ -365,10 +365,13 @@ a.btn {
 
 :root {
   --left-ornament: 0px;
+  --right-ornament: 0px;
 }
 @media (min-width: 640px) { :root { --left-ornament: 88px; } }   /* sm */
 @media (min-width: 1024px){ :root { --left-ornament: 120px; } }  /* lg */
 
+@media (min-width: 640px)  { :root { --right-ornament-width: 88px;  } } /* sm */
+@media (min-width: 1024px) { :root { --right-ornament-width: 120px; } } /* lg */
 
 /* Divider */
 .divider-wrap {
@@ -400,21 +403,21 @@ a.btn {
   position: fixed;
   inset: 0 auto 0 0;
   width: var(--left-ornament);  /* you already set via media queries */
-  background: url('/byzantine_vertical.svg') left center / contain no-repeat;
+  background: url('/ornament_left.svg') left center / contain no-repeat;
   pointer-events: none;
   z-index: 100;
 }
 
 .right-ornament {
   position: fixed;
-  bottom: 0;
-  right: var(--right-ornament-offset);  /* now 100px per your change */
+  inset: 0 0 0 auto;                         /* top:0; right:0; bottom:0; left:auto */
+  right: var(--right-ornament-offset, 0px);  /* optional extra spacing from the edge */
   width: var(--right-ornament-width);
-  background: url('/standing.svg') center bottom / contain no-repeat;
+  background: url('/ornament_right.svg') right center / contain no-repeat;
   pointer-events: none;
   z-index: 100;
-  height: min(35vh, 260px);      /* guarantees visibility */
   opacity: 1;
+  display: none;
 }
 
 /* Responsive: hide ornaments on small screens so nothing overlaps */

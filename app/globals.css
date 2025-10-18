@@ -383,6 +383,8 @@ a.btn {
   background: url('/standing.svg') center bottom / contain no-repeat;
   pointer-events: none;
   z-index: 100;
+  height: min(35vh, 260px);      /* guarantees visibility */
+  opacity: 1;
 }
 
 /* Responsive: hide ornaments on small screens so nothing overlaps */

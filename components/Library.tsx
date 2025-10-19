@@ -23,6 +23,7 @@ export default function Library({ role }: { role: Role }) {
   const [presigned, setPresigned] = useState<Record<string, string>>({});
   const [actionMsg, setActionMsg] = useState<string | null>(null);
 
+  // Single, always-visible player
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
   const podcasts = useMemo(() => items.filter((i) => i.type === 'podcast'), [items]);
@@ -56,7 +57,6 @@ export default function Library({ role }: { role: Role }) {
     });
 
     if (!res.ok) {
-      // Try to surface clear error message
       let msg = 'Αποτυχία δημιουργίας συνδέσμου (presign)';
       try {
         const data = await res.json();
@@ -68,9 +68,7 @@ export default function Library({ role }: { role: Role }) {
     }
 
     const data = await res.json();
-    if (!data?.url) {
-      throw new Error('Το presign δεν επέστρεψε URL.');
-    }
+    if (!data?.url) throw new Error('Το presign δεν επέστρεψε URL.');
 
     setPresigned((prev) => ({ ...prev, [key]: data.url as string }));
     return data.url as string;
@@ -81,9 +79,20 @@ export default function Library({ role }: { role: Role }) {
     try {
       const url = await getUrl(key);
       setPlayingKey(key);
-      if (audioRef.current) {
-        audioRef.current.src = url;
-        try { await audioRef.current.play(); } catch {}
+      const audio = audioRef.current;
+      if (!audio) return;
+
+      // Set source directly on the element; then load & play
+      audio.src = url;
+      // Optional: set type if you want (browser usually detects)
+      // audio.setAttribute('type', 'audio/mpeg');
+      audio.load();
+      try {
+        await audio.play();
+      } catch (err) {
+        // If autoplay policy blocks, user can tap the play button in controls
+        // but we also show a friendly message
+        setActionMsg('Πατήστε το ▶︎ στον player για αναπαραγωγή.');
       }
     } catch (err: any) {
       setActionMsg(err?.message || 'Σφάλμα αναπαραγωγής');
@@ -139,9 +148,9 @@ export default function Library({ role }: { role: Role }) {
       {!loading && !error && (
         <>
           {activeTab === 'podcast' && (
-            <div className="card p-0 overflow-hidden">
-              {/* Scrollable list area */}
-              <div className="divide-y divide-[color:var(--border)] p-6 max-h-[60vh] overflow-auto">
+            <div className="card p-0 flex flex-col" style={{ minHeight: 360 }}>
+              {/* Scrollable list */}
+              <div className="divide-y divide-[color:var(--border)] p-6 flex-1 overflow-auto">
                 {podcasts.length === 0 && (
                   <div className="p-4 text-muted">Δεν υπάρχουν ακόμη podcasts.</div>
                 )}
@@ -149,7 +158,7 @@ export default function Library({ role }: { role: Role }) {
                   <div key={p.key} className="py-4">
                     <div className="flex items-center gap-4">
                       <div className="flex-1 min-w-0">
-                        <div className="font-medium break-all truncate">{p.name}</div>
+                        <div className="font-medium truncate">{p.name}</div>
                         <div className="text-xs text-muted">
                           {p.lastModified ? new Date(p.lastModified).toLocaleString() : ''}
                         </div>
@@ -170,9 +179,18 @@ export default function Library({ role }: { role: Role }) {
                 ))}
               </div>
 
-              {/* Sticky player bar */}
-              <div className="sticky bottom-0 w-full border-t border-subtle bg-white/90 backdrop-blur p-3 z-10">
-                <audio ref={audioRef} id="audio-player" className="w-full" controls />
+              {/* Footer player - always visible */}
+              <div className="border-t border-subtle bg-white p-3">
+                <audio
+                  ref={audioRef}
+                  id="audio-player"
+                  className="w-full h-10 block"
+                  controls
+                  preload="none"
+                  onError={() =>
+                    setActionMsg('Σφάλμα αναπαραγωγής. Δοκιμάστε να ξαναπατήσετε ▶︎ ή να ξαναφορτώσετε τη σελίδα.')
+                  }
+                />
               </div>
             </div>
           )}
@@ -194,15 +212,8 @@ export default function Library({ role }: { role: Role }) {
                     </div>
                   </div>
                   <div className="actions mt-auto">
-                    <button className="btn" onClick={() => openPdf(pdf.key)}>
-                      Άνοιγμα
-                    </button>
-                    <button
-                      className="btn btn-gold"
-                      onClick={() => downloadKey(pdf.key, pdf.name)}
-                    >
-                      Λήψη
-                    </button>
+                    <button className="btn" onClick={() => openPdf(pdf.key)}>Άνοιγμα</button>
+                    <button className="btn btn-gold" onClick={() => downloadKey(pdf.key, pdf.name)}>Λήψη</button>
                   </div>
                 </div>
               ))}

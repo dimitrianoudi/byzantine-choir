@@ -73,12 +73,12 @@ export default function Header({
             className="h-[66px] w-auto shrink-0 mr-4"   // <- set desired height
           />
           <span
-            className="ml-4 text-black font-semibold leading-tight text-base sm:text-lg max-w-[28ch]"
+            className="ml-4 text-black font-semibold leading-tight text-base sm:text-lg max-w-[38ch]"
             style={{ fontWeight: 300 }}
           >
-            Φροντιστήριο Ψαλτικής Παιδείας
-            <br className="hidden sm:block" />
-            &nbsp; Αγ. Αθανασίου&amp; Ευαγγελισμού Ευόσμου
+            Φροντιστήριο Ψαλτικής <br/>
+            Ιερά Μητρόπολη Νεαπόλεως & Σταυρουπόλεως  <br/>
+            Ενορία Αγ. Αθανασίου &amp; Ευαγγελισμού Ευόσμου
           </span>
           <span className="sr-only">Αρχική</span>
         </Link>

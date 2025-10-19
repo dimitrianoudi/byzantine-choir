@@ -217,12 +217,11 @@ audio { accent-color: var(--blue-600); }
   flex-wrap: wrap;
 }
 
-@media (min-width: 640px){
-  .header-inner { padding: 1rem 1rem; }  /* equal left/right */
-}
-
 @media (max-width: 640px) {
   .header-inner { justify-content: center; }
+  .header-inner { padding: 1rem 1rem; } 
+
+  .header .no-underline { justify-content: center; }
 
   .header-right {
     margin-left: 0;

@@ -160,7 +160,7 @@ export default function CalendarView({ role }: { role: Role }) {
       </div>
 
       {/* Grid + Upcoming */}
-      <div className="grid lg:grid-cols-3 gap-6">
+      <div className="grid lg:grid-cols-2 gap-6">
         {/* Calendar area */}
         <div className="lg:col-span-2 card p-5">
 

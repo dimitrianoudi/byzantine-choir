@@ -1,4 +1,3 @@
-// app/layout.tsx
 import "./globals.css";
 import { EB_Garamond, Noto_Sans } from "next/font/google";
 import Header from "@/components/Header";

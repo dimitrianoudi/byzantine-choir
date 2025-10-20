@@ -139,29 +139,31 @@ export default function Library({ role }: { role: Role }) {
 
       {!loading && !error && (
         <>
-          {/* Podcasts — unchanged */}
+          {/* Podcasts */}
           {activeTab === 'podcast' && (
             <div className="card p-6 divide-y divide-[color:var(--border)]">
               {podcasts.length === 0 && <div className="p-4 text-muted">Δεν υπάρχουν ακόμη podcasts.</div>}
               {podcasts.map((p) => (
-                <div key={p.key} className="py-4">
-                  <div className="flex items-center gap-4" style={{ padding: '0.5rem' }}>
-                    <div className="flex-1 min-w-0">
-                      <div className="font-medium break-all">{prettyName(p.name || p.key)}</div>
-                      <div className="text-xs text-muted">
-                        {p.lastModified ? new Date(p.lastModified).toLocaleString() : ''}
-                      </div>
-                    </div>
-                    <div className="actions">
-                      <button className="btn" onClick={() => play(p.key)}>
-                        {playingKey === p.key ? 'Παίζει...' : 'Αναπαραγωγή'}
-                      </button>
-                      <button className="btn btn-gold" onClick={() => downloadKey(p.key, p.name)}>
-                        Λήψη
-                      </button>
-                    </div>
+              <div key={p.key} className="py-4">
+              <div className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4">
+                <div className="flex-1 min-w-0">
+                  <div className="font-medium break-all">{prettyName(p.name || p.key)}</div>
+                  <div className="text-xs text-muted">
+                    {p.lastModified ? new Date(p.lastModified).toLocaleString() : ''}
                   </div>
                 </div>
+
+                {/* Actions: full-width on mobile, right-aligned on desktop */}
+                <div className="flex w-full sm:w-auto gap-2 sm:gap-3 sm:ml-auto">
+                  <button className="btn w-full sm:w-auto" onClick={() => play(p.key)}>
+                    {playingKey === p.key ? 'Παίζει...' : 'Αναπαραγωγή'}
+                  </button>
+                  <button className="btn btn-gold w-full sm:w-auto" onClick={() => downloadKey(p.key, p.name)}>
+                    Λήψη
+                  </button>
+                </div>
+              </div>
+              </div>
               ))}
               {/* visible control bar */}
               <div className="border-t border-subtle bg-white p-3">
@@ -170,34 +172,34 @@ export default function Library({ role }: { role: Role }) {
             </div>
           )}
 
-          {/* PDFs — new layout like podcasts: thumb + info + right-aligned actions */}
+          {/* PDFs */}
           {activeTab === 'pdf' && (
             <div className="card p-6 divide-y divide-[color:var(--border)]">
               {pdfs.length === 0 && <div className="p-4 text-muted">Δεν υπάρχουν ακόμη PDF.</div>}
 
               {pdfs.map((pdf) => (
-                <div key={pdf.key} className="py-4">
-                  <div className="flex items-center gap-4">
-                    {/* Thumbnail (smaller, consistent) */}
-                    <div className="shrink-0">
-                      <PdfThumb storageKey={pdf.key} getUrl={getUrl} width={50} />
-                    </div>
-
-                    {/* Title + date */}
-                    <div className="min-w-0 flex-1">
-                      <div className="font-medium break-all">{prettyName(pdf.name || pdf.key)}</div>
-                      <div className="text-xs text-muted">
-                        {pdf.lastModified ? new Date(pdf.lastModified).toLocaleDateString() : ''}
-                      </div>
-                    </div>
-
-                    {/* Right-aligned actions */}
-                    <div className="actions ml-auto">
-                      <button className="btn" onClick={() => openPdf(pdf.key)}>Άνοιγμα</button>
-                      <button className="btn btn-gold" onClick={() => downloadKey(pdf.key, pdf.name)}>Λήψη</button>
+              <div key={pdf.key} className="py-4">
+              <div className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4">
+                {/* Thumb + title/date */}
+                <div className="flex items-start gap-3 sm:flex-1 min-w-0">
+                  <div className="shrink-0">
+                    <PdfThumb storageKey={pdf.key} getUrl={getUrl} width={56} />
+                  </div>
+                  <div className="min-w-0">
+                    <div className="font-medium break-all">{prettyName(pdf.name || pdf.key)}</div>
+                    <div className="text-xs text-muted">
+                      {pdf.lastModified ? new Date(pdf.lastModified).toLocaleDateString() : ''}
                     </div>
                   </div>
                 </div>
+
+                {/* Actions: full-width on mobile, right-aligned on desktop */}
+                <div className="flex w-full sm:w-auto gap-2 sm:gap-3 sm:ml-auto">
+                  <button className="btn w-full sm:w-auto" onClick={() => openPdf(pdf.key)}>Άνοιγμα</button>
+                  <button className="btn btn-gold w-full sm:w-auto" onClick={() => downloadKey(pdf.key, pdf.name)}>Λήψη</button>
+                </div>
+              </div>
+              </div>
               ))}
             </div>
           )}

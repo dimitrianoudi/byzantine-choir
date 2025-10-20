@@ -1,482 +1,272 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import "tailwindcss";
 
-/* ---------- Theme tokens ---------- */
-:root{
-  /* Let next/font own these via <html class="...">; keep only as fallbacks when referenced */
-  /* --font-heading / --font-text are provided by next/font in layout.tsx */
-  --bg: #FFFFFF;             /* white */
-  --text: #0A1B3F;           /* deep navy-blue for body text */
-  --black: #000000;
-  --blue-600: #000000;       /* primary blue */
-  --blue-700: #1B3A99;
-  --blue-200: #C7D2FE;       /* light blue accents */
-  --gold-500: #ea9b6d;       /* gold */
-  --gold-600: #af4b66;
-  --red-600: #af4b55;
-  --border: #E5E7EB;         /* light gray border (reads as white UI) */
-  --muted: #608bb3;          /* muted blue for secondary text */
-  --field-max: 28rem; /* ~448px; adjust if you want tighter/looser */
-  --overlay: rgba(0,0,0,.55);
+/* ------------------ BASE (tokens, html/body, fonts) ------------------ */
+@layer base {
+  :root{
+    --bg: #FFFFFF;
+    --text: #0A1B3F;
+    --black: #000000;
+    --blue-600: #000000;       /* we neutralized blue to black */
+    --blue-700: #1B3A99;
+    --blue-200: #C7D2FE;
+    --gold-500: #ea9b6d;
+    --gold-600: #af4b66;
+    --red-600: #af4b55;
+    --border: #E5E7EB;
+    --muted: #608bb3;
+    --field-max: 28rem;
+    --overlay: rgba(0,0,0,.55);
 
-  --btn-sky: #608bb3;             /* hover color */
-  --btn-sky-light: #edf3f8;       /* default background */
-  --btn-sky-border: #cdddea;      /* default border */
+    --btn-sky: #608bb3;
+    --btn-sky-light: #edf3f8;
+    --btn-sky-border: #cdddea;
+  }
+
+  html, body { height: 100%; }
+  html, body { overflow-x: hidden; } /* prevent mobile horizontal scroll */
+
+  body {
+    font-family: var(--font-text, ui-sans-serif), system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  .font-heading { font-family: var(--font-heading, ui-serif), Georgia, "Times New Roman", serif; }
+
+  h1, h2, h3, .brand, .heading {
+    font-family: var(--font-heading, ui-serif);
+    letter-spacing: 0.2px;
+  }
+
+  h1 { font-weight: 700; font-size: 2rem; }
+  h2 { font-weight: 700; font-size: 1.5rem; }
+  h3 { font-weight: 600; font-size: 1.25rem; }
+
+  *, *::before, *::after { box-sizing: border-box; }
+  img, svg, canvas, video, iframe { max-width: 100%; height: auto; }
 }
 
-html, body { height: 100%; }
-body {
-  font-family: var(--font-text, ui-sans-serif), system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-  background: var(--bg);
-  color: var(--text);
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-}
+/* ------------------ COMPONENTS (your design system classes) ------------------ */
+@layer components {
+  /* Layout helpers */
+  .container {
+    max-width: 64rem;
+    margin-inline: auto;
+    padding-inline: 1rem;
+  }
 
-/* Heading font utility (use on any element that must use the heading face) */
-.font-heading { font-family: var(--font-heading, ui-serif), Georgia, "Times New Roman", serif; }
+  .section { padding: 1rem; }
+  @media (min-width: 640px) { .section { padding: 1.5rem; } }
 
-h1, h2, h3, .brand, .heading {
-  font-family: var(--font-heading, ui-serif);
-  letter-spacing: 0.2px;
-}
+  /* Cards, inputs, buttons */
+  .card {
+    background: #fff;
+    border: 1px solid var(--border);
+    border-radius: 0.75rem;
+    box-shadow: 0 1px 2px rgba(10,27,63,0.05);
+  }
 
-/* Optional: slightly larger, elegant headings */
-h1 { font-weight: 700; font-size: 2rem; }
-h2 { font-weight: 700; font-size: 1.5rem; }
-h3 { font-weight: 600; font-size: 1.25rem; }
+  .input {
+    box-sizing: border-box;
+    display: block;
+    width: 100%;
+    max-width: min(100%, var(--field-max));
+    background: #fff;
+    border: 1px solid var(--border);
+    border-radius: 0.5rem;
+    padding: 0.5rem 0.75rem;
+    outline: none;
+  }
+  .input:focus {
+    border-color: var(--blue-600);
+    box-shadow: 0 0 0 3px rgba(30,64,175,0.18);
+  }
+  .input--full { max-width: 100%; }
+  .input--wide { --field-max: 36rem; }
 
-/* Layout helpers */
-.container {
-  max-width: 64rem;            /* your content width */
-  margin-inline: auto;         /* center */
-  padding-inline: 1rem;        /* equal left/right padding */
-}
+  label { font-size: 0.875rem; color: var(--muted); }
 
-/* Cards, inputs, buttons — white/blue/gold only */
-.card {
-  background: #fff;
-  border: 1px solid var(--border);
-  border-radius: 0.75rem;
-  box-shadow: 0 1px 2px rgba(10,27,63,0.05);
-}
+  button, [role="button"], .btn { cursor: pointer; }
+  button:disabled, .btn:disabled, [aria-disabled="true"] {
+    cursor: not-allowed;
+    opacity: 0.6;
+    filter: saturate(0.85);
+  }
 
-.input {
-  box-sizing: border-box;
-  display: block;
-  width: 100%;
-  max-width: min(100%, var(--field-max));
-  background: #fff;
-  border: 1px solid var(--border);
-  border-radius: 0.5rem;
-  padding: 0.5rem 0.75rem;
-  outline: none;
-}
-
-.input:focus {
-  border-color: var(--blue-600);
-  box-shadow: 0 0 0 3px rgba(30,64,175,0.18);
-}
-
-/* When you truly want full-width (rare): */
-.input--full {
-  max-width: 100% !important;
-}
-
-/* Medium-wide variant (e.g., long titles): */
-.input--wide {
-  --field-max: 36rem; /* ~576px */
-}
-
-label { font-size: 0.875rem; color: var(--muted); }
-
-/* Hand cursor on all interactive buttons/links */
-button,
-[role="button"],
-.btn {
-  cursor: pointer;
-}
-
-/* Disabled state: no hand + visual hint */
-button:disabled,
-.btn:disabled,
-[aria-disabled="true"] {
-  cursor: not-allowed;
-  opacity: 0.6;
-  filter: saturate(0.85);
-}
-
-/* Primary button (blue) */
-.btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.5rem;
-  border-radius: 0.5rem;
-  padding: 0.5rem 0.75rem; /* will be normalized below */
-  background: var(--blue-600);
-  color: #fff;
-  transition: transform 120ms ease, box-shadow 120ms ease, background 120ms ease, border-color 120ms ease;
-  text-decoration: none;
-}
-.btn:hover { background: var(--blue-700); border-color: var(--blue-700); }
-.btn:active { transform: translateY(1px); }
-
-/* Ghost/outline variant (for toggles) */
-.btn-outline {
-  background: #fff;
-  color: var(--blue-600);
-}
-.btn-outline:hover {
-  background: var(--blue-200);
-  color: var(--blue-700);
-}
-
-/* Selected state ring for tab-like buttons */
-.btn--selected {
-  box-shadow: 0 0 0 3px rgba(30,64,175,0.18);
-}
-
-/* Gold accent button */
-.btn-gold {
-  border-color: var(--gold-500);
-  background: var(--gold-500);
-  color: #fff;
-}
-.btn-gold:hover { background: var(--gold-600); border-color: var(--gold-600); }
-
-/* Apply to all buttons except gold + login */
-.btn:not(.btn-gold):not(.login-btn) {
-  background: var(--btn-sky-light);
-  border-color: var(--btn-sky-border);
-  color: var(--text);
-}
-
-.btn:not(.btn-gold):not(.login-btn):hover {
-  background: var(--btn-sky);
-  border-color: var(--btn-sky);
-  color: #fff;
-}
-
-.btn:not(.btn-gold):not(.login-btn):active {
-  transform: translateY(1px);
-}
-
-/* If you use outline variant, keep it consistent */
-.btn-outline:not(.btn-gold):not(.login-btn) {
-  background: var(--btn-sky-light);
-  border-color: var(--btn-sky-border);
-  color: var(--text);
-}
-.btn-outline:not(.btn-gold):not(.login-btn):hover {
-  background: var(--btn-sky);
-  border-color: var(--btn-sky);
-  color: #fff;
-}
-
-
-/* Utility text colors in-theme */
-.text-muted { color: var(--muted); }
-.text-gold { color: var(--gold-500); }
-.text-blue { color: var(--blue-600); }
-.text-black { color: var(--black); }
-.text-red { color: var(--red-600); }
-.border-subtle { border-color: var(--border); }
-
-/* ---------- spacing helpers ---------- */
-.section { padding: 1rem; }
-@media (min-width: 640px) { .section { padding: 1.5rem; } }
-
-.toolbar { display:flex; align-items:center; gap:.75rem; flex-wrap:wrap; padding-bottom: 1.5rem; }
-.actions { display:flex; align-items:center; gap:.5rem; flex-wrap:wrap; padding-right: 1.5rem; }
-
-/* a subtle “soft” variant you can use if needed */
-.btn-soft {
-  background: #fff;
-  color: var(--text);
-}
-.btn-soft:hover { border-color: var(--blue-600); box-shadow: 0 0 0 3px rgba(30,64,175,0.12); }
-
-/* ---------- media controls ---------- */
-audio { 
-  accent-color: var(--blue-600); 
-  width: 100%;
-  height: 40px;     /* you can use 36–48px to taste */
-  display: block;
-}
-
-/* ----- header ----- */
-.header { 
-  position: sticky; 
-  top: 0; 
-  background: var(--bg); 
-  border-bottom: 1px solid var(--border); z-index: 40; 
-}
-.header-inner {
-  max-width: 64rem;
-  margin-inline: auto;
-  padding: .75rem 1rem;        /* equal left/right */
-  display: flex;
-  align-items: center;
-  gap: .75rem;
-  flex-wrap: wrap;
-}
-
-@media (max-width: 640px) {
-  .header-inner { justify-content: center; }
-  .header-inner { padding: 1rem 1rem; } 
-
-  .header .no-underline { justify-content: center; }
-
-  .header-right {
-    margin-left: 0;
+  :root{
+    --btn-h: 40px; --btn-fz: 15px; --btn-fw: 600; --btn-px: 14px; --btn-minw: 120px;
+  }
+  .btn, .btn-outline, .btn-gold, button.btn, a.btn {
+    box-sizing: border-box;
+    display: inline-flex;
     align-items: center;
-    width: 100%;
+    justify-content: center;
+    gap: .5rem;
+    height: var(--btn-h);
+    padding: 0 var(--btn-px);
+    min-width: var(--btn-minw);
+    font-size: var(--btn-fz);
+    line-height: 1;
+    font-weight: var(--btn-fw);
+    white-space: nowrap;
+    border-width: 1px;
+    border-style: solid;
+    border-radius: .5rem;
+    text-decoration: none;
+    transition: transform 120ms ease, box-shadow 120ms ease, background 120ms ease, border-color 120ms ease;
   }
 
-  .nav {
-    justify-content: center;   /* center nav buttons */
-    width: 100%;
+  .btn { background: var(--blue-600); border-color: var(--blue-600); color:#fff; }
+  .btn:hover { background: var(--blue-700); border-color: var(--blue-700); }
+  .btn:active { transform: translateY(1px); }
+
+  .btn-outline { background:#fff; color: var(--blue-600); border-color: var(--blue-600); }
+  .btn-outline:hover { background: var(--blue-200); color: var(--blue-700); border-color: var(--blue-700); }
+
+  .btn-gold { background: var(--gold-500); border-color: var(--gold-500); color:#fff; }
+  .btn-gold:hover { background: var(--gold-600); border-color: var(--gold-600); }
+
+  /* Make all non-gold/non-login buttons use the sky palette */
+  .btn:not(.btn-gold):not(.login-btn),
+  .btn-outline:not(.btn-gold):not(.login-btn) {
+    background: var(--btn-sky-light);
+    border-color: var(--btn-sky-border);
+    color: var(--text);
+  }
+  .btn:not(.btn-gold):not(.login-btn):hover,
+  .btn-outline:not(.btn-gold):not(.login-btn):hover {
+    background: var(--btn-sky);
+    border-color: var(--btn-sky);
+    color: #fff;
   }
 
-  .actions-right {
-    justify-content: center;   /* center user/login row */
+  .btn-sm { --btn-h: 34px; --btn-fz: 14px; --btn-px: 12px; --btn-minw: 100px; }
+  .btn-lg { --btn-h: 46px; --btn-fz: 16px; --btn-px: 16px; --btn-minw: 140px; }
+
+  .text-muted { color: var(--muted); }
+  .text-gold { color: var(--gold-500); }
+  .text-blue { color: var(--blue-600); }
+  .text-black { color: var(--black); }
+  .text-red { color: var(--red-600); }
+  .border-subtle { border-color: var(--border); }
+
+  .toolbar { display:flex; align-items:center; gap:.75rem; flex-wrap:wrap; padding-bottom: 1.5rem; }
+  .actions { display:flex; align-items:center; gap:.5rem; flex-wrap:wrap; padding-right: 1.5rem; }
+
+  .actions { padding-right: 0; }
+
+  .btn-soft { background: #fff; color: var(--text); }
+  .btn-soft:hover { border-color: var(--blue-600); box-shadow: 0 0 0 3px rgba(30,64,175,0.12); }
+
+  audio {
+    accent-color: var(--blue-600);
     width: 100%;
+    height: 40px;
+    display: block;
   }
-}
 
-.header-right{
-  margin-left: auto;
-  display: flex;
-  flex-direction: column;
-  align-items: flex-end;
-  gap: .5rem;
-}
-.header-spacer { flex: 1 1 auto; }
-.nav{
-  display: flex;
-  gap: .5rem;
-  flex-wrap: wrap;
-  justify-content: flex-end;
-}
+  /* Header */
+  .header { 
+    position: sticky; 
+    top: 0; 
+    background: var(--bg); 
+    border-bottom: 1px solid var(--border); 
+    z-index: 40; 
+  }
+  .header-inner {
+    max-width: 76rem;
+    margin-inline: auto;
+    padding: 1.75rem 0rem;
+    display: flex; 
+    align-items: center; 
+    gap: .75rem; 
+    flex-wrap: wrap;
+  }
+  .header-right{ margin-left: auto; display:flex; flex-direction: column; align-items: flex-end; gap: .5rem; }
+  .header-spacer { flex: 1 1 auto; }
+  .nav{ display:flex; gap:.5rem; flex-wrap:wrap; justify-content:flex-end; }
+  .actions-right{ display:flex; gap:.5rem; flex-wrap:wrap; justify-content:flex-end; }
 
-.actions-right{
-  display: flex;
-  gap: .5rem;
-  flex-wrap: wrap;
-  justify-content: flex-end;
-}
+  @media (max-width: 640px) {
+    .header-inner { justify-content: center; padding: 1rem 1rem; }
+    .header .no-underline { justify-content: center; }
+    .header-right { margin-left: 0; align-items: center; width: 100%; }
+    .nav, .actions-right { justify-content: center; width: 100%; }
+  }
 
-/* small badge for role */
-.badge {
-  display:inline-flex; align-items:center; gap:.375rem;
-  font-size:.75rem; padding:.25rem .5rem; border-radius:.5rem;
-  background: var(--blue-200); color: var(--blue-700);
-}
+  .badge {
+    display:inline-flex; align-items:center; gap:.375rem;
+    font-size:.75rem; padding:.25rem .5rem; border-radius:.5rem;
+    background: var(--blue-200); color: var(--blue-700);
+  }
 
-.container--flush-right { padding-right: 0 !important; }
-.section--flush-right   { padding-right: 0 !important; }
+  /* Flush helpers (removed !important so utilities can override if needed) */
+  .container--flush-right { padding-right: 0; }
+  .section--flush-right   { padding-right: 0; }
+  .card--flush-left       { padding-left: 0; }
+  .section--flush         { padding: 0; }
+  .section--flush-left    { padding-left: 0; }
+  .section--flush-right   { padding-right: 0; }
+  .container--flush       { padding-left: 0; padding-right: 0; }
+  .container--flush-left  { padding-left: 0; }
+  .container--flush-right { padding-right: 0; }
 
-.card--flush-left { padding-left: 0 !important; }
+  .stack { display: grid; row-gap: 2rem; }
+  @media (min-width:640px){ .stack { row-gap: 2.5rem; } }
 
-@media (min-width: 640px){
-  .section--flush-right { padding-right: 0 !important; }
-}
+  .block-gap { margin-top: 1.5rem; margin-bottom: 2rem; }
+  @media (min-width:640px){ .block-gap { margin-top: 2rem; margin-bottom: 2.5rem; } }
 
-.section--flush        { padding: 0 !important; }
-.section--flush-left   { padding-left: 0 !important; }
-.section--flush-right  { padding-right: 0 !important; }
+  .wordmark { display:inline-block; max-width: 40ch; line-height: 1.15; white-space: normal; font-family: inherit; }
+  @media (min-width: 640px) { .wordmark { max-width: 48ch; } }
 
-/* Remove container side padding */
-.container--flush        { padding-left: 0 !important; padding-right: 0 !important; }
-.container--flush-left   { padding-left: 0 !important; }
-.container--flush-right  { padding-right: 0 !important; }
+  .icon-btn {
+    width: 25px; height: 25px; padding: 0; border-radius: 9999px;
+    display: inline-flex; align-items: center; justify-content: center;
+  }
 
-.stack       { display: grid; row-gap: 2rem; }
-@media (min-width:640px){ .stack { row-gap: 2.5rem; } }
+  .mr-4 { margin-right: 1rem; }
+  @media (min-width: 640px) { .mr-4 { margin-right: 1.5rem; } }
 
-.block-gap { margin-top: 1.5rem; margin-bottom: 2rem; }
-@media (min-width:640px){ .block-gap { margin-top: 2rem; margin-bottom: 2.5rem; } }
+  .overlay {
+    position: fixed; inset: 0; background: var(--overlay);
+    backdrop-filter: blur(3px); z-index: 2000;
+  }
 
+  /* Ornaments */
+  :root { --left-ornament: 0px; --right-ornament: 0px; }
+  @media (min-width: 640px) { :root { --left-ornament: 88px; } }
+  @media (min-width: 1024px){ :root { --left-ornament: 120px; } }
 
-/* =========================================================
-   CONSISTENT BUTTON SIZING (fixed height, same for all variants)
-   ========================================================= */
-:root{
-  --btn-h: 40px;      /* total height */
-  --btn-fz: 15px;     /* font-size */
-  --btn-fw: 600;      /* font-weight */
-  --btn-px: 14px;     /* horizontal padding */
-  --btn-minw: 120px;  /* min width for consistent look */
-}
+  @media (min-width: 640px)  { :root { --right-ornament-width: 88px;  } }
+  @media (min-width: 1024px) { :root { --right-ornament-width: 120px; } }
 
-.btn,
-.btn-outline,
-.btn-gold,
-button.btn,
-a.btn {
-  box-sizing: border-box;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: .5rem;
+  .left-ornament {
+    position: fixed; inset: 0 auto 0 0;
+    width: var(--left-ornament);
+    background: url('/ornament_left.svg') left center / contain no-repeat;
+    pointer-events: none; z-index: 100;
+  }
+  .right-ornament {
+    position: fixed; inset: 0 0 0 auto;
+    right: var(--right-ornament-offset, 0px);
+    width: var(--right-ornament-width);
+    background: url('/ornament_right.svg') right center / contain no-repeat;
+    pointer-events: none; z-index: 100; opacity: 1; display: none;
+  }
+  @media (max-width: 640px) { .left-ornament, .right-ornament { display: none; } }
+  @media (max-width: 1000px), (max-height: 700px) { .right-ornament { display: none; } }
 
-  height: var(--btn-h);
-  padding: 0 var(--btn-px);
-  min-width: var(--btn-minw);
+  /* Divider */
+  .divider-wrap { display:block; margin: 2rem auto; text-align:center; }
+  .divider-img  { display:inline-block; max-width: 640px; width:100%; height:auto; opacity:1; }
+  .divider-wrap.divider--tight { margin: 1.25rem auto; }
+  .divider-wrap.divider--loose { margin: 3rem auto; }
 
-  font-size: var(--btn-fz);
-  line-height: 1;
-  font-weight: var(--btn-fw);
-  white-space: nowrap;
-
-  border-width: 1px;
-  border-style: solid;
-  border-radius: .5rem;
-}
-
-/* Keep colors-only differences */
-.btn { background: var(--blue-600); border-color: var(--blue-600); color:#fff; }
-.btn:hover { background: var(--blue-700); border-color: var(--blue-700); }
-
-.btn-outline { background:#fff; color: var(--blue-600); border-color: var(--blue-600); }
-.btn-outline:hover { background: var(--blue-200); color: var(--blue-700); border-color: var(--blue-700); }
-
-.btn-gold { background: var(--gold-500); border-color: var(--gold-500); color:#fff; }
-.btn-gold:hover { background: var(--gold-600); border-color: var(--gold-600); }
-
-/* Optional: smaller/larger variants if needed */
-.btn-sm { --btn-h: 34px; --btn-fz: 14px; --btn-px: 12px; --btn-minw: 100px; }
-.btn-lg { --btn-h: 46px; --btn-fz: 16px; --btn-px: 16px; --btn-minw: 140px; }
-
-
-.wordmark {
-  display: inline-block;
-  max-width: 40ch;          /* ~two lines on most screens */
-  line-height: 1.15;
-  white-space: normal;
-  font-family: inherit;       /* allow wrapping */
-}
-@media (min-width: 640px) {
-  .wordmark { max-width: 48ch; }
-}
-
-
-.icon-btn {
-  width: 25px;
-  height: 25px;
-  padding: 0;
-  border-radius: 9999px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.mr-4 { 
-  margin-right: 1rem; 
-}
-
-@media (min-width: 640px) {
-  .mr-4 { margin-right: 1.5rem; }
-}
-
-.overlay {
-  position: fixed;
-  inset: 0;
-  background: var(--overlay);
-  backdrop-filter: blur(3px);
-  z-index: 2000;
-}
-
-:root {
-  --left-ornament: 0px;
-  --right-ornament: 0px;
-}
-@media (min-width: 640px) { :root { --left-ornament: 88px; } }   /* sm */
-@media (min-width: 1024px){ :root { --left-ornament: 120px; } }  /* lg */
-
-@media (min-width: 640px)  { :root { --right-ornament-width: 88px;  } } /* sm */
-@media (min-width: 1024px) { :root { --right-ornament-width: 120px; } } /* lg */
-
-/* Divider */
-.divider-wrap {
-  display: block;
-  margin: 2rem auto;               /* vertical spacing */
-  text-align: center;
-}
-
-.divider-img {
-  display: inline-block;
-  max-width: 640px;                 /* control the visual width */
-  width: 100%;
-  height: auto;
-  opacity: 1;                       /* adjust if you want subtler */
-}
-
-/* Optional: tighter/looser spacing variants */
-.divider-wrap.divider--tight { margin: 1.25rem auto; }
-.divider-wrap.divider--loose { margin: 3rem auto; }
-
-
-:root{
-  --right-ornament-offset: 15px; /* distance from the right edge */
-  --right-ornament-width: 120px;  /* visual width of the SVG */
-}
-
-/* bottom-right decorative SVG */
-.left-ornament {
-  position: fixed;
-  inset: 0 auto 0 0;
-  width: var(--left-ornament);  /* you already set via media queries */
-  background: url('/ornament_left.svg') left center / contain no-repeat;
-  pointer-events: none;
-  z-index: 100;
-}
-
-.right-ornament {
-  position: fixed;
-  inset: 0 0 0 auto;                         /* top:0; right:0; bottom:0; left:auto */
-  right: var(--right-ornament-offset, 0px);  /* optional extra spacing from the edge */
-  width: var(--right-ornament-width);
-  background: url('/ornament_right.svg') right center / contain no-repeat;
-  pointer-events: none;
-  z-index: 100;
-  opacity: 1;
-  display: none;
-}
-
-/* Responsive: hide ornaments on small screens so nothing overlaps */
-@media (max-width: 640px) {
-  .left-ornament, .right-ornament { display: none !important; }
-}
-
-@media (max-width: 1000px), (max-height: 700px) {
-  .right-ornament { display: none; }
-}
-
-/* Prevent horizontal scrollbars on small screens */
-html, body {
-  overflow-x: hidden;
-}
-
-/* Make sizing predictable so borders/padding don’t push width */
-*, *::before, *::after {
-  box-sizing: border-box;
-}
-
-/* Media that can overflow (images, iframes, audio) */
-img, svg, canvas, video, iframe {
-  max-width: 100%;
-  height: auto;
-}
-
-/* Long words/titles won’t force a wide line */
-.break-anywhere {
-  overflow-wrap: anywhere;
-  word-break: break-word;
-}
-
-/* Containers: symmetric padding on mobile */
-@media (max-width: 640px) {
-  .container { padding-left: 12px; padding-right: 12px; }
+  /* Mobile container balance */
+  @media (max-width: 640px) {
+    .container { padding-left: 12px; padding-right: 12px; }
+  }
 }

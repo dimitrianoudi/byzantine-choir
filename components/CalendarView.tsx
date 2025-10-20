@@ -239,14 +239,14 @@ export default function CalendarView({ role }: { role: Role }) {
                 return (
                   <div key={key} className="border border-subtle rounded-md p-4">
                     <div className="flex items-baseline gap-2 mb-2">
-                      <div className="text-sm font-semibold">
+                      <div className="text-sm font-semibold" style={{ paddingLeft: '1rem' }}>
                         {new Intl.DateTimeFormat('el-GR', { weekday: 'short', day: '2-digit', month: 'short' }).format(d)}
                       </div>
                       {isToday && <span className="text-xs text-blue">σήμερα</span>}
                     </div>
 
                     {evts.length === 0 ? (
-                      <div className="text-xs text-muted">—</div>
+                      <div className="text-xs text-muted" style={{ paddingLeft: '1rem' }}>—</div>
                     ) : (
                       <div className="space-y-2">
                         {evts.map(e => {
@@ -256,7 +256,7 @@ export default function CalendarView({ role }: { role: Role }) {
                             : new Intl.DateTimeFormat('el-GR', { hour: '2-digit', minute: '2-digit' }).format(when);
 
                           return (
-                            <div key={e.id} className="flex items-start gap-2">
+                            <div key={e.id} className="flex items-start gap-2" style={{ paddingLeft: '1rem' }}>
                               <div className="text-[11px] text-muted mt-0.5 shrink-0 w-12">{time}</div>
                               <div className="flex-1">
                                 <div className="text-[13px] font-medium leading-4">{e.title}</div>
@@ -283,7 +283,7 @@ export default function CalendarView({ role }: { role: Role }) {
 
         {/* Upcoming */}
         <div className="card p-4 space-y-3 mt-4 sm:mt-0">
-          <h2 className="font-heading text-blue" style={{ fontWeight: 700, fontSize: 18 }}>Επερχόμενα</h2>
+          <h2 className="font-heading text-blue" style={{ fontWeight: 700, fontSize: 18, paddingLeft: '1rem' }}>Επερχόμενα</h2>
           {loading && <div className="text-sm text-muted">Φόρτωση…</div>}
           {!loading && upcoming.length === 0 && <div className="text-sm text-muted">Δεν υπάρχουν προσεχείς εκδηλώσεις.</div>}
           <div className="space-y-2">
@@ -292,8 +292,8 @@ export default function CalendarView({ role }: { role: Role }) {
               const dayLabel = new Intl.DateTimeFormat('el-GR', { weekday: 'short', day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' }).format(d);
               return (
                 <div key={e.id} className="border border-subtle rounded-md p-2">
-                  <div className="text-sm font-semibold">{e.title}</div>
-                  <div className="text-xs text-muted">{dayLabel}{e.location ? ` · ${e.location}` : ''}</div>
+                  <div className="text-sm font-semibold" style={{ paddingLeft: '1rem' }}>{e.title}</div>
+                  <div className="text-xs text-muted" style={{ paddingLeft: '1rem' }}>{dayLabel}{e.location ? ` · ${e.location}` : ''}</div>
                 </div>
               );
             })}

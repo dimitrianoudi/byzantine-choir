@@ -145,7 +145,7 @@ export default function Library({ role }: { role: Role }) {
               {podcasts.length === 0 && <div className="p-4 text-muted">Δεν υπάρχουν ακόμη podcasts.</div>}
               {podcasts.map((p) => (
                 <div key={p.key} className="py-4">
-                  <div className="flex items-center gap-4">
+                  <div className="flex items-center gap-4" style={{ padding: '0.5rem' }}>
                     <div className="flex-1 min-w-0">
                       <div className="font-medium break-all">{prettyName(p.name || p.key)}</div>
                       <div className="text-xs text-muted">

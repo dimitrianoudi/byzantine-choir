@@ -99,7 +99,7 @@ export default function PdfThumb({ storageKey, getUrl, width = 220 }: Props) {
     <div className="w-full">
       <div
         className="w-full rounded-md overflow-hidden bg-black/20 flex items-center justify-center"
-        style={{ width, height }}
+        style={{ width, height, padding: '0.5rem' }}
       >
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img

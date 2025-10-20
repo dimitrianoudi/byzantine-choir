@@ -188,7 +188,7 @@ export default function CalendarView({ role }: { role: Role }) {
                     <div className="mt-1 space-y-1">
                       {evts.slice(0, 3).map(e => (
                         <div key={e.id} className="text-[11px] truncate px-2 py-1 rounded-md" style={{ background: 'var(--blue-200)', color: 'var(--blue-700)' }} title={e.title + (e.location ? ` — ${e.location}` : '')}>
-                          <div className="flex items-center gap-2">
+                          <div className="flex items-center gap-2 min-w-0">
                             <span className="truncate">{e.title}</span>
                             {role === 'admin' && (
                               <span className="ml-auto flex gap-1">
@@ -238,15 +238,15 @@ export default function CalendarView({ role }: { role: Role }) {
                 const isToday = sameDay(d, today);
                 return (
                   <div key={key} className="border border-subtle rounded-md p-4">
-                    <div className="flex items-baseline gap-2 mb-2">
-                      <div className="text-sm font-semibold" style={{ paddingLeft: '1rem' }}>
+                    <div className="flex items-baseline gap-2 mb-2" style={{ paddingBottom: '0.5rem' }}>
+                      <div className="text-sm font-semibold" style={{ paddingLeft: '1rem', paddingTop: '0.5rem' }}>
                         {new Intl.DateTimeFormat('el-GR', { weekday: 'short', day: '2-digit', month: 'short' }).format(d)}
                       </div>
                       {isToday && <span className="text-xs text-blue">σήμερα</span>}
                     </div>
 
                     {evts.length === 0 ? (
-                      <div className="text-xs text-muted" style={{ paddingLeft: '1rem' }}>—</div>
+                      <div className="text-xs text-muted" style={{ paddingLeft: '1rem', paddingBottom: '0.5rem' }}>—</div>
                     ) : (
                       <div className="space-y-2">
                         {evts.map(e => {
@@ -256,8 +256,8 @@ export default function CalendarView({ role }: { role: Role }) {
                             : new Intl.DateTimeFormat('el-GR', { hour: '2-digit', minute: '2-digit' }).format(when);
 
                           return (
-                            <div key={e.id} className="flex items-start gap-2" style={{ paddingLeft: '1rem' }}>
-                              <div className="text-[11px] text-muted mt-0.5 shrink-0 w-12">{time}</div>
+                            <div key={e.id} className="flex items-start gap-2" style={{ paddingLeft: '1rem', paddingBottom: '0.5rem' }}>
+                              <div className="text-[11px] text-muted mt-0.5 shrink-0 w-14 pr-2" style={{ paddingRight: '0.5rem' }}>{time}</div>
                               <div className="flex-1">
                                 <div className="text-[13px] font-medium leading-4">{e.title}</div>
                                 {e.location && <div className="text-[11px] text-muted">{e.location}</div>}
@@ -292,8 +292,8 @@ export default function CalendarView({ role }: { role: Role }) {
               const dayLabel = new Intl.DateTimeFormat('el-GR', { weekday: 'short', day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' }).format(d);
               return (
                 <div key={e.id} className="border border-subtle rounded-md p-2">
-                  <div className="text-sm font-semibold" style={{ paddingLeft: '1rem' }}>{e.title}</div>
-                  <div className="text-xs text-muted" style={{ paddingLeft: '1rem' }}>{dayLabel}{e.location ? ` · ${e.location}` : ''}</div>
+                  <div className="text-sm font-semibold" style={{ paddingLeft: '1rem', paddingTop: '0.5rem' }}>{e.title}</div>
+                  <div className="text-xs text-muted" style={{ paddingLeft: '1rem', paddingBottom: '0.5rem' }}>{dayLabel}{e.location ? ` · ${e.location}` : ''}</div>
                 </div>
               );
             })}

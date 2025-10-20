@@ -20,12 +20,20 @@ type RecurrenceInput = {
 
 function startOfMonth(d: Date) { return new Date(d.getFullYear(), d.getMonth(), 1); }
 function endOfMonth(d: Date) { return new Date(d.getFullYear(), d.getMonth() + 1, 0); }
-function sameDay(a: Date, b: Date) { return a.getFullYear()===b.getFullYear() && a.getMonth()===b.getMonth() && a.getDate()===b.getDate(); }
+function sameDay(a: Date, b: Date) {
+  return a.getFullYear()===b.getFullYear() && a.getMonth()===b.getMonth() && a.getDate()===b.getDate();
+}
 function keyFromLocalDate(d: Date) {
   const y = d.getFullYear();
   const m = String(d.getMonth()+1).padStart(2,'0');
   const da = String(d.getDate()).padStart(2,'0');
   return `${y}-${m}-${da}`;
+}
+function addDays(d: Date, days: number) {
+  return new Date(d.getFullYear(), d.getMonth(), d.getDate() + days);
+}
+function toKey(d: Date) {
+  return d.toISOString().split('T')[0];
 }
 
 export default function CalendarView({ role }: { role: Role }) {
@@ -49,6 +57,7 @@ export default function CalendarView({ role }: { role: Role }) {
   }
   useEffect(() => { fetchEvents(); }, []);
 
+  // Map events by local day
   const eventsByDay = useMemo(() => {
     const map: Record<string, ChoirEvent[]> = {};
     for (const e of events) {
@@ -59,6 +68,7 @@ export default function CalendarView({ role }: { role: Role }) {
     return map;
   }, [events]);
 
+  // Build month grid days
   const first = startOfMonth(cursor);
   const last  = endOfMonth(cursor);
 
@@ -68,12 +78,10 @@ export default function CalendarView({ role }: { role: Role }) {
     const d = new Date(first); d.setDate(first.getDate() - (firstWeekday - i));
     days.push(d);
   }
-  for (let d = new Date(first); d <= last; d = new Date(d.getFullYear(), d.getMonth(), d.getDate() + 1)) {
-    days.push(new Date(d));
-  }
+  for (let d = new Date(first); d <= last; d = addDays(d, 1)) days.push(new Date(d));
   while (days.length % 7 !== 0) {
     const prev = days[days.length - 1];
-    days.push(new Date(prev.getFullYear(), prev.getMonth(), prev.getDate() + 1));
+    days.push(addDays(prev, 1));
   }
 
   const monthFormatter = useMemo(() => new Intl.DateTimeFormat('el-GR', { month: 'long', year: 'numeric' }), []);
@@ -153,72 +161,128 @@ export default function CalendarView({ role }: { role: Role }) {
 
       {/* Grid + Upcoming */}
       <div className="grid lg:grid-cols-3 gap-6">
-        {/* Month grid */}
-        <div className="lg:col-span-2 card" style={{ padding: '1rem 1rem 1rem 0' }}>
-          <div className="grid grid-cols-7 gap-2 text-sm text-muted mb-2">
-            {weekdayLabels.map((w) => <div key={w} className="text-center">{w}</div>)}
+        {/* Calendar area */}
+        <div className="lg:col-span-2 card p-5">
+
+          {/* DESKTOP/TABLET: month grid */}
+          <div className="hidden sm:block">
+            <div className="grid grid-cols-7 gap-2 text-sm text-muted mb-2 px-3">
+              {weekdayLabels.map((w) => <div key={w} className="text-center">{w}</div>)}
+            </div>
+
+            <div className="grid grid-cols-7 gap-2">
+              {days.map((d, i) => {
+                const inMonth = d.getMonth() === cursor.getMonth();
+                const isToday = sameDay(d, today);
+                const key = keyFromLocalDate(d);
+                const evts = eventsByDay[key] || [];
+                return (
+                  <div key={i} className="border-subtle rounded-md border p-3 min-h-[84px] flex flex-col" style={{ background: inMonth ? '#fff' : '#f8fafc' }}>
+                    <div className="flex items-center justify-between">
+                      <div className="text-sm" style={{ color: isToday ? 'var(--blue-600)' : 'inherit', fontWeight: isToday ? 700 : 500 }}>
+                        {dayNum.format(d)}
+                      </div>
+                      {isToday && <span className="text-xs text-blue">σήμερα</span>}
+                    </div>
+
+                    <div className="mt-1 space-y-1">
+                      {evts.slice(0, 3).map(e => (
+                        <div key={e.id} className="text-[11px] truncate px-2 py-1 rounded-md" style={{ background: 'var(--blue-200)', color: 'var(--blue-700)' }} title={e.title + (e.location ? ` — ${e.location}` : '')}>
+                          <div className="flex items-center gap-2">
+                            <span className="truncate">{e.title}</span>
+                            {role === 'admin' && (
+                              <span className="ml-auto flex gap-1">
+                                <button
+                                  type="button"
+                                  className="icon-btn"
+                                  title="Επεξεργασία"
+                                  aria-label="Επεξεργασία"
+                                  onClick={() => { setEditing(e); setModalOpen(true); }}
+                                >
+                                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                                    <path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25z" stroke="currentColor" strokeWidth="1.5" fill="none"/>
+                                    <path d="M14.06 4.94l3.75 3.75" stroke="currentColor" strokeWidth="1.5"/>
+                                  </svg>
+                                </button>
+                                <button
+                                  type="button"
+                                  className="icon-btn"
+                                  title="Διαγραφή"
+                                  aria-label="Διαγραφή"
+                                  onClick={() => deleteEvent(e.id)}
+                                >
+                                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                                    <path d="M9 3h6m-9 4h12M9 7v12m6-12v12M5 7l1 14h12l1-14" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+                                  </svg>
+                                </button>
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                      {evts.length > 3 && <div className="text-[11px] text-muted">+{evts.length - 3} ακόμη</div>}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
           </div>
 
-          <div className="grid grid-cols-7 gap-2">
-            {days.map((d, i) => {
-              const inMonth = d.getMonth() === cursor.getMonth();
-              const isToday = sameDay(d, today);
-              const key = keyFromLocalDate(d);
-              const evts = eventsByDay[key] || [];
-              return (
-                <div key={i} className="border-subtle rounded-md border p-2 min-h-[84px] flex flex-col" style={{ background: inMonth ? '#fff' : '#f8fafc' }}>
-                  <div className="flex items-center justify-between">
-                    <div className="text-sm" style={{ color: isToday ? 'var(--blue-600)' : 'inherit', fontWeight: isToday ? 700 : 500 }}>
-                      {dayNum.format(d)}
-                    </div>
-                    {isToday && <span className="text-xs text-blue">σήμερα</span>}
-                  </div>
-
-                  <div className="mt-1 space-y-1">
-                    {evts.slice(0, 3).map(e => (
-                      <div key={e.id} className="text-[11px] truncate px-2 py-1 rounded-md" style={{ background: 'var(--blue-200)', color: 'var(--blue-700)' }} title={e.title + (e.location ? ` — ${e.location}` : '')}>
-                        <div className="flex items-center gap-2">
-                          <span className="truncate">{e.title}</span>
-                          {role === 'admin' && (
-                            <span className="ml-auto flex gap-1">
-                              <button
-                                type="button"
-                                className="icon-btn"
-                                title="Επεξεργασία"
-                                aria-label="Επεξεργασία"
-                                onClick={() => { setEditing(e); setModalOpen(true); }}
-                              >
-                                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-                                  <path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25z" stroke="currentColor" strokeWidth="1.5" fill="none"/>
-                                  <path d="M14.06 4.94l3.75 3.75" stroke="currentColor" strokeWidth="1.5"/>
-                                </svg>
-                              </button>
-                              <button
-                                type="button"
-                                className="icon-btn"
-                                title="Διαγραφή"
-                                aria-label="Διαγραφή"
-                                onClick={() => deleteEvent(e.id)}
-                              >
-                                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-                                  <path d="M9 3h6m-9 4h12M9 7v12m6-12v12M5 7l1 14h12l1-14" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
-                                </svg>
-                              </button>
-                            </span>
-                          )}
-                        </div>
+          {/* MOBILE: agenda-style list */}
+          <div className="sm:hidden space-y-3">
+            {days
+              .filter(d => d.getMonth() === cursor.getMonth())
+              .map((d) => {
+                const key = keyFromLocalDate(d);
+                const evts = eventsByDay[key] || [];
+                const isToday = sameDay(d, today);
+                return (
+                  <div key={key} className="border border-subtle rounded-md p-4">
+                    <div className="flex items-baseline gap-2 mb-2">
+                      <div className="text-sm font-semibold">
+                        {new Intl.DateTimeFormat('el-GR', { weekday: 'short', day: '2-digit', month: 'short' }).format(d)}
                       </div>
-                    ))}
-                    {evts.length > 3 && <div className="text-[11px] text-muted">+{evts.length - 3} ακόμη</div>}
+                      {isToday && <span className="text-xs text-blue">σήμερα</span>}
+                    </div>
+
+                    {evts.length === 0 ? (
+                      <div className="text-xs text-muted">—</div>
+                    ) : (
+                      <div className="space-y-2">
+                        {evts.map(e => {
+                          const when = new Date(e.startsAt);
+                          const time = e.endsAt
+                            ? new Intl.DateTimeFormat('el-GR', { hour: '2-digit', minute: '2-digit' }).format(when)
+                            : new Intl.DateTimeFormat('el-GR', { hour: '2-digit', minute: '2-digit' }).format(when);
+
+                          return (
+                            <div key={e.id} className="flex items-start gap-2">
+                              <div className="text-[11px] text-muted mt-0.5 shrink-0 w-12">{time}</div>
+                              <div className="flex-1">
+                                <div className="text-[13px] font-medium leading-4">{e.title}</div>
+                                {e.location && <div className="text-[11px] text-muted">{e.location}</div>}
+                              </div>
+                              {role === 'admin' && (
+                                <div className="shrink-0 flex gap-1">
+                                  <button className="icon-btn" onClick={() => { setEditing(e); setModalOpen(true); }} aria-label="Επεξεργασία">✎</button>
+                                  <button className="icon-btn" onClick={() => deleteEvent(e.id)} aria-label="Διαγραφή">🗑</button>
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
                   </div>
-                </div>
-              );
-            })}
+                );
+              })}
           </div>
         </div>
 
+        <p>&nbsp;</p>
+
         {/* Upcoming */}
-        <div className="card p-4 space-y-3">
+        <div className="card p-4 space-y-3 mt-4 sm:mt-0">
           <h2 className="font-heading text-blue" style={{ fontWeight: 700, fontSize: 18 }}>Επερχόμενα</h2>
           {loading && <div className="text-sm text-muted">Φόρτωση…</div>}
           {!loading && upcoming.length === 0 && <div className="text-sm text-muted">Δεν υπάρχουν προσεχείς εκδηλώσεις.</div>}

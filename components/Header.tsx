@@ -68,18 +68,18 @@ export default function Header({
 
         <Link href="/" className="flex items-center gap-3 min-w-0 no-underline">
           <img
-            src="/logo.svg"
+            src="/logo_frontistirio_psaltikis.png"
             alt="Ψαλτικοί Χοροί Αγ. Αθανασίου & Ευαγγελισμού Ευόσμου"
-            className="h-[66px] w-auto shrink-0 mr-4"   // <- set desired height
+            className="h-[104px] w-auto shrink-0 mr-4"   // <- set desired height
           />
-          <span
+          {/* <span
             className="ml-4 text-black font-semibold leading-tight text-base sm:text-lg max-w-[38ch]"
             style={{ fontWeight: 300 }}
           >
             Φροντιστήριο Ψαλτικής <br/>
             Ιερά Μητρόπολη Νεαπόλεως & Σταυρουπόλεως  <br/>
             Ενορία Αγ. Αθανασίου &amp; Ευαγγελισμού Ευόσμου
-          </span>
+          </span> */}
           <span className="sr-only">Αρχική</span>
         </Link>
 

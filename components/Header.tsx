@@ -90,6 +90,8 @@ export default function Header({
             <NavLink href="/" label="Αρχική" />
             <NavLink href="/material" label="Υλικό" />
             <NavLink href="/calendar" label="Ημερολόγιο" />
+            <NavLink href="/gallery" label="Στιγμιότυπα" />
+
             {user?.role === 'admin' && <NavLink href="/upload" label="Ανέβασμα" />}
 
             {!isLoggedIn && (

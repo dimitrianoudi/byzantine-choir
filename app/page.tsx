@@ -8,7 +8,7 @@ export default function HomePage() {
         {/* Hero */}
         <section className="p-8 sm:p-10 text-center space-y-4">
           <h1 className="font-heading text-red" style={{ fontWeight: 800, fontSize: "clamp(22px, 3.2vw, 34px)" }}>
-            Ψαλτική Παιδεία - Εκπαίδευση στη Βυζαντινή Μουσική
+            Η Ψαλτική ως Τέχνη και διακονία της Εκκλησίας
           </h1>
           <span className="font-heading text-muted" style={{ fontSize: "clamp(16px, 2.2vw, 20px)" }}>
             Ενορία Αγίου Αθανασίου &amp; Ευαγγελισμού Ευόσμου

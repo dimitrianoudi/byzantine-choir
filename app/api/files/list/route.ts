@@ -27,11 +27,14 @@ function inferType(key: string): "podcast" | "pdf" | null {
   return null;
 }
 
-export async function GET() {
+export async function GET(req: Request) {
   const session = await getSession();
   if (!session.isLoggedIn) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
+
+  const url = new URL(req.url);
+  const prefix = url.searchParams.get("prefix") ?? "";
 
   try {
     const items: {
@@ -42,19 +45,29 @@ export async function GET() {
       type: "podcast" | "pdf";
     }[] = [];
 
+    const folders: string[] = [];
     let continuationToken: string | undefined = undefined;
 
     do {
       const command = new ListObjectsV2Command({
         Bucket: BUCKET,
+        Prefix: prefix || undefined,
+        Delimiter: "/",
         ContinuationToken: continuationToken,
       });
 
       const res = (await s3.send(command)) as ListObjectsV2CommandOutput;
 
+      for (const cp of res.CommonPrefixes ?? []) {
+        if (!cp.Prefix) continue;
+        if (!folders.includes(cp.Prefix)) {
+          folders.push(cp.Prefix);
+        }
+      }
+
       for (const obj of res.Contents ?? []) {
         if (!obj.Key) continue;
-        if (obj.Key.endsWith("/")) continue; // “φάκελοι” S3, όχι αρχεία
+        if (obj.Key.endsWith("/")) continue;
 
         const type = inferType(obj.Key);
         if (!type) continue;
@@ -77,11 +90,11 @@ export async function GET() {
       (b.lastModified || "").localeCompare(a.lastModified || "")
     );
 
-    return NextResponse.json({ items });
+    return NextResponse.json({ items, folders, prefix });
   } catch (err: any) {
     console.error("LIST_FILES_ERROR:", err);
     return NextResponse.json(
-      { error: err?.message || "Internal error", items: [] },
+      { error: err?.message || "Internal error", items: [], folders: [], prefix },
       { status: 500 }
     );
   }

@@ -1,10 +1,23 @@
+import Link from "next/link";
 import { getSession } from "@/lib/session";
 import { redirect } from "next/navigation";
 import Library from "@/components/Library";
 
-export default async function MaterialPage() {
+type SP = { prefix?: string };
+
+export default async function MaterialPage({
+  searchParams,
+}: {
+  searchParams: Promise<SP>;
+}) {
   const session = await getSession();
   if (!session.isLoggedIn) redirect("/login");
+
+  const sp = await searchParams;
+  const prefix = typeof sp?.prefix === "string" ? sp.prefix : "";
+
+  const year = new Date().getFullYear();
+  const akPrefix = `Ακολουθίες/${year}/`;
 
   return (
     <div className="space-y-6">
@@ -13,10 +26,23 @@ export default async function MaterialPage() {
           Υλικό
         </h1>
         <div className="header-spacer" />
+        <nav className="actions">
+          <Link href="/material" className="btn btn-outline">Όλα</Link>
+          <Link
+            href={`/material?prefix=${encodeURIComponent(akPrefix)}`}
+            className="btn btn-gold"
+            title="Μετάβαση στον φάκελο Ακολουθίες του τρέχοντος έτους"
+          >
+            Ακολουθίες {year}
+          </Link>
+          {session.user?.role === "admin" && (
+            <Link href="/upload" className="btn btn-outline">Ανέβασμα</Link>
+          )}
+        </nav>
       </header>
 
       <section className="space-y-4">
-        <Library role={session.user?.role || "member"} />
+        <Library role={session.user?.role || "member"} prefix={prefix} />
       </section>
     </div>
   );

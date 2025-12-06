@@ -11,7 +11,7 @@ type Item = {
   name: string;
   size?: number;
   lastModified?: string;
-  type: 'podcast' | 'pdf';
+  type: 'podcast' | 'pdf' | 'folder';
 };
 
 function prettyName(raw: string) {
@@ -19,16 +19,8 @@ function prettyName(raw: string) {
   return base.replace(/^\d{13}[-_]/, '');
 }
 
-function folderLabel(prefix: string): string {
-  const trimmed = prefix.replace(/\/$/, '');
-  const parts = trimmed.split('/');
-  return parts[parts.length - 1] || prefix;
-}
-
-export default function Library({ role }: { role: Role }) {
+export default function Library({ role, prefix = "" }: { role: Role; prefix?: string }) {
   const [items, setItems] = useState<Item[]>([]);
-  const [folders, setFolders] = useState<string[]>([]);
-  const [prefix, setPrefix] = useState<string>('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<'podcast' | 'pdf'>('podcast');
@@ -38,31 +30,18 @@ export default function Library({ role }: { role: Role }) {
 
   const podcasts = useMemo(() => items.filter((i) => i.type === 'podcast'), [items]);
   const pdfs = useMemo(() => items.filter((i) => i.type === 'pdf'), [items]);
-
-  const breadcrumbs = useMemo(() => {
-    const segments = prefix.split('/').filter(Boolean);
-    const crumbs: { label: string; value: string }[] = [{ label: 'Αρχή', value: '' }];
-    let acc = '';
-    for (const seg of segments) {
-      acc += seg + '/';
-      crumbs.push({ label: seg, value: acc });
-    }
-    return crumbs;
-  }, [prefix]);
+  const folders = useMemo(() => items.filter((i) => i.type === 'folder'), [items]);
 
   useEffect(() => {
     const load = async () => {
       setLoading(true);
       setError(null);
-      setActionMsg(null);
-      setPlayingKey(null);
-
       try {
-        const res = await fetch(`/api/files/list?prefix=${encodeURIComponent(prefix)}`);
+        const qs = prefix ? `?prefix=${encodeURIComponent(prefix)}` : "";
+        const res = await fetch(`/api/files/list${qs}`);
         if (!res.ok) throw new Error(await safeText(res));
         const data = await res.json();
-        setItems(data.items || []);
-        setFolders(data.folders || []);
+        setItems(Array.isArray(data.items) ? data.items : []);
       } catch (e: any) {
         setError(e?.message || 'Σφάλμα φόρτωσης');
       } finally {
@@ -70,25 +49,19 @@ export default function Library({ role }: { role: Role }) {
       }
     };
     load();
+    // reset local caches when prefix changes
+    setPlayingKey(null);
+    setPresigned({});
+    setActionMsg(null);
   }, [prefix]);
-
-  useEffect(() => {
-    const audio = document.getElementById('audio-player') as HTMLAudioElement | null;
-    if (!audio) return;
-    const onEnded = () => setPlayingKey(null);
-    audio.addEventListener('ended', onEnded);
-    return () => audio.removeEventListener('ended', onEnded);
-  }, []);
 
   const getUrl = async (key: string) => {
     if (presigned[key]) return presigned[key];
-
     const res = await fetch('/api/files/presign', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ key }),
     });
-
     if (!res.ok) {
       let msg = 'Αποτυχία δημιουργίας συνδέσμου (presign)';
       try {
@@ -99,37 +72,27 @@ export default function Library({ role }: { role: Role }) {
       }
       throw new Error(msg || `HTTP ${res.status}`);
     }
-
     const data = await res.json();
     if (!data?.url) throw new Error('Το presign δεν επέστρεψε URL.');
-
     setPresigned((prev) => ({ ...prev, [key]: data.url as string }));
     return data.url as string;
   };
 
   const play = async (key: string) => {
     setActionMsg(null);
-    const audio = document.getElementById('audio-player') as HTMLAudioElement | null;
-    if (!audio) {
-      setActionMsg('Δεν βρέθηκε ο player ήχου');
-      return;
-    }
-
     try {
-      if (playingKey === key) {
-        if (!audio.paused) {
+      const url = await getUrl(key);
+      const audio = document.getElementById('audio-player') as HTMLAudioElement | null;
+      if (audio) {
+        if (audio.src === url && !audio.paused) {
           audio.pause();
           setPlayingKey(null);
-        } else {
-          await audio.play();
-          setPlayingKey(key);
+          return;
         }
-        return;
+        audio.src = url;
+        await audio.play().catch(() => {});
+        setPlayingKey(key);
       }
-      const url = await getUrl(key);
-      audio.src = url;
-      await audio.play();
-      setPlayingKey(key);
     } catch (err: any) {
       setActionMsg(err?.message || 'Σφάλμα αναπαραγωγής');
     }
@@ -160,9 +123,52 @@ export default function Library({ role }: { role: Role }) {
     }
   };
 
+  // Breadcrumb from prefix
+  const crumbs = prefix
+    ? prefix.replace(/^\/+|\/+$/g, '').split('/').filter(Boolean)
+    : [];
+
   return (
     <div className="space-y-6">
-      {/* Toolbar + breadcrumbs */}
+      {/* Breadcrumb / path */}
+      <div className="card p-3 flex items-center gap-2 text-sm">
+        <a className="text-blue no-underline hover:underline" href="/material">Αρχική</a>
+        {crumbs.map((c, i) => {
+          const p = crumbs.slice(0, i + 1).join('/') + '/';
+          return (
+            <span key={i} className="flex items-center gap-2">
+              <span>›</span>
+              <a
+                className="text-blue no-underline hover:underline"
+                href={`/material?prefix=${encodeURIComponent(p)}`}
+                title={p}
+              >
+                {c}
+              </a>
+            </span>
+          );
+        })}
+      </div>
+
+      {/* Folders */}
+      {folders.length > 0 && (
+        <div className="card p-4">
+          <div className="grid sm:grid-cols-2 md:grid-cols-3 gap-3">
+            {folders.map(f => (
+              <a
+                key={f.key}
+                className="btn btn-outline"
+                href={`/material?prefix=${encodeURIComponent(f.key.endsWith('/') ? f.key : f.key + '/')}`}
+                title={f.key}
+              >
+                📁 {prettyName(f.name || f.key)}
+              </a>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Tabs */}
       <div className="toolbar">
         <button
           className={clsx('btn btn-outline', activeTab === 'podcast' && 'btn--selected')}
@@ -176,93 +182,38 @@ export default function Library({ role }: { role: Role }) {
         >
           PDF
         </button>
-
-        <div className="header-spacer" />
-
-        {/* Breadcrumbs */}
-        <div className="text-xs text-muted flex flex-wrap items-center gap-1">
-          {breadcrumbs.map((c, idx) => (
-            <span key={c.value} className="flex items-center gap-1">
-              {idx > 0 && <span>/</span>}
-              <button
-                type="button"
-                onClick={() => setPrefix(c.value)}
-                style={{
-                  background: 'transparent',
-                  border: 'none',
-                  padding: 0,
-                  cursor: 'pointer',
-                }}
-                className={clsx(
-                  c.value === prefix ? 'font-semibold text-blue' : 'hover:underline'
-                )}
-              >
-                {c.label}
-              </button>
-            </span>
-          ))}
-        </div>
       </div>
 
       {loading && <div className="card p-6">Φόρτωση...</div>}
       {error && <div className="card p-6 text-red-400">{error}</div>}
       {actionMsg && <div className="card p-4 text-amber-600 text-sm">{actionMsg}</div>}
 
-      {/* Λίστα φακέλων, αν υπάρχουν */}
-      {!loading && !error && folders.length > 0 && (
-        <div className="card p-4 space-y-2">
-          <div className="text-sm font-semibold text-muted">Φάκελοι</div>
-          <div className="flex flex-col gap-2">
-            {folders.map((f) => (
-              <button
-                key={f}
-                type="button"
-                className="btn btn-outline justify-between"
-                onClick={() => setPrefix(f)}
-              >
-                <span>📁 {folderLabel(f)}</span>
-                <span className="text-xs text-muted">Άνοιγμα</span>
-              </button>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* Αρχεία */}
       {!loading && !error && (
         <>
           {/* Podcasts */}
           {activeTab === 'podcast' && (
             <div className="card p-6 divide-y divide-[color:var(--border)]">
-              {podcasts.length === 0 && (
-                <div className="p-4 text-muted">Δεν υπάρχουν ακόμη podcasts.</div>
-              )}
+              {podcasts.length === 0 && <div className="p-4 text-muted">Δεν υπάρχουν ακόμη podcasts.</div>}
               {podcasts.map((p) => (
                 <div key={p.key} className="py-4">
-                  <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+                  <div className="flex items-center gap-4">
                     <div className="flex-1 min-w-0">
-                      <div className="font-medium break-all">
-                        {prettyName(p.name || p.key)}
-                      </div>
+                      <div className="font-medium break-all">{prettyName(p.name || p.key)}</div>
                       <div className="text-xs text-muted">
                         {p.lastModified ? new Date(p.lastModified).toLocaleString() : ''}
                       </div>
                     </div>
-                    <div className="flex gap-2 sm:gap-3 sm:ml-auto">
+                    <div className="ml-auto flex items-center gap-2 sm:gap-3">
                       <button className="btn" onClick={() => play(p.key)}>
                         {playingKey === p.key ? 'Παύση' : 'Αναπαραγωγή'}
                       </button>
-                      <button
-                        className="btn btn-gold"
-                        onClick={() => downloadKey(p.key, p.name)}
-                      >
+                      <button className="btn btn-gold" onClick={() => downloadKey(p.key, p.name)}>
                         Λήψη
                       </button>
                     </div>
                   </div>
                 </div>
               ))}
-              {/* πάντα ορατός player */}
               <div className="border-t border-subtle bg-white p-3">
                 <audio id="audio-player" className="w-full h-10 block" controls preload="none" />
               </div>
@@ -272,41 +223,22 @@ export default function Library({ role }: { role: Role }) {
           {/* PDFs */}
           {activeTab === 'pdf' && (
             <div className="card p-6 divide-y divide-[color:var(--border)]">
-              {pdfs.length === 0 && (
-                <div className="p-4 text-muted">Δεν υπάρχουν ακόμη PDF.</div>
-              )}
-
+              {pdfs.length === 0 && <div className="p-4 text-muted">Δεν υπάρχουν ακόμη PDF.</div>}
               {pdfs.map((pdf) => (
                 <div key={pdf.key} className="py-4">
                   <div className="flex items-center gap-4">
-                    {/* Thumbnail */}
                     <div className="shrink-0">
                       <PdfThumb storageKey={pdf.key} getUrl={getUrl} width={50} />
                     </div>
-
-                    {/* Τίτλος + ημερομηνία */}
                     <div className="min-w-0 flex-1">
-                      <div className="font-medium break-all">
-                        {prettyName(pdf.name || pdf.key)}
-                      </div>
+                      <div className="font-medium break-all">{prettyName(pdf.name || pdf.key)}</div>
                       <div className="text-xs text-muted">
-                        {pdf.lastModified
-                          ? new Date(pdf.lastModified).toLocaleDateString()
-                          : ''}
+                        {pdf.lastModified ? new Date(pdf.lastModified).toLocaleDateString() : ''}
                       </div>
                     </div>
-
-                    {/* Ενέργειες */}
-                    <div className="flex gap-2 sm:gap-3 ml-auto">
-                      <button className="btn" onClick={() => openPdf(pdf.key)}>
-                        Άνοιγμα
-                      </button>
-                      <button
-                        className="btn btn-gold"
-                        onClick={() => downloadKey(pdf.key, pdf.name)}
-                      >
-                        Λήψη
-                      </button>
+                    <div className="actions ml-auto">
+                      <button className="btn" onClick={() => openPdf(pdf.key)}>Άνοιγμα</button>
+                      <button className="btn btn-gold" onClick={() => downloadKey(pdf.key, pdf.name)}>Λήψη</button>
                     </div>
                   </div>
                 </div>
@@ -319,10 +251,7 @@ export default function Library({ role }: { role: Role }) {
   );
 }
 
+/** Safely read text from a Response without throwing on binary/empty bodies */
 async function safeText(res: Response) {
-  try {
-    return await res.text();
-  } catch {
-    return `HTTP ${res.status}`;
-  }
+  try { return await res.text(); } catch { return `HTTP ${res.status}`; }
 }

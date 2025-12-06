@@ -4,27 +4,36 @@ import { NextResponse } from "next/server";
 import {
   ListObjectsV2Command,
   ListObjectsV2CommandOutput,
+  _Object as S3Object,
+  CommonPrefix as S3CommonPrefix,
 } from "@aws-sdk/client-s3";
 import { s3, BUCKET } from "@/lib/s3";
 import { getSession } from "@/lib/session";
 
-function inferType(key: string): "podcast" | "pdf" | null {
-  const lower = key.toLowerCase();
+type ItemType = "podcast" | "pdf";
 
-  if (lower.includes("/pdfs/") || lower.endsWith(".pdf")) {
-    return "pdf";
-  }
+type ApiItem = {
+  key: string;
+  name: string;
+  size?: number;
+  lastModified?: string;
+  type: ItemType;
+};
 
+function inferType(key: string): ItemType | null {
+  const k = key.toLowerCase();
+  if (k.includes("/pdfs/") || k.endsWith(".pdf")) return "pdf";
   if (
-    lower.includes("/podcasts/") ||
-    lower.endsWith(".mp3") ||
-    lower.endsWith(".m4a") ||
-    lower.endsWith(".aac")
-  ) {
-    return "podcast";
-  }
-
+    k.includes("/podcasts/") ||
+    k.endsWith(".mp3") ||
+    k.endsWith(".m4a") ||
+    k.endsWith(".aac")
+  ) return "podcast";
   return null;
+}
+
+function filename(key: string): string {
+  return key.split("/").pop() || key;
 }
 
 export async function GET(req: Request) {
@@ -37,15 +46,9 @@ export async function GET(req: Request) {
   const prefix = url.searchParams.get("prefix") ?? "";
 
   try {
-    const items: {
-      key: string;
-      name: string;
-      size?: number;
-      lastModified?: string;
-      type: "podcast" | "pdf";
-    }[] = [];
-
+    const items: ApiItem[] = [];
     const folders: string[] = [];
+
     let continuationToken: string | undefined = undefined;
 
     do {
@@ -54,31 +57,37 @@ export async function GET(req: Request) {
         Prefix: prefix || undefined,
         Delimiter: "/",
         ContinuationToken: continuationToken,
+        MaxKeys: 1000,
       });
 
       const res = (await s3.send(command)) as ListObjectsV2CommandOutput;
 
-      for (const cp of res.CommonPrefixes ?? []) {
+      // Folders (CommonPrefixes)
+      for (const cp of (res.CommonPrefixes as S3CommonPrefix[] | undefined) ?? []) {
         if (!cp.Prefix) continue;
-        if (!folders.includes(cp.Prefix)) {
-          folders.push(cp.Prefix);
-        }
+        if (!folders.includes(cp.Prefix)) folders.push(cp.Prefix);
       }
 
-      for (const obj of res.Contents ?? []) {
-        if (!obj.Key) continue;
-        if (obj.Key.endsWith("/")) continue;
+      // Files (Contents)
+      for (const obj of (res.Contents as S3Object[] | undefined) ?? []) {
+        const key = obj.Key;
+        if (!key) continue;
 
-        const type = inferType(obj.Key);
+        // Ignore directory placeholder keys
+        if (key.endsWith("/")) continue;
+        // Ignore the "prefix object" itself if returned
+        if (prefix && key === prefix) continue;
+
+        const type = inferType(key);
         if (!type) continue;
 
-        const name = obj.Key.split("/").pop() || obj.Key;
-
         items.push({
-          key: obj.Key,
-          name,
-          size: obj.Size,
-          lastModified: obj.LastModified?.toISOString(),
+          key,
+          name: filename(key),
+          size: obj.Size ?? undefined,
+          lastModified: obj.LastModified
+            ? new Date(obj.LastModified).toISOString()
+            : undefined,
           type,
         });
       }
@@ -86,9 +95,8 @@ export async function GET(req: Request) {
       continuationToken = res.IsTruncated ? res.NextContinuationToken : undefined;
     } while (continuationToken);
 
-    items.sort((a, b) =>
-      (b.lastModified || "").localeCompare(a.lastModified || "")
-    );
+    // Sort newest first
+    items.sort((a, b) => (b.lastModified || "").localeCompare(a.lastModified || ""));
 
     return NextResponse.json({ items, folders, prefix });
   } catch (err: any) {

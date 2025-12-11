@@ -1,72 +1,58 @@
-"use client";
+'use client';
 
-import { useEffect, useMemo, useState } from "react";
-import clsx from "clsx";
-import PdfThumb from "./PdfThumb";
+import { useEffect, useMemo, useState } from 'react';
+import clsx from 'clsx';
+import PdfThumb from './PdfThumb';
 
-type Role = "member" | "admin";
+type Role = 'member' | 'admin';
 
 type Item = {
   key: string;
   name: string;
   size?: number;
   lastModified?: string;
-  type: "podcast" | "pdf";
+  type: 'podcast' | 'pdf';
 };
 
 function prettyName(raw: string) {
-  const base = (raw || "").split("/").pop() || raw;
-  return base.replace(/^\d{13}[-_]/, "");
+  const base = (raw || '').split('/').pop() || raw;
+  return base.replace(/^\d{13}[-_]/, '');
 }
 
 function folderLabel(prefix: string): string {
-  const trimmed = prefix.replace(/\/$/, "");
-  const parts = trimmed.split("/");
+  const trimmed = prefix.replace(/\/$/, '');
+  const parts = trimmed.split('/');
   return parts[parts.length - 1] || prefix;
 }
 
-export default function Library({
-  role,
-  prefix: initialPrefix = "",
-}: {
-  role: Role;
-  prefix?: string;
-}) {
+export default function Library({ role, prefix: initialPrefix = '' }: { role: Role; prefix?: string }) {
   const [items, setItems] = useState<Item[]>([]);
   const [folders, setFolders] = useState<string[]>([]);
   const [prefix, setPrefix] = useState<string>(initialPrefix);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<"podcast" | "pdf">("podcast");
+  const [activeTab, setActiveTab] = useState<'podcast' | 'pdf'>('podcast');
   const [playingKey, setPlayingKey] = useState<string | null>(null);
   const [presigned, setPresigned] = useState<Record<string, string>>({});
   const [actionMsg, setActionMsg] = useState<string | null>(null);
 
-  useEffect(() => {
-    setPrefix(initialPrefix || "");
-  }, [initialPrefix]);
-
-  const podcasts = useMemo(
-    () => items.filter((i) => i.type === "podcast"),
-    [items]
-  );
-  const pdfs = useMemo(
-    () => items.filter((i) => i.type === "pdf"),
-    [items]
-  );
+  const podcasts = useMemo(() => items.filter((i) => i.type === 'podcast'), [items]);
+  const pdfs = useMemo(() => items.filter((i) => i.type === 'pdf'), [items]);
 
   const breadcrumbs = useMemo(() => {
-    const segments = prefix.split("/").filter(Boolean);
-    const crumbs: { label: string; value: string }[] = [
-      { label: "Αρχή", value: "" },
-    ];
-    let acc = "";
+    const segments = prefix.split('/').filter(Boolean);
+    const crumbs: { label: string; value: string }[] = [{ label: 'Αρχή', value: '' }];
+    let acc = '';
     for (const seg of segments) {
-      acc += seg + "/";
+      acc += seg + '/';
       crumbs.push({ label: seg, value: acc });
     }
     return crumbs;
   }, [prefix]);
+
+  useEffect(() => {
+    setPrefix(initialPrefix);
+  }, [initialPrefix]);
 
   useEffect(() => {
     const load = async () => {
@@ -76,15 +62,13 @@ export default function Library({
       setPlayingKey(null);
 
       try {
-        const res = await fetch(
-          `/api/files/list?prefix=${encodeURIComponent(prefix)}`
-        );
+        const res = await fetch(`/api/files/list?prefix=${encodeURIComponent(prefix)}`);
         if (!res.ok) throw new Error(await safeText(res));
         const data = await res.json();
         setItems(data.items || []);
         setFolders(data.folders || []);
       } catch (e: any) {
-        setError(e?.message || "Σφάλμα φόρτωσης");
+        setError(e?.message || 'Σφάλμα φόρτωσης');
       } finally {
         setLoading(false);
       }
@@ -93,26 +77,24 @@ export default function Library({
   }, [prefix]);
 
   useEffect(() => {
-    const audio = document.getElementById(
-      "audio-player"
-    ) as HTMLAudioElement | null;
+    const audio = document.getElementById('audio-player') as HTMLAudioElement | null;
     if (!audio) return;
     const onEnded = () => setPlayingKey(null);
-    audio.addEventListener("ended", onEnded);
-    return () => audio.removeEventListener("ended", onEnded);
+    audio.addEventListener('ended', onEnded);
+    return () => audio.removeEventListener('ended', onEnded);
   }, []);
 
   const getUrl = async (key: string) => {
     if (presigned[key]) return presigned[key];
 
-    const res = await fetch("/api/files/presign", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
+    const res = await fetch('/api/files/presign', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ key }),
     });
 
     if (!res.ok) {
-      let msg = "Αποτυχία δημιουργίας συνδέσμου (presign)";
+      let msg = 'Αποτυχία δημιουργίας συνδέσμου (presign)';
       try {
         const data = await res.json();
         if (data?.error) msg = data.error;
@@ -123,7 +105,7 @@ export default function Library({
     }
 
     const data = await res.json();
-    if (!data?.url) throw new Error("Το presign δεν επέστρεψε URL.");
+    if (!data?.url) throw new Error('Το presign δεν επέστρεψε URL.');
 
     setPresigned((prev) => ({ ...prev, [key]: data.url as string }));
     return data.url as string;
@@ -131,11 +113,9 @@ export default function Library({
 
   const play = async (key: string) => {
     setActionMsg(null);
-    const audio = document.getElementById(
-      "audio-player"
-    ) as HTMLAudioElement | null;
+    const audio = document.getElementById('audio-player') as HTMLAudioElement | null;
     if (!audio) {
-      setActionMsg("Δεν βρέθηκε ο player ήχου");
+      setActionMsg('Δεν βρέθηκε ο player ήχου');
       return;
     }
 
@@ -155,7 +135,7 @@ export default function Library({
       await audio.play();
       setPlayingKey(key);
     } catch (err: any) {
-      setActionMsg(err?.message || "Σφάλμα αναπαραγωγής");
+      setActionMsg(err?.message || 'Σφάλμα αναπαραγωγής');
     }
   };
 
@@ -163,9 +143,9 @@ export default function Library({
     setActionMsg(null);
     try {
       const url = await getUrl(key);
-      window.open(url, "_blank", "noopener,noreferrer");
+      window.open(url, '_blank', 'noopener,noreferrer');
     } catch (err: any) {
-      setActionMsg(err?.message || "Σφάλμα ανοίγματος PDF");
+      setActionMsg(err?.message || 'Σφάλμα ανοίγματος PDF');
     }
   };
 
@@ -173,36 +153,49 @@ export default function Library({
     setActionMsg(null);
     try {
       const url = await getUrl(key);
-      const a = document.createElement("a");
+      const a = document.createElement('a');
       a.href = url;
       a.download = name;
       document.body.appendChild(a);
       a.click();
       a.remove();
     } catch (err: any) {
-      setActionMsg(err?.message || "Σφάλμα λήψης αρχείου");
+      setActionMsg(err?.message || 'Σφάλμα λήψης αρχείου');
+    }
+  };
+
+  const deleteKey = async (key: string) => {
+    if (role !== 'admin') return;
+    if (!confirm('Διαγραφή αρχείου;')) return;
+    setActionMsg(null);
+    try {
+      const res = await fetch('/api/files/delete', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ key }),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => null);
+        throw new Error(data?.error || `HTTP ${res.status}`);
+      }
+      setItems((prev) => prev.filter((i) => i.key !== key));
+    } catch (err: any) {
+      setActionMsg(err?.message || 'Σφάλμα διαγραφής');
     }
   };
 
   return (
     <div className="space-y-6">
-      {/* Tabs + breadcrumbs */}
       <div className="toolbar">
         <button
-          className={clsx(
-            "btn btn-outline",
-            activeTab === "podcast" && "btn--selected"
-          )}
-          onClick={() => setActiveTab("podcast")}
+          className={clsx('btn btn-outline', activeTab === 'podcast' && 'btn--selected')}
+          onClick={() => setActiveTab('podcast')}
         >
           Podcasts
         </button>
         <button
-          className={clsx(
-            "btn btn-outline",
-            activeTab === "pdf" && "btn--selected"
-          )}
-          onClick={() => setActiveTab("pdf")}
+          className={clsx('btn btn-outline', activeTab === 'pdf' && 'btn--selected')}
+          onClick={() => setActiveTab('pdf')}
         >
           PDF
         </button>
@@ -217,15 +210,13 @@ export default function Library({
                 type="button"
                 onClick={() => setPrefix(c.value)}
                 style={{
-                  background: "transparent",
-                  border: "none",
+                  background: 'transparent',
+                  border: 'none',
                   padding: 0,
-                  cursor: "pointer",
+                  cursor: 'pointer',
                 }}
                 className={clsx(
-                  c.value === prefix
-                    ? "font-semibold text-blue"
-                    : "hover:underline"
+                  c.value === prefix ? 'font-semibold text-blue' : 'hover:underline'
                 )}
               >
                 {c.label}
@@ -237,11 +228,8 @@ export default function Library({
 
       {loading && <div className="card p-6">Φόρτωση...</div>}
       {error && <div className="card p-6 text-red-400">{error}</div>}
-      {actionMsg && (
-        <div className="card p-4 text-amber-600 text-sm">{actionMsg}</div>
-      )}
+      {actionMsg && <div className="card p-4 text-amber-600 text-sm">{actionMsg}</div>}
 
-      {/* Folders */}
       {!loading && !error && folders.length > 0 && (
         <div className="card p-4 space-y-2">
           <div className="text-sm font-semibold text-muted">Φάκελοι</div>
@@ -261,16 +249,12 @@ export default function Library({
         </div>
       )}
 
-      {/* Files */}
       {!loading && !error && (
         <>
-          {/* Podcasts */}
-          {activeTab === "podcast" && (
+          {activeTab === 'podcast' && (
             <div className="card p-6 divide-y divide-[color:var(--border)]">
               {podcasts.length === 0 && (
-                <div className="p-4 text-muted">
-                  Δεν υπάρχουν ακόμη podcasts.
-                </div>
+                <div className="p-4 text-muted">Δεν υπάρχουν ακόμη podcasts.</div>
               )}
               {podcasts.map((p) => (
                 <div key={p.key} className="py-4">
@@ -280,14 +264,12 @@ export default function Library({
                         {prettyName(p.name || p.key)}
                       </div>
                       <div className="text-xs text-muted">
-                        {p.lastModified
-                          ? new Date(p.lastModified).toLocaleString()
-                          : ""}
+                        {p.lastModified ? new Date(p.lastModified).toLocaleString() : ''}
                       </div>
                     </div>
-                    <div className="flex gap-2 sm:gap-3 sm:ml-auto">
+                    <div className="flex gap-2 sm:gap-3 sm:ml-auto flex-wrap">
                       <button className="btn" onClick={() => play(p.key)}>
-                        {playingKey === p.key ? "Παύση" : "Αναπαραγωγή"}
+                        {playingKey === p.key ? 'Παύση' : 'Αναπαραγωγή'}
                       </button>
                       <button
                         className="btn btn-gold"
@@ -295,28 +277,28 @@ export default function Library({
                       >
                         Λήψη
                       </button>
+                      {role === 'admin' && (
+                        <button
+                          className="btn btn-outline text-red"
+                          onClick={() => deleteKey(p.key)}
+                        >
+                          Διαγραφή
+                        </button>
+                      )}
                     </div>
                   </div>
                 </div>
               ))}
               <div className="border-t border-subtle bg-white p-3">
-                <audio
-                  id="audio-player"
-                  className="w-full h-10 block"
-                  controls
-                  preload="none"
-                />
+                <audio id="audio-player" className="w-full h-10 block" controls preload="none" />
               </div>
             </div>
           )}
 
-          {/* PDFs */}
-          {activeTab === "pdf" && (
+          {activeTab === 'pdf' && (
             <div className="card p-6 divide-y divide-[color:var(--border)]">
               {pdfs.length === 0 && (
-                <div className="p-4 text-muted">
-                  Δεν υπάρχουν ακόμη PDF.
-                </div>
+                <div className="p-4 text-muted">Δεν υπάρχουν ακόμη PDF.</div>
               )}
 
               {pdfs.map((pdf) => (
@@ -325,6 +307,7 @@ export default function Library({
                     <div className="shrink-0">
                       <PdfThumb storageKey={pdf.key} getUrl={getUrl} width={50} />
                     </div>
+
                     <div className="min-w-0 flex-1">
                       <div className="font-medium break-all">
                         {prettyName(pdf.name || pdf.key)}
@@ -332,10 +315,11 @@ export default function Library({
                       <div className="text-xs text-muted">
                         {pdf.lastModified
                           ? new Date(pdf.lastModified).toLocaleDateString()
-                          : ""}
+                          : ''}
                       </div>
                     </div>
-                    <div className="flex gap-2 sm:gap-3 ml-auto">
+
+                    <div className="flex gap-2 sm:gap-3 ml-auto flex-wrap">
                       <button className="btn" onClick={() => openPdf(pdf.key)}>
                         Άνοιγμα
                       </button>
@@ -345,6 +329,14 @@ export default function Library({
                       >
                         Λήψη
                       </button>
+                      {role === 'admin' && (
+                        <button
+                          className="btn btn-outline text-red"
+                          onClick={() => deleteKey(pdf.key)}
+                        >
+                          Διαγραφή
+                        </button>
+                      )}
                     </div>
                   </div>
                 </div>

@@ -3,18 +3,17 @@ import { getSession } from "@/lib/session";
 import { redirect } from "next/navigation";
 import Library from "@/components/Library";
 
-type SP = { prefix?: string };
+type SearchParams = { prefix?: string };
 
 export default async function MaterialPage({
   searchParams,
 }: {
-  searchParams: Promise<SP>;
+  searchParams: Promise<SearchParams>;
 }) {
   const session = await getSession();
   if (!session.isLoggedIn) redirect("/login");
 
-  const sp = await searchParams;
-  const prefix = typeof sp?.prefix === "string" ? sp.prefix : "";
+  const { prefix = "" } = await searchParams;
 
   const year = new Date().getFullYear();
   const akPrefix = `Ακολουθίες/${year}/`;
@@ -22,12 +21,17 @@ export default async function MaterialPage({
   return (
     <div className="space-y-6">
       <header className="toolbar">
-        <h1 className="font-heading text-blue" style={{ fontWeight: 700, fontSize: 22 }}>
+        <h1
+          className="font-heading text-blue"
+          style={{ fontWeight: 700, fontSize: 22 }}
+        >
           Υλικό
         </h1>
         <div className="header-spacer" />
         <nav className="actions">
-          <Link href="/material" className="btn btn-outline">Όλα</Link>
+          <Link href="/material" className="btn btn-outline">
+            Όλα
+          </Link>
           <Link
             href={`/material?prefix=${encodeURIComponent(akPrefix)}`}
             className="btn btn-gold"
@@ -36,7 +40,9 @@ export default async function MaterialPage({
             Ακολουθίες {year}
           </Link>
           {session.user?.role === "admin" && (
-            <Link href="/upload" className="btn btn-outline">Ανέβασμα</Link>
+            <Link href="/upload" className="btn btn-outline">
+              Ανέβασμα
+            </Link>
           )}
         </nav>
       </header>

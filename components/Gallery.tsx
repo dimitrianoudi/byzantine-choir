@@ -1,6 +1,9 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
+import GalleryUploader from '@/components/GalleryUploader';
+
+type Role = 'member' | 'admin';
 
 type GalleryItem = {
   id: string;
@@ -13,7 +16,7 @@ type GalleryItem = {
   duration?: number | null;
 };
 
-export default function Gallery() {
+export default function Gallery({ role }: { role: Role }) {
   const [items, setItems] = useState<GalleryItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState<string | null>(null);
@@ -23,28 +26,31 @@ export default function Gallery() {
     index: 0,
   });
 
-  useEffect(() => {
-    (async () => {
-      setLoading(true);
-      setErr(null);
-      try {
-        const res = await fetch('/api/gallery', { cache: 'no-store' });
-        const json = await res.json();
-        if (!res.ok) throw new Error(json?.error || 'Load failed');
-        setItems(json.items || []);
-      } catch (e: any) {
-        setErr(e.message || 'Σφάλμα φόρτωσης');
-      } finally {
-        setLoading(false);
-      }
-    })();
+  const loadItems = useCallback(async () => {
+    setLoading(true);
+    setErr(null);
+    try {
+      const res = await fetch('/api/gallery', { cache: 'no-store' });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json?.error || 'Load failed');
+      setItems(json.items || []);
+    } catch (e: any) {
+      setErr(e.message || 'Σφάλμα φόρτωσης');
+    } finally {
+      setLoading(false);
+    }
   }, []);
+
+  useEffect(() => {
+    loadItems();
+  }, [loadItems]);
 
   const openAt = (i: number) => setLightbox({ open: true, index: i });
   const close = () => setLightbox({ open: false, index: 0 });
   const prev = () =>
     setLightbox((v) => ({ ...v, index: (v.index + items.length - 1) % items.length }));
-  const next = () => setLightbox((v) => ({ ...v, index: (v.index + 1) % items.length }));
+  const next = () =>
+    setLightbox((v) => ({ ...v, index: (v.index + 1) % items.length }));
 
   return (
     <div className="space-y-6">
@@ -53,6 +59,12 @@ export default function Gallery() {
           Στιγμιότυπα
         </h1>
       </div>
+
+      {role === 'admin' && (
+        <section className="space-y-4">
+          <GalleryUploader onUploaded={loadItems} />
+        </section>
+      )}
 
       {loading && <div className="card p-6">Φόρτωση…</div>}
       {err && <div className="card p-6 text-red">{err}</div>}
@@ -67,7 +79,6 @@ export default function Gallery() {
               aria-label="Προβολή"
             >
               {it.type === 'image' ? (
-                // eslint-disable-next-line @next/next/no-img-element
                 <img src={it.thumb} alt="" className="thumb" loading="lazy" />
               ) : (
                 <div className="thumb video-thumb">
@@ -93,16 +104,19 @@ export default function Gallery() {
             </button>
 
             {items[lightbox.index].type === 'image' ? (
-              // eslint-disable-next-line @next/next/no-img-element
               <img src={items[lightbox.index].src} alt="" className="lb-media" />
             ) : (
-              <video className="lb-media" src={items[lightbox.index].src} controls playsInline />
+              <video
+                className="lb-media"
+                src={items[lightbox.index].src}
+                controls
+                playsInline
+              />
             )}
           </div>
         </div>
       )}
 
-      {/* SINGLE styled-jsx block to avoid nesting error */}
       <style jsx>{`
         .masonry {
           column-count: 1;
@@ -157,7 +171,6 @@ export default function Gallery() {
           font-weight: 700;
         }
 
-        /* Lightbox */
         .overlay {
           position: fixed;
           inset: 0;

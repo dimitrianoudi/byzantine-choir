@@ -12,6 +12,8 @@
   "dependencies": {
     "@aws-sdk/client-s3": "^3.908.0",
     "@aws-sdk/s3-request-presigner": "^3.908.0",
+    "@cloudinary/react": "^1.14.3",
+    "@cloudinary/url-gen": "^1.22.0",
     "clsx": "^2.1.1",
     "google-auth-library": "^10.4.1",
     "googleapis": "^164.0.0",

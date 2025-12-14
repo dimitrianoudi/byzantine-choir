@@ -31,10 +31,15 @@ function todayISO() {
 }
 
 type Props = {
-  initial?: { series?: string; prefix?: string; year?: string; date?: string };
+  initialSearchParams?: {
+    series?: string;
+    prefix?: string;
+    year?: string;
+    date?: string;
+  };
 };
 
-export default function Uploader({ initial }: Props) {
+export default function Uploader({ initialSearchParams }: Props) {
   const [series, setSeries] = useState<Series>('lessons');
 
   const [files, setFiles] = useState<UploadFile[]>([]);

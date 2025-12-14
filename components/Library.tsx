@@ -29,12 +29,29 @@ export default function Library({ role, prefix: initialPrefix = '' }: { role: Ro
   const [items, setItems] = useState<Item[]>([]);
   const [folders, setFolders] = useState<string[]>([]);
   const [prefix, setPrefix] = useState<string>(initialPrefix);
+
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  const isAkolouthies = useMemo(() => prefix.startsWith('Ακολουθίες/'), [prefix]);
+
   const [activeTab, setActiveTab] = useState<'podcast' | 'pdf'>('podcast');
   const [playingKey, setPlayingKey] = useState<string | null>(null);
   const [presigned, setPresigned] = useState<Record<string, string>>({});
   const [actionMsg, setActionMsg] = useState<string | null>(null);
+
+  useEffect(() => {
+    setPrefix(initialPrefix || '');
+  }, [initialPrefix]);
+
+  useEffect(() => {
+    if (isAkolouthies) {
+      setActiveTab('podcast');
+      return;
+    }
+    if (prefix.toLowerCase().includes('/pdfs/')) setActiveTab('pdf');
+    if (prefix.toLowerCase().includes('/podcasts/')) setActiveTab('podcast');
+  }, [prefix, isAkolouthies]);
 
   const podcasts = useMemo(() => items.filter((i) => i.type === 'podcast'), [items]);
   const pdfs = useMemo(() => items.filter((i) => i.type === 'pdf'), [items]);
@@ -49,10 +66,6 @@ export default function Library({ role, prefix: initialPrefix = '' }: { role: Ro
     }
     return crumbs;
   }, [prefix]);
-
-  useEffect(() => {
-    setPrefix(initialPrefix);
-  }, [initialPrefix]);
 
   useEffect(() => {
     const load = async () => {
@@ -164,26 +177,6 @@ export default function Library({ role, prefix: initialPrefix = '' }: { role: Ro
     }
   };
 
-  const deleteKey = async (key: string) => {
-    if (role !== 'admin') return;
-    if (!confirm('Διαγραφή αρχείου;')) return;
-    setActionMsg(null);
-    try {
-      const res = await fetch('/api/files/delete', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ key }),
-      });
-      if (!res.ok) {
-        const data = await res.json().catch(() => null);
-        throw new Error(data?.error || `HTTP ${res.status}`);
-      }
-      setItems((prev) => prev.filter((i) => i.key !== key));
-    } catch (err: any) {
-      setActionMsg(err?.message || 'Σφάλμα διαγραφής');
-    }
-  };
-
   return (
     <div className="space-y-6">
       <div className="toolbar">
@@ -193,12 +186,15 @@ export default function Library({ role, prefix: initialPrefix = '' }: { role: Ro
         >
           Podcasts
         </button>
-        <button
-          className={clsx('btn btn-outline', activeTab === 'pdf' && 'btn--selected')}
-          onClick={() => setActiveTab('pdf')}
-        >
-          PDF
-        </button>
+
+        {!isAkolouthies && (
+          <button
+            className={clsx('btn btn-outline', activeTab === 'pdf' && 'btn--selected')}
+            onClick={() => setActiveTab('pdf')}
+          >
+            PDF
+          </button>
+        )}
 
         <div className="header-spacer" />
 
@@ -209,15 +205,8 @@ export default function Library({ role, prefix: initialPrefix = '' }: { role: Ro
               <button
                 type="button"
                 onClick={() => setPrefix(c.value)}
-                style={{
-                  background: 'transparent',
-                  border: 'none',
-                  padding: 0,
-                  cursor: 'pointer',
-                }}
-                className={clsx(
-                  c.value === prefix ? 'font-semibold text-blue' : 'hover:underline'
-                )}
+                style={{ background: 'transparent', border: 'none', padding: 0, cursor: 'pointer' }}
+                className={clsx(c.value === prefix ? 'font-semibold text-blue' : 'hover:underline')}
               >
                 {c.label}
               </button>
@@ -235,12 +224,7 @@ export default function Library({ role, prefix: initialPrefix = '' }: { role: Ro
           <div className="text-sm font-semibold text-muted">Φάκελοι</div>
           <div className="flex flex-col gap-2">
             {folders.map((f) => (
-              <button
-                key={f}
-                type="button"
-                className="btn btn-outline justify-between"
-                onClick={() => setPrefix(f)}
-              >
+              <button key={f} type="button" className="btn btn-outline justify-between" onClick={() => setPrefix(f)}>
                 <span>📁 {folderLabel(f)}</span>
                 <span className="text-xs text-muted">Άνοιγμα</span>
               </button>
@@ -253,53 +237,38 @@ export default function Library({ role, prefix: initialPrefix = '' }: { role: Ro
         <>
           {activeTab === 'podcast' && (
             <div className="card p-6 divide-y divide-[color:var(--border)]">
-              {podcasts.length === 0 && (
-                <div className="p-4 text-muted">Δεν υπάρχουν ακόμη podcasts.</div>
-              )}
+              {podcasts.length === 0 && <div className="p-4 text-muted">Δεν υπάρχουν ακόμη podcasts.</div>}
+
               {podcasts.map((p) => (
                 <div key={p.key} className="py-4">
                   <div className="flex flex-col sm:flex-row sm:items-center gap-3">
                     <div className="flex-1 min-w-0">
-                      <div className="font-medium break-all">
-                        {prettyName(p.name || p.key)}
-                      </div>
+                      <div className="font-medium break-all">{prettyName(p.name || p.key)}</div>
                       <div className="text-xs text-muted">
                         {p.lastModified ? new Date(p.lastModified).toLocaleString() : ''}
                       </div>
                     </div>
-                    <div className="flex gap-2 sm:gap-3 sm:ml-auto flex-wrap">
+                    <div className="flex gap-2 sm:gap-3 sm:ml-auto">
                       <button className="btn" onClick={() => play(p.key)}>
                         {playingKey === p.key ? 'Παύση' : 'Αναπαραγωγή'}
                       </button>
-                      <button
-                        className="btn btn-gold"
-                        onClick={() => downloadKey(p.key, p.name)}
-                      >
+                      <button className="btn btn-gold" onClick={() => downloadKey(p.key, p.name)}>
                         Λήψη
                       </button>
-                      {role === 'admin' && (
-                        <button
-                          className="btn btn-outline text-red"
-                          onClick={() => deleteKey(p.key)}
-                        >
-                          Διαγραφή
-                        </button>
-                      )}
                     </div>
                   </div>
                 </div>
               ))}
+
               <div className="border-t border-subtle bg-white p-3">
                 <audio id="audio-player" className="w-full h-10 block" controls preload="none" />
               </div>
             </div>
           )}
 
-          {activeTab === 'pdf' && (
+          {!isAkolouthies && activeTab === 'pdf' && (
             <div className="card p-6 divide-y divide-[color:var(--border)]">
-              {pdfs.length === 0 && (
-                <div className="p-4 text-muted">Δεν υπάρχουν ακόμη PDF.</div>
-              )}
+              {pdfs.length === 0 && <div className="p-4 text-muted">Δεν υπάρχουν ακόμη PDF.</div>}
 
               {pdfs.map((pdf) => (
                 <div key={pdf.key} className="py-4">
@@ -309,34 +278,15 @@ export default function Library({ role, prefix: initialPrefix = '' }: { role: Ro
                     </div>
 
                     <div className="min-w-0 flex-1">
-                      <div className="font-medium break-all">
-                        {prettyName(pdf.name || pdf.key)}
-                      </div>
+                      <div className="font-medium break-all">{prettyName(pdf.name || pdf.key)}</div>
                       <div className="text-xs text-muted">
-                        {pdf.lastModified
-                          ? new Date(pdf.lastModified).toLocaleDateString()
-                          : ''}
+                        {pdf.lastModified ? new Date(pdf.lastModified).toLocaleDateString() : ''}
                       </div>
                     </div>
 
-                    <div className="flex gap-2 sm:gap-3 ml-auto flex-wrap">
-                      <button className="btn" onClick={() => openPdf(pdf.key)}>
-                        Άνοιγμα
-                      </button>
-                      <button
-                        className="btn btn-gold"
-                        onClick={() => downloadKey(pdf.key, pdf.name)}
-                      >
-                        Λήψη
-                      </button>
-                      {role === 'admin' && (
-                        <button
-                          className="btn btn-outline text-red"
-                          onClick={() => deleteKey(pdf.key)}
-                        >
-                          Διαγραφή
-                        </button>
-                      )}
+                    <div className="flex gap-2 sm:gap-3 ml-auto">
+                      <button className="btn" onClick={() => openPdf(pdf.key)}>Άνοιγμα</button>
+                      <button className="btn btn-gold" onClick={() => downloadKey(pdf.key, pdf.name)}>Λήψη</button>
                     </div>
                   </div>
                 </div>

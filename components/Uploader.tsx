@@ -30,7 +30,11 @@ function todayISO() {
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 }
 
-export default function Uploader() {
+type Props = {
+  initial?: { series?: string; prefix?: string; year?: string; date?: string };
+};
+
+export default function Uploader({ initial }: Props) {
   const [series, setSeries] = useState<Series>('lessons');
 
   const [files, setFiles] = useState<UploadFile[]>([]);

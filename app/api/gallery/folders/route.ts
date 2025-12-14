@@ -2,14 +2,10 @@ export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
 import { getSession } from "@/lib/session";
-import crypto from "crypto";
 
-function sign(params: Record<string, string>, apiSecret: string) {
-  const toSign = Object.keys(params)
-    .sort()
-    .map((k) => `${k}=${params[k]}`)
-    .join("&");
-  return crypto.createHash("sha1").update(`${toSign}${apiSecret}`).digest("hex");
+function authHeader(apiKey: string, apiSecret: string) {
+  const token = Buffer.from(`${apiKey}:${apiSecret}`).toString("base64");
+  return `Basic ${token}`;
 }
 
 export async function POST(req: Request) {
@@ -30,17 +26,21 @@ export async function POST(req: Request) {
   try { body = await req.json(); } catch { body = {}; }
   const b = body as Record<string, unknown>;
 
-  const folderFromClient = typeof b.folder === "string" ? b.folder : "";
-  const folder = (folderFromClient || `${root}/`).replace(/^\/+/, "").replace(/\/?$/, "/");
+  const name = typeof b.name === "string" ? b.name.trim() : "";
+  const prefix = typeof b.prefix === "string" ? b.prefix : `${root}/`;
 
-  const timestamp = Math.floor(Date.now() / 1000);
-  const signature = sign({ folder, timestamp: String(timestamp) }, apiSecret);
+  if (!name) return NextResponse.json({ error: "Missing folder name" }, { status: 400 });
 
-  return NextResponse.json({
-    timestamp,
-    signature,
-    folder,
-    cloudName,
-    apiKey,
+  const full = `${prefix.replace(/\/?$/, "/")}${name}`.replace(/^\/+/, "");
+
+  const res = await fetch(`https://api.cloudinary.com/v1_1/${cloudName}/folders/${encodeURIComponent(full)}`, {
+    method: "POST",
+    headers: { Authorization: authHeader(apiKey, apiSecret) },
+    cache: "no-store",
   });
+
+  const json = await res.json().catch(() => ({}));
+  if (!res.ok) return NextResponse.json({ error: json?.error?.message || "Create folder failed" }, { status: 500 });
+
+  return NextResponse.json({ ok: true, path: full });
 }

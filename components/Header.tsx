@@ -70,7 +70,7 @@ export default function Header({
           <img
             src="/logo_frontistirio_psaltikis.png"
             alt="Ψαλτικοί Χοροί Αγ. Αθανασίου & Ευαγγελισμού Ευόσμου"
-            className="h-[104px] w-auto shrink-0 mr-4"   // <- set desired height
+            className="h-[104px] w-auto shrink-0 mr-4"
           />
           {/* <span
             className="ml-4 text-black font-semibold leading-tight text-base sm:text-lg max-w-[38ch]"

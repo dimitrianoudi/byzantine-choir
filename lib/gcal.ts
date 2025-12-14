@@ -7,7 +7,7 @@ export type ChoirEvent = {
   startsAt: string;   // RFC3339 (local allowed; server applies tz)
   endsAt?: string;
   location?: string;
-  attendees?: string[]; // <-- NEW: email addresses
+  attendees?: string[];
 };
 
 export type RecurrenceInput = {

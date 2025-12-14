@@ -12,7 +12,7 @@ export async function GET() {
     const query = new URLSearchParams({
       expression: `folder:${FOLDER}`,
       max_results: "200",
-      // next_cursor: ""  // αν θες pagination αργότερα
+      // next_cursor: ""  // TODO: pagination later
     });
 
     const res = await fetch(

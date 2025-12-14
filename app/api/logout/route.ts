@@ -7,5 +7,4 @@ export async function POST() {
   return NextResponse.json({ ok: true });
 }
 
-// (optional) allow GET too
 export const GET = POST;

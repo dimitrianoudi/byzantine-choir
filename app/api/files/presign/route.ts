@@ -76,7 +76,7 @@ export async function POST(req: Request) {
       if (!year || !isIsoDate(date)) {
         return NextResponse.json({ error: "Invalid year/date for Ακολουθίες" }, { status: 400 });
       }
-      key = `Ακολουθίες/${year}/${date}/${typeFolder}/${Date.now()}-${safe}`;
+      key = `Ακολουθίες/${year}/${date}/podcasts/${Date.now()}-${safe}`;
     } else {
       const course = b?.course as CourseKey | undefined;
       const year = Number(b?.year);

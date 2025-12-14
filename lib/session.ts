@@ -5,12 +5,12 @@ export type Role = "member" | "admin";
 
 export type SessionUser = {
   role: Role;
-  email?: string;        // ← add this
+  email?: string;
 };
 
 export type SessionData = {
   isLoggedIn: boolean;
-  user?: SessionUser;    // ← use the new type
+  user?: SessionUser;
 };
 
 export const sessionOptions: SessionOptions = {
@@ -24,7 +24,6 @@ export const sessionOptions: SessionOptions = {
 };
 
 export async function getSession() {
-  // Next 15: cookies() returns a CookieStore-like object
   const cookieStore = await cookies();
   return getIronSession<SessionData>(cookieStore as any, sessionOptions);
 }

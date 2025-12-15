@@ -93,7 +93,7 @@ export default function Gallery({ role }: { role: Role }) {
       const res = await fetch('/api/gallery/delete', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id: it.publicId, resourceType: it.type }),
+        body: JSON.stringify({ id: it.publicId || it.id, resourceType: it.type }),
       });
 
       const json = await res.json().catch(() => ({}));

@@ -3,7 +3,12 @@ export const runtime = "nodejs";
 import { NextResponse } from "next/server";
 import { getSession } from "@/lib/session";
 
-type Body = { id?: string; resourceType?: "image" | "video" };
+type Body = {
+  id?: string;
+  publicId?: string;
+  resourceType?: "image" | "video";
+  type?: "image" | "video";
+};
 
 export async function POST(req: Request) {
   const session = await getSession();
@@ -22,16 +27,20 @@ export async function POST(req: Request) {
   let body: Body = {};
   try {
     body = (await req.json()) as Body;
-  } catch {}
+  } catch {
+    return NextResponse.json({ error: "Invalid body" }, { status: 400 });
+  }
 
-  const id = body.id;
-  const resourceType = body.resourceType;
+  const id = body.id || body.publicId;
+  const resourceType = body.resourceType || body.type;
 
   if (!id || (resourceType !== "image" && resourceType !== "video")) {
     return NextResponse.json({ error: "Invalid body" }, { status: 400 });
   }
 
-  const url = new URL(`https://api.cloudinary.com/v1_1/${cloudName}/resources/${resourceType}/upload`);
+  const url = new URL(
+    `https://api.cloudinary.com/v1_1/${cloudName}/resources/${resourceType}/upload`
+  );
   url.searchParams.append("public_ids[]", id);
   url.searchParams.set("invalidate", "true");
 

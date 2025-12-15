@@ -23,6 +23,11 @@ function folderLabel(path: string) {
   return parts[parts.length - 1] || path;
 }
 
+function normalizePrefix(p: string) {
+  if (!p) return '';
+  return p.endsWith('/') ? p : `${p}/`;
+}
+
 export default function Gallery({ role }: { role: Role }) {
   const [items, setItems] = useState<GalleryItem[]>([]);
   const [folders, setFolders] = useState<string[]>([]);
@@ -30,7 +35,11 @@ export default function Gallery({ role }: { role: Role }) {
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState<string | null>(null);
 
-  const [lightbox, setLightbox] = useState<{ open: boolean; index: number }>({ open: false, index: 0 });
+  const [lightbox, setLightbox] = useState<{ open: boolean; index: number }>({
+    open: false,
+    index: 0,
+  });
+
   const [busyDelete, setBusyDelete] = useState(false);
 
   const breadcrumbs = useMemo(() => {
@@ -49,66 +58,74 @@ export default function Gallery({ role }: { role: Role }) {
     setErr(null);
     try {
       const res = await fetch(`/api/gallery?prefix=${encodeURIComponent(prefix)}`, { cache: 'no-store' });
-      const json = await res.json();
+      const json = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(json?.error || 'Load failed');
-      setItems(json.items || []);
-      setFolders(json.folders || []);
+
+      setItems(Array.isArray(json.items) ? json.items : []);
+      setFolders(Array.isArray(json.folders) ? json.folders : []);
     } catch (e: any) {
-      setErr(e.message || 'Σφάλμα φόρτωσης');
+      setErr(e?.message || 'Σφάλμα φόρτωσης');
     } finally {
       setLoading(false);
     }
   }, [prefix]);
 
-  useEffect(() => { loadItems(); }, [loadItems]);
+  useEffect(() => {
+    loadItems();
+  }, [loadItems]);
 
   const openAt = (i: number) => setLightbox({ open: true, index: i });
   const close = () => setLightbox({ open: false, index: 0 });
-  const prev = () => setLightbox(v => ({ ...v, index: (v.index + items.length - 1) % items.length }));
-  const next = () => setLightbox(v => ({ ...v, index: (v.index + 1) % items.length }));
+  const prev = () =>
+    setLightbox((v) => ({ ...v, index: (v.index + items.length - 1) % items.length }));
+  const next = () =>
+    setLightbox((v) => ({ ...v, index: (v.index + 1) % items.length }));
 
-  const del = async (it: GalleryItem) => {
+  const deleteItem = async (it: GalleryItem) => {
     if (role !== 'admin') return;
+    if (busyDelete) return;
     if (!confirm('Διαγραφή από το gallery;')) return;
 
     setBusyDelete(true);
+    setErr(null);
+
     try {
-      const res = await fetch('/api/gallery', {
-        method: 'DELETE',
+      const res = await fetch('/api/gallery/delete', {
+        method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ publicId: it.publicId, resourceType: it.type }),
+        body: JSON.stringify({ id: it.publicId, resourceType: it.type }),
       });
+
       const json = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(json?.error || 'Delete failed');
+
+      const wasLightboxOpen = lightbox.open;
+      const removedIndex = lightbox.index;
+
       await loadItems();
-      setLightbox(v => {
-        const nextIndex = Math.min(v.index, Math.max(0, items.length - 2));
-        return v.open ? { open: items.length - 1 > 0, index: nextIndex } : v;
-      });
+
+      if (wasLightboxOpen) {
+        setLightbox((v) => {
+          const newLen = Math.max(0, items.length - 1);
+          if (newLen === 0) return { open: false, index: 0 };
+          const nextIndex = Math.min(removedIndex, newLen - 1);
+          return { open: true, index: nextIndex };
+        });
+      }
     } catch (e: any) {
-      alert(e?.message || 'Σφάλμα διαγραφής');
+      setErr(e?.message || 'Σφάλμα διαγραφής');
     } finally {
       setBusyDelete(false);
     }
   };
 
   const [newFolder, setNewFolder] = useState('');
-  const createFolder = async () => {
+
+  const createFolder = () => {
     const name = newFolder.trim();
     if (!name) return;
-    try {
-      const res = await fetch('/api/gallery/folders', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name, prefix }),
-      });
-      const json = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(json?.error || 'Create folder failed');
-      setNewFolder('');
-      await loadItems();
-    } catch (e: any) {
-      alert(e?.message || 'Σφάλμα δημιουργίας φακέλου');
-    }
+    setPrefix((p) => normalizePrefix(p + name));
+    setNewFolder('');
   };
 
   return (
@@ -139,7 +156,10 @@ export default function Gallery({ role }: { role: Role }) {
       {role === 'admin' && (
         <section className="space-y-4">
           <div className="card p-4 flex flex-col sm:flex-row gap-3 sm:items-center sm:justify-between">
-            <div className="text-sm text-muted">Τρέχων φάκελος: <span className="text-blue">{prefix || 'Αρχή'}</span></div>
+            <div className="text-sm text-muted">
+              Τρέχων φάκελος: <span className="text-blue">{prefix || 'Αρχή'}</span>
+            </div>
+
             <div className="flex gap-2">
               <input
                 className="input"
@@ -148,7 +168,13 @@ export default function Gallery({ role }: { role: Role }) {
                 placeholder="Νέος φάκελος (π.χ. 2025/Πάσχα)"
                 style={{ maxWidth: 340 }}
               />
-              <button className="btn btn-outline" type="button" onClick={createFolder} disabled={!newFolder.trim()}>
+              <button
+                className="btn btn-outline"
+                type="button"
+                onClick={createFolder}
+                disabled={!newFolder.trim()}
+                title="Σημείωση: ο φάκελος θα εμφανιστεί αφού ανεβεί τουλάχιστον 1 αρχείο"
+              >
                 Δημιουργία
               </button>
             </div>
@@ -170,7 +196,7 @@ export default function Gallery({ role }: { role: Role }) {
                 key={f}
                 type="button"
                 className="btn btn-outline justify-between"
-                onClick={() => setPrefix(f.replace(/\/?$/, '/'))}
+                onClick={() => setPrefix(normalizePrefix(f))}
               >
                 <span>📁 {folderLabel(f)}</span>
                 <span className="text-xs text-muted">Άνοιγμα</span>
@@ -198,7 +224,11 @@ export default function Gallery({ role }: { role: Role }) {
                 <button
                   type="button"
                   className="del-btn"
-                  onClick={(e) => { e.preventDefault(); e.stopPropagation(); del(it); }}
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    deleteItem(it);
+                  }}
                   disabled={busyDelete}
                   aria-label="Διαγραφή"
                   title="Διαγραφή"
@@ -214,14 +244,20 @@ export default function Gallery({ role }: { role: Role }) {
       {lightbox.open && items[lightbox.index] && (
         <div className="overlay" onClick={close} role="dialog" aria-modal="true">
           <div className="lb-content" onClick={(e) => e.stopPropagation()}>
-            <button className="lb-x" onClick={close} aria-label="Κλείσιμο">✕</button>
-            <button className="lb-prev" onClick={prev} aria-label="Προηγούμενο">‹</button>
-            <button className="lb-next" onClick={next} aria-label="Επόμενο">›</button>
+            <button className="lb-x" onClick={close} aria-label="Κλείσιμο">
+              ✕
+            </button>
+            <button className="lb-prev" onClick={prev} aria-label="Προηγούμενο">
+              ‹
+            </button>
+            <button className="lb-next" onClick={next} aria-label="Επόμενο">
+              ›
+            </button>
 
             {role === 'admin' && (
               <button
                 className="lb-del"
-                onClick={() => del(items[lightbox.index])}
+                onClick={() => deleteItem(items[lightbox.index])}
                 disabled={busyDelete}
                 aria-label="Διαγραφή"
               >
@@ -243,8 +279,16 @@ export default function Gallery({ role }: { role: Role }) {
           column-count: 1;
           column-gap: 1rem;
         }
-        @media (min-width: 640px) { .masonry { column-count: 2; } }
-        @media (min-width: 1024px) { .masonry { column-count: 3; } }
+        @media (min-width: 640px) {
+          .masonry {
+            column-count: 2;
+          }
+        }
+        @media (min-width: 1024px) {
+          .masonry {
+            column-count: 3;
+          }
+        }
 
         .masonry-wrap {
           position: relative;
@@ -303,7 +347,10 @@ export default function Gallery({ role }: { role: Role }) {
           display: grid;
           place-items: center;
         }
-        .del-btn:disabled { opacity: 0.6; cursor: not-allowed; }
+        .del-btn:disabled {
+          opacity: 0.6;
+          cursor: not-allowed;
+        }
 
         .overlay {
           position: fixed;
@@ -328,7 +375,9 @@ export default function Gallery({ role }: { role: Role }) {
           border-radius: 12px;
           background: #000;
         }
-        .lb-x, .lb-prev, .lb-next {
+        .lb-x,
+        .lb-prev,
+        .lb-next {
           position: absolute;
           top: 50%;
           transform: translateY(-50%);
@@ -345,8 +394,12 @@ export default function Gallery({ role }: { role: Role }) {
           right: 0;
           transform: none;
         }
-        .lb-prev { left: -52px; }
-        .lb-next { right: -52px; }
+        .lb-prev {
+          left: -52px;
+        }
+        .lb-next {
+          right: -52px;
+        }
 
         .lb-del {
           position: absolute;
@@ -360,13 +413,26 @@ export default function Gallery({ role }: { role: Role }) {
           color: #fff;
           cursor: pointer;
         }
-        .lb-del:disabled { opacity: 0.6; cursor: not-allowed; }
+        .lb-del:disabled {
+          opacity: 0.6;
+          cursor: not-allowed;
+        }
 
         @media (max-width: 640px) {
-          .lb-prev { left: 8px; }
-          .lb-next { right: 8px; }
-          .lb-x { top: -48px; right: 8px; }
-          .lb-del { top: -48px; left: 8px; }
+          .lb-prev {
+            left: 8px;
+          }
+          .lb-next {
+            right: 8px;
+          }
+          .lb-x {
+            top: -48px;
+            right: 8px;
+          }
+          .lb-del {
+            top: -48px;
+            left: 8px;
+          }
         }
       `}</style>
     </div>

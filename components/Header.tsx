@@ -89,6 +89,7 @@ export default function Header({
           <nav className="nav">
             <NavLink href="/" label="Αρχική" />
             <NavLink href="/material" label="Υλικό" />
+            <NavLink href="/akolouthies" label="Ακολουθίες" />
             <NavLink href="/calendar" label="Ημερολόγιο" />
             <NavLink href="/gallery" label="Στιγμιότυπα" />
 

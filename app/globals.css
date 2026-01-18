@@ -228,9 +228,9 @@
   } */
 
   .icon-btn {
-    width: 25px;
-    height: 25px;
-    min-width: 25px;     /* overrides any inherited min-width */
+    width: 34px;
+    height: 34px;
+    min-width: 34px;     /* overrides any inherited min-width */
     padding: 0;
     border-radius: 9999px;
     display: inline-flex;

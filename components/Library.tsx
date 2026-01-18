@@ -56,6 +56,19 @@ export default function Library({ role, prefix: initialPrefix = '' }: { role: Ro
   const podcasts = useMemo(() => items.filter((i) => i.type === 'podcast'), [items]);
   const pdfs = useMemo(() => items.filter((i) => i.type === 'pdf'), [items]);
 
+  const hasPodcasts = podcasts.length > 0;
+  const hasPdfs = pdfs.length > 0;
+
+  useEffect(() => {
+    if (isAkolouthies) {
+      if (activeTab !== 'podcast') setActiveTab('podcast');
+      return;
+    }
+
+    if (activeTab === 'podcast' && !hasPodcasts && hasPdfs) setActiveTab('pdf');
+    if (activeTab === 'pdf' && !hasPdfs && hasPodcasts) setActiveTab('podcast');
+  }, [activeTab, hasPodcasts, hasPdfs, isAkolouthies]);
+
   const breadcrumbs = useMemo(() => {
     const segments = prefix.split('/').filter(Boolean);
     const crumbs: { label: string; value: string }[] = [{ label: 'Αρχή', value: '' }];
@@ -95,7 +108,7 @@ export default function Library({ role, prefix: initialPrefix = '' }: { role: Ro
     const onEnded = () => setPlayingKey(null);
     audio.addEventListener('ended', onEnded);
     return () => audio.removeEventListener('ended', onEnded);
-  }, []);
+  }, [activeTab, hasPodcasts]);
 
   const getUrl = async (key: string) => {
     if (presigned[key]) return presigned[key];
@@ -177,17 +190,22 @@ export default function Library({ role, prefix: initialPrefix = '' }: { role: Ro
     }
   };
 
+  const showPodcastTab = hasPodcasts || isAkolouthies;
+  const showPdfTab = !isAkolouthies && hasPdfs;
+
   return (
     <div className="space-y-6">
       <div className="toolbar">
-        <button
-          className={clsx('btn btn-outline', activeTab === 'podcast' && 'btn--selected')}
-          onClick={() => setActiveTab('podcast')}
-        >
-          Podcasts
-        </button>
+        {showPodcastTab && (
+          <button
+            className={clsx('btn btn-outline', activeTab === 'podcast' && 'btn--selected')}
+            onClick={() => setActiveTab('podcast')}
+          >
+            Podcasts
+          </button>
+        )}
 
-        {!isAkolouthies && (
+        {showPdfTab && (
           <button
             className={clsx('btn btn-outline', activeTab === 'pdf' && 'btn--selected')}
             onClick={() => setActiveTab('pdf')}
@@ -233,12 +251,14 @@ export default function Library({ role, prefix: initialPrefix = '' }: { role: Ro
         </div>
       )}
 
+      {!loading && !error && !hasPodcasts && !hasPdfs && folders.length === 0 && (
+        <div className="card p-6 text-muted">Δεν υπάρχουν αρχεία σε αυτόν τον φάκελο.</div>
+      )}
+
       {!loading && !error && (
         <>
-          {activeTab === 'podcast' && (
+          {activeTab === 'podcast' && hasPodcasts && (
             <div className="card p-6 divide-y divide-[color:var(--border)]">
-              {podcasts.length === 0 && <div className="p-4 text-muted">Δεν υπάρχουν ακόμη podcasts.</div>}
-
               {podcasts.map((p) => (
                 <div key={p.key} className="py-4">
                   <div className="flex flex-col sm:flex-row sm:items-center gap-3">
@@ -266,10 +286,8 @@ export default function Library({ role, prefix: initialPrefix = '' }: { role: Ro
             </div>
           )}
 
-          {!isAkolouthies && activeTab === 'pdf' && (
+          {!isAkolouthies && activeTab === 'pdf' && hasPdfs && (
             <div className="card p-6 divide-y divide-[color:var(--border)]">
-              {pdfs.length === 0 && <div className="p-4 text-muted">Δεν υπάρχουν ακόμη PDF.</div>}
-
               {pdfs.map((pdf) => (
                 <div key={pdf.key} className="py-4">
                   <div className="flex items-center gap-4">

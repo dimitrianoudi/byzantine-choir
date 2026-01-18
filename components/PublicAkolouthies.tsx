@@ -12,6 +12,7 @@ type Item = {
 
 export default function PublicAkolouthies() {
   const sp = useSearchParams();
+  const initialKey = sp.get("key") || "";
   const initialYear = sp.get("year") || String(new Date().getFullYear());
   const initialDate = sp.get("date") || "";
 
@@ -52,9 +53,41 @@ export default function PublicAkolouthies() {
     }
   };
 
+  const buildItemUrl = (k: string) => {
+    const u = new URL(window.location.href);
+    u.pathname = "/akolouthies";
+    u.searchParams.set("year", year);
+    u.searchParams.set("date", date);
+    u.searchParams.set("key", k);
+    return u.toString();
+  };
+  
+  const shareItem = async (k: string, title: string) => {
+    const url = buildItemUrl(k);
+  
+    try {
+      if (navigator.share) {
+        await navigator.share({ title: "Ακολουθία", text: title, url });
+        return;
+      }
+    } catch {}
+  
+    try {
+      await navigator.clipboard.writeText(url);
+      alert("Αντιγράφηκε ο σύνδεσμος.");
+    } catch {
+      prompt("Αντιγράψτε τον σύνδεσμο:", url);
+    }
+  };
+
   useEffect(() => {
     load(year, date);
-  }, []);
+    if (!initialKey) return;
+    const found = items.find(x => x.key === initialKey);
+    if (!found) return;
+    togglePlay(found.key);
+  }, [items, initialKey]);
+  
 
   const copyShare = async () => {
     try {
@@ -166,25 +199,43 @@ export default function PublicAkolouthies() {
                   </div>
                 </div>
                 <div className="flex gap-2 sm:gap-3 sm:ml-auto">
-                  <button className="btn" type="button" onClick={() => togglePlay(it.key)}>
-                    {playingKey === it.key ? "Παύση" : "Αναπαραγωγή"}
-                  </button>
-                  <button
-                    className="btn btn-outline"
-                    type="button"
-                    onClick={async () => {
-                      const url = await presign(it.key);
-                      const a = document.createElement("a");
-                      a.href = url;
-                      a.download = it.name;
-                      document.body.appendChild(a);
-                      a.click();
-                      a.remove();
-                    }}
-                  >
-                    Λήψη
-                  </button>
-                </div>
+  <button className="btn" type="button" onClick={() => togglePlay(it.key)}>
+    {playingKey === it.key ? "Παύση" : "Αναπαραγωγή"}
+  </button>
+
+  <button
+    className="btn btn-outline"
+    type="button"
+    onClick={async () => {
+      const url = await presign(it.key);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = it.name;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+    }}
+  >
+    Λήψη
+  </button>
+
+  <button
+    type="button"
+    className="icon-btn btn-outline"
+    aria-label="Κοινοποίηση"
+    title="Κοινοποίηση"
+    onClick={() => shareItem(it.key, it.name)}
+  >
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <path d="M16 8a3 3 0 1 0-2.83-4H13a3 3 0 0 0 3 4Z" stroke="currentColor" strokeWidth="1.5"/>
+      <path d="M6 14a3 3 0 1 0 2.83 4H9a3 3 0 0 0-3-4Z" stroke="currentColor" strokeWidth="1.5"/>
+      <path d="M18 21a3 3 0 1 0-2.83-4H15a3 3 0 0 0 3 4Z" stroke="currentColor" strokeWidth="1.5"/>
+      <path d="M8.6 15.4l6.8 3.2M15.4 7.4L8.6 10.6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+    </svg>
+  </button>
+</div>
+
+                
               </div>
             </div>
           ))}

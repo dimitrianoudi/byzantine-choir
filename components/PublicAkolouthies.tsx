@@ -155,9 +155,6 @@ export default function PublicAkolouthies() {
           Ακολουθίες
         </h1>
         <div className="header-spacer" />
-        <button className="btn btn-outline" type="button" onClick={copyShare}>
-          Share link
-        </button>
       </header>
 
       <div className="card p-4 flex flex-col sm:flex-row gap-3 sm:items-end sm:justify-between">
@@ -247,6 +244,7 @@ export default function PublicAkolouthies() {
                       <path d="M8.6 15.4l6.8 3.2M15.4 7.4L8.6 10.6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
                     </svg>
                   </button>
+
                 </div>
               </div>
             </div>

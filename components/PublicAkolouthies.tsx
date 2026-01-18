@@ -232,7 +232,7 @@ export default function PublicAkolouthies() {
 
                   <button
                     type="button"
-                    className="icon-btn btn-outline"
+                    className="icon-btn icon-btn-outline"
                     aria-label="Κοινοποίηση"
                     title="Κοινοποίηση"
                     onClick={() => shareItem(it.key, it.name)}

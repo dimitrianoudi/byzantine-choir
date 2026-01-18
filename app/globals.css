@@ -230,17 +230,22 @@
   .icon-btn {
     width: 25px;
     height: 25px;
+    min-width: 25px;     /* overrides any inherited min-width */
     padding: 0;
     border-radius: 9999px;
     display: inline-flex;
     align-items: center;
     justify-content: center;
+    box-sizing: border-box;
+  }
+  
+  .icon-btn-outline {
     border: 1px solid var(--btn-sky-border);
     background: var(--btn-sky-light);
     color: var(--text);
   }
   
-  .icon-btn:hover {
+  .icon-btn-outline:hover {
     background: var(--btn-sky);
     border-color: var(--btn-sky);
     color: #fff;

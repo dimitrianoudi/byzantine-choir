@@ -64,7 +64,6 @@ export default function Library({ role, prefix: initialPrefix = '' }: { role: Ro
       if (activeTab !== 'podcast') setActiveTab('podcast');
       return;
     }
-
     if (activeTab === 'podcast' && !hasPodcasts && hasPdfs) setActiveTab('pdf');
     if (activeTab === 'pdf' && !hasPdfs && hasPodcasts) setActiveTab('podcast');
   }, [activeTab, hasPodcasts, hasPdfs, isAkolouthies]);
@@ -103,6 +102,9 @@ export default function Library({ role, prefix: initialPrefix = '' }: { role: Ro
   }, [prefix]);
 
   useEffect(() => {
+    if (activeTab !== 'podcast') return;
+    if (!hasPodcasts) return;
+
     const audio = document.getElementById('audio-player') as HTMLAudioElement | null;
     if (!audio) return;
     const onEnded = () => setPlayingKey(null);
@@ -190,6 +192,36 @@ export default function Library({ role, prefix: initialPrefix = '' }: { role: Ro
     }
   };
 
+  const deleteKey = async (key: string) => {
+    if (role !== 'admin') return;
+    if (!confirm('Διαγραφή αρχείου;')) return;
+
+    setActionMsg(null);
+    try {
+      const res = await fetch('/api/files/delete', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ key }),
+      });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(json?.error || `HTTP ${res.status}`);
+
+      setItems((prev) => prev.filter((i) => i.key !== key));
+
+      if (playingKey === key) {
+        const audio = document.getElementById('audio-player') as HTMLAudioElement | null;
+        if (audio) {
+          audio.pause();
+          audio.removeAttribute('src');
+          audio.load();
+        }
+        setPlayingKey(null);
+      }
+    } catch (err: any) {
+      setActionMsg(err?.message || 'Σφάλμα διαγραφής');
+    }
+  };
+
   const showPodcastTab = hasPodcasts || isAkolouthies;
   const showPdfTab = !isAkolouthies && hasPdfs;
 
@@ -214,8 +246,6 @@ export default function Library({ role, prefix: initialPrefix = '' }: { role: Ro
           </button>
         )}
 
-        <div className="header-spacer" />
-
         <div className="text-xs text-muted flex flex-wrap items-center gap-1">
           {breadcrumbs.map((c, idx) => (
             <span key={c.value} className="flex items-center gap-1">
@@ -231,6 +261,8 @@ export default function Library({ role, prefix: initialPrefix = '' }: { role: Ro
             </span>
           ))}
         </div>
+
+        <div className="header-spacer" />
       </div>
 
       {loading && <div className="card p-6">Φόρτωση...</div>}
@@ -268,13 +300,19 @@ export default function Library({ role, prefix: initialPrefix = '' }: { role: Ro
                         {p.lastModified ? new Date(p.lastModified).toLocaleString() : ''}
                       </div>
                     </div>
-                    <div className="flex gap-2 sm:gap-3 sm:ml-auto">
+
+                    <div className="flex gap-2 sm:gap-3 sm:ml-auto flex-wrap">
                       <button className="btn" onClick={() => play(p.key)}>
                         {playingKey === p.key ? 'Παύση' : 'Αναπαραγωγή'}
                       </button>
                       <button className="btn btn-gold" onClick={() => downloadKey(p.key, p.name)}>
                         Λήψη
                       </button>
+                      {role === 'admin' && (
+                        <button className="btn btn-outline text-red" onClick={() => deleteKey(p.key)}>
+                          Διαγραφή
+                        </button>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -302,9 +340,14 @@ export default function Library({ role, prefix: initialPrefix = '' }: { role: Ro
                       </div>
                     </div>
 
-                    <div className="flex gap-2 sm:gap-3 ml-auto">
+                    <div className="flex gap-2 sm:gap-3 ml-auto flex-wrap">
                       <button className="btn" onClick={() => openPdf(pdf.key)}>Άνοιγμα</button>
                       <button className="btn btn-gold" onClick={() => downloadKey(pdf.key, pdf.name)}>Λήψη</button>
+                      {role === 'admin' && (
+                        <button className="btn btn-outline text-red" onClick={() => deleteKey(pdf.key)}>
+                          Διαγραφή
+                        </button>
+                      )}
                     </div>
                   </div>
                 </div>

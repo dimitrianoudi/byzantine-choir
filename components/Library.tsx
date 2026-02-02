@@ -107,6 +107,7 @@ export default function Library({ role, prefix: initialPrefix = '' }: { role: Ro
 
     const audio = document.getElementById('audio-player') as HTMLAudioElement | null;
     if (!audio) return;
+
     const onEnded = () => setPlayingKey(null);
     audio.addEventListener('ended', onEnded);
     return () => audio.removeEventListener('ended', onEnded);
@@ -222,6 +223,48 @@ export default function Library({ role, prefix: initialPrefix = '' }: { role: Ro
     }
   };
 
+  const renameKey = async (fromKey: string, currentName: string) => {
+    if (role !== 'admin') return;
+
+    const suggested = prettyName(currentName || fromKey);
+    const newName = prompt('Νέο όνομα αρχείου (με επέκταση):', suggested);
+    if (!newName) return;
+
+    setActionMsg(null);
+    try {
+      const res = await fetch('/api/files/rename', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ fromKey, newName }),
+      });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(json?.error || `HTTP ${res.status}`);
+
+      const toKey = String(json.toKey || '');
+      if (!toKey) throw new Error('Rename failed');
+
+      setItems((prev) =>
+        prev.map((it) =>
+          it.key === fromKey
+            ? { ...it, key: toKey, name: toKey.split('/').pop() || toKey }
+            : it
+        )
+      );
+
+      if (playingKey === fromKey) {
+        const audio = document.getElementById('audio-player') as HTMLAudioElement | null;
+        if (audio) {
+          audio.pause();
+          audio.removeAttribute('src');
+          audio.load();
+        }
+        setPlayingKey(null);
+      }
+    } catch (e: any) {
+      setActionMsg(e?.message || 'Σφάλμα μετονομασίας');
+    }
+  };
+
   const showPodcastTab = hasPodcasts || isAkolouthies;
   const showPdfTab = !isAkolouthies && hasPdfs;
 
@@ -274,7 +317,12 @@ export default function Library({ role, prefix: initialPrefix = '' }: { role: Ro
           <div className="text-sm font-semibold text-muted">Φάκελοι</div>
           <div className="flex flex-col gap-2">
             {folders.map((f) => (
-              <button key={f} type="button" className="btn btn-outline justify-between" onClick={() => setPrefix(f)}>
+              <button
+                key={f}
+                type="button"
+                className="btn btn-outline justify-between"
+                onClick={() => setPrefix(f)}
+              >
                 <span>📁 {folderLabel(f)}</span>
                 <span className="text-xs text-muted">Άνοιγμα</span>
               </button>
@@ -309,9 +357,14 @@ export default function Library({ role, prefix: initialPrefix = '' }: { role: Ro
                         Λήψη
                       </button>
                       {role === 'admin' && (
-                        <button className="btn btn-outline text-red" onClick={() => deleteKey(p.key)}>
-                          Διαγραφή
-                        </button>
+                        <>
+                          <button className="btn btn-outline" onClick={() => renameKey(p.key, p.name)}>
+                            Μετονομασία
+                          </button>
+                          <button className="btn btn-outline text-red" onClick={() => deleteKey(p.key)}>
+                            Διαγραφή
+                          </button>
+                        </>
                       )}
                     </div>
                   </div>
@@ -344,9 +397,14 @@ export default function Library({ role, prefix: initialPrefix = '' }: { role: Ro
                       <button className="btn" onClick={() => openPdf(pdf.key)}>Άνοιγμα</button>
                       <button className="btn btn-gold" onClick={() => downloadKey(pdf.key, pdf.name)}>Λήψη</button>
                       {role === 'admin' && (
-                        <button className="btn btn-outline text-red" onClick={() => deleteKey(pdf.key)}>
-                          Διαγραφή
-                        </button>
+                        <>
+                          <button className="btn btn-outline" onClick={() => renameKey(pdf.key, pdf.name)}>
+                            Μετονομασία
+                          </button>
+                          <button className="btn btn-outline text-red" onClick={() => deleteKey(pdf.key)}>
+                            Διαγραφή
+                          </button>
+                        </>
                       )}
                     </div>
                   </div>

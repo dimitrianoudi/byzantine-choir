@@ -39,21 +39,20 @@ function listResourcesByPrefix(opts: {
   });
 
   return new Promise((resolve, reject) => {
-    cloudinary.api.resources(
-      {
-        type: "upload",
-        resource_type: resourceType,
-        prefix: listPrefix,
-        max_results: 500,
-      },
-      (err: unknown, result: { resources?: CloudinaryResource[] }) => {
-        if (err) {
-          reject(err instanceof Error ? err : new Error(String(err)));
-          return;
-        }
-        resolve((result?.resources ?? []) as CloudinaryResource[]);
+    const callback = (err: unknown, result: { resources?: CloudinaryResource[] }) => {
+      if (err) {
+        reject(err instanceof Error ? err : new Error(String(err)));
+        return;
       }
-    );
+      resolve((result?.resources ?? []) as CloudinaryResource[]);
+    };
+    const options = {
+      type: "upload",
+      resource_type: resourceType,
+      prefix: listPrefix,
+      max_results: 500,
+    };
+    cloudinary.api.resources(callback, options);
   });
 }
 
@@ -112,21 +111,45 @@ export async function GET(req: Request) {
   const prefixNorm = prefixParam.replace(/^\/+/, "").replace(/\/$/, "");
   const folder =
     !prefixNorm ? root : prefixNorm.startsWith(root + "/") || prefixNorm === root ? prefixNorm : `${root}/${prefixNorm}`;
+  const debug = searchParams.get("_debug") === "1";
 
   try {
-    const [imgs, vids, apiFolderNames] = await Promise.all([
-      listResourcesByPrefix({ cloudName, apiKey, apiSecret, resourceType: "image", folder }),
-      listResourcesByPrefix({ cloudName, apiKey, apiSecret, resourceType: "video", folder }),
+    const listPrefixes: string[] = [folder.endsWith("/") ? folder : `${folder}/`];
+    if (prefixNorm && folder !== prefixNorm) {
+      const relativePrefix = prefixNorm.endsWith("/") ? prefixNorm : `${prefixNorm}/`;
+      listPrefixes.push(relativePrefix);
+    }
+
+    const [imgsFromPrimary, vidsFromPrimary, imgsFromFallback, vidsFromFallback, apiFolderNames] = await Promise.all([
+      listResourcesByPrefix({ cloudName, apiKey, apiSecret, resourceType: "image", folder: listPrefixes[0]!.replace(/\/$/, "") }),
+      listResourcesByPrefix({ cloudName, apiKey, apiSecret, resourceType: "video", folder: listPrefixes[0]!.replace(/\/$/, "") }),
+      listPrefixes.length > 1
+        ? listResourcesByPrefix({ cloudName, apiKey, apiSecret, resourceType: "image", folder: listPrefixes[1]!.replace(/\/$/, "") })
+        : Promise.resolve([] as CloudinaryResource[]),
+      listPrefixes.length > 1
+        ? listResourcesByPrefix({ cloudName, apiKey, apiSecret, resourceType: "video", folder: listPrefixes[1]!.replace(/\/$/, "") })
+        : Promise.resolve([] as CloudinaryResource[]),
       listSubfolderNames({ cloudName, apiKey, apiSecret, folderPath: folder }),
     ]);
 
+    const seenIds = new Set<string>();
+    const allResources: CloudinaryResource[] = [];
+    for (const r of [...imgsFromPrimary, ...vidsFromPrimary, ...imgsFromFallback, ...vidsFromFallback]) {
+      const id = r.public_id ?? "";
+      if (id && !seenIds.has(id)) {
+        seenIds.add(id);
+        allResources.push(r);
+      }
+    }
+
     const folderPrefix = folder.endsWith("/") ? folder : `${folder}/`;
-    const allResources = [...imgs, ...vids];
     const subfolderSet = new Set<string>(apiFolderNames);
     for (const r of allResources) {
       const id = r.public_id ?? "";
-      if (!id || !id.startsWith(folderPrefix)) continue;
-      const after = id.slice(folderPrefix.length);
+      if (!id) continue;
+      const prefixUsed = id.startsWith(folderPrefix) ? folderPrefix : (listPrefixes[1] ?? folderPrefix);
+      if (!id.startsWith(prefixUsed)) continue;
+      const after = id.slice(prefixUsed.length);
       const segment = after.split("/")[0];
       if (segment && after !== segment) subfolderSet.add(segment);
     }
@@ -149,7 +172,19 @@ export async function GET(req: Request) {
       })
       .sort((a, b) => (a.id < b.id ? 1 : -1));
 
-    return NextResponse.json({ items, folders });
+    const body: Record<string, unknown> = { items, folders };
+    if (debug) {
+      body._debug = {
+        prefixParam,
+        prefixNorm,
+        folder,
+        listPrefixes,
+        imageCount: imgsFromPrimary.length + imgsFromFallback.length,
+        videoCount: vidsFromPrimary.length + vidsFromFallback.length,
+        itemsReturned: items.length,
+      };
+    }
+    return NextResponse.json(body);
   } catch (e: any) {
     return NextResponse.json({ error: e?.message || "Load failed" }, { status: 500 });
   }

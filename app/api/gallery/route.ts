@@ -1,6 +1,7 @@
 export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
+import { v2 as cloudinary } from "cloudinary";
 
 type CloudinaryResource = {
   public_id: string;
@@ -39,7 +40,7 @@ async function listResourcesByPrefix(opts: {
   const all: CloudinaryResource[] = [];
   const auth = Buffer.from(`${apiKey}:${apiSecret}`).toString("base64");
 
-  const doFetch = async (prefix: string) => {
+  const doFetch = async (prefix: string): Promise<CloudinaryResource[]> => {
     const params = new URLSearchParams({ max_results: "500" });
     if (prefix) params.set("prefix", prefix);
     const url = `https://api.cloudinary.com/v1_1/${cloudName}/resources/${resourceType}/upload?${params.toString()}`;
@@ -52,7 +53,21 @@ async function listResourcesByPrefix(opts: {
       const msg = (json as { error?: { message?: string } })?.error?.message ?? res.statusText;
       throw new Error(msg || "Cloudinary list failed");
     }
-    return (json as { resources?: CloudinaryResource[] }).resources ?? [];
+    // Cloudinary may return resources in different keys
+    const raw =
+      (json as { resources?: CloudinaryResource[] }).resources ??
+      (json as { assets?: CloudinaryResource[] }).assets ??
+      (json as { result?: { resources?: CloudinaryResource[] } }).result?.resources;
+    const list = Array.isArray(raw) ? raw : [];
+    return list.map((r: Record<string, unknown>) => ({
+      public_id: (r.public_id ?? r.publicId ?? "") as string,
+      resource_type: (r.resource_type ?? r.type ?? resourceType) as string,
+      secure_url: ((r.secure_url ?? r.url) as string) || "",
+      width: r.width as number | undefined,
+      height: r.height as number | undefined,
+      format: r.format as string | undefined,
+      duration: r.duration as number | undefined,
+    }));
   };
 
   for (const listPrefix of prefixesToTry) {
@@ -85,6 +100,41 @@ async function listResourcesByPrefix(opts: {
       }
     } catch (_e) {
       // ignore no-prefix fallback errors
+    }
+  }
+
+  // Last resort: use Cloudinary SDK (different auth/URL handling)
+  if (all.length === 0) {
+    try {
+      cloudinary.config({
+        cloud_name: cloudName,
+        api_key: apiKey,
+        api_secret: apiSecret,
+        secure: true,
+      });
+      const listPrefix = folder ? (folder.endsWith("/") ? folder : `${folder}/`) : "";
+      const opts = {
+        type: "upload" as const,
+        resource_type: resourceType,
+        prefix: listPrefix || undefined,
+        max_results: 500,
+      };
+      const result = await new Promise<{ resources?: CloudinaryResource[] }>((resolve, reject) => {
+        cloudinary.api.resources(opts, (err: unknown, res: { resources?: CloudinaryResource[] }) => {
+          if (err) reject(err);
+          else resolve(res ?? {});
+        });
+      });
+      const sdkList = result?.resources ?? [];
+      for (const r of sdkList) {
+        const id = r.public_id ?? "";
+        if (id && !seenIds.has(id)) {
+          seenIds.add(id);
+          all.push(r);
+        }
+      }
+    } catch (_sdkErr) {
+      // ignore
     }
   }
 
@@ -210,6 +260,23 @@ export async function GET(req: Request) {
 
     const body: Record<string, unknown> = { items, folders };
     if (debug) {
+      // Diagnostic: list with no prefix to see if API returns anything at all
+      let noPrefixCount = 0;
+      let noPrefixSample: string[] = [];
+      try {
+        const noPrefixImgs = await listResourcesByPrefix({
+          cloudName,
+          apiKey,
+          apiSecret,
+          resourceType: "image",
+          folder: "",
+          folderPrefix: "",
+        });
+        noPrefixCount = noPrefixImgs.length;
+        noPrefixSample = noPrefixImgs.slice(0, 5).map((r) => r.public_id);
+      } catch (_) {
+        noPrefixCount = -1;
+      }
       body._debug = {
         prefixParam,
         prefixNorm,
@@ -221,6 +288,8 @@ export async function GET(req: Request) {
         rawTotal: allResources.length,
         itemsReturned: items.length,
         samplePublicIds: allResources.slice(0, 10).map((r) => r.public_id),
+        noPrefixCount,
+        noPrefixSample,
       };
     }
     return NextResponse.json(body);

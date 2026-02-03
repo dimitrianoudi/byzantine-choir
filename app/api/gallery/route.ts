@@ -20,55 +20,74 @@ function videoPosterUrl(cloudName: string, publicId: string) {
   return `https://res.cloudinary.com/${cloudName}/video/upload/so_0,c_fill,w_600,q_auto,f_jpg/${publicId}.jpg`;
 }
 
-/** List resources by prefix using Cloudinary REST Admin API (no SDK). Tries with and without trailing slash. */
+/** List resources by prefix using Cloudinary REST Admin API (no SDK). Tries prefix with/without slash; if 0 results, falls back to no-prefix and filters by folder. */
 async function listResourcesByPrefix(opts: {
   cloudName: string;
   apiKey: string;
   apiSecret: string;
   resourceType: "image" | "video";
   folder: string;
+  folderPrefix: string; // e.g. "gallery/" for filtering fallback
 }): Promise<CloudinaryResource[]> {
-  const { cloudName, apiKey, apiSecret, resourceType, folder } = opts;
+  const { cloudName, apiKey, apiSecret, resourceType, folder, folderPrefix } = opts;
   const withSlash = folder.endsWith("/") ? folder : `${folder}/`;
   const withoutSlash = folder.replace(/\/$/, "");
-  const prefixesToTry = [withSlash];
+  const prefixesToTry: string[] = [withSlash];
   if (withoutSlash !== withSlash) prefixesToTry.push(withoutSlash);
 
   const seenIds = new Set<string>();
   const all: CloudinaryResource[] = [];
   const auth = Buffer.from(`${apiKey}:${apiSecret}`).toString("base64");
 
-  for (const listPrefix of prefixesToTry) {
-    const params = new URLSearchParams({
-      type: "upload",
-      prefix: listPrefix,
-      max_results: "500",
-    });
+  const doFetch = async (prefix: string) => {
+    const params = new URLSearchParams({ max_results: "500" });
+    if (prefix) params.set("prefix", prefix);
     const url = `https://api.cloudinary.com/v1_1/${cloudName}/resources/${resourceType}/upload?${params.toString()}`;
-
     const res = await fetch(url, {
       headers: { Authorization: `Basic ${auth}` },
       cache: "no-store",
     });
-
     const json = await res.json().catch(() => ({} as Record<string, unknown>));
     if (!res.ok) {
-      if (listPrefix === withSlash) {
-        const msg = (json as { error?: { message?: string } })?.error?.message ?? res.statusText;
-        throw new Error(msg || "Cloudinary list failed");
-      }
-      continue;
+      const msg = (json as { error?: { message?: string } })?.error?.message ?? res.statusText;
+      throw new Error(msg || "Cloudinary list failed");
     }
+    return (json as { resources?: CloudinaryResource[] }).resources ?? [];
+  };
 
-    const resources = (json as { resources?: CloudinaryResource[] }).resources ?? [];
-    for (const r of resources) {
-      const id = r.public_id ?? "";
-      if (id && !seenIds.has(id)) {
-        seenIds.add(id);
-        all.push(r);
+  for (const listPrefix of prefixesToTry) {
+    try {
+      const resources = await doFetch(listPrefix);
+      for (const r of resources) {
+        const id = r.public_id ?? "";
+        if (id && !seenIds.has(id)) {
+          seenIds.add(id);
+          all.push(r);
+        }
       }
+    } catch (_err) {
+      if (listPrefix === withSlash) throw _err;
     }
   }
+
+  // If prefix-based list returned nothing, try listing everything and filter by folder (handles accounts where prefix doesn't match)
+  if (all.length === 0 && folderPrefix) {
+    try {
+      const resources = await doFetch("");
+      const folderNoSlash = folder.replace(/\/$/, "");
+      for (const r of resources) {
+        const id = r.public_id ?? "";
+        const underFolder = id === folderNoSlash || id.startsWith(folderPrefix) || id.startsWith(folderNoSlash + "/");
+        if (id && underFolder && !seenIds.has(id)) {
+          seenIds.add(id);
+          all.push(r);
+        }
+      }
+    } catch (_e) {
+      // ignore no-prefix fallback errors
+    }
+  }
+
   return all;
 }
 
@@ -130,20 +149,21 @@ export async function GET(req: Request) {
   const debug = searchParams.get("_debug") === "1";
 
   try {
-    const listPrefixes: string[] = [folder.endsWith("/") ? folder : `${folder}/`];
+    const folderPrefix = folder.endsWith("/") ? folder : `${folder}/`;
+    const listPrefixes: string[] = [folderPrefix];
     if (prefixNorm && folder !== prefixNorm) {
       const relativePrefix = prefixNorm.endsWith("/") ? prefixNorm : `${prefixNorm}/`;
       listPrefixes.push(relativePrefix);
     }
 
     const [imgsFromPrimary, vidsFromPrimary, imgsFromFallback, vidsFromFallback, apiFolderNames] = await Promise.all([
-      listResourcesByPrefix({ cloudName, apiKey, apiSecret, resourceType: "image", folder: listPrefixes[0]!.replace(/\/$/, "") }),
-      listResourcesByPrefix({ cloudName, apiKey, apiSecret, resourceType: "video", folder: listPrefixes[0]!.replace(/\/$/, "") }),
+      listResourcesByPrefix({ cloudName, apiKey, apiSecret, resourceType: "image", folder: folder.replace(/\/$/, ""), folderPrefix }),
+      listResourcesByPrefix({ cloudName, apiKey, apiSecret, resourceType: "video", folder: folder.replace(/\/$/, ""), folderPrefix }),
       listPrefixes.length > 1
-        ? listResourcesByPrefix({ cloudName, apiKey, apiSecret, resourceType: "image", folder: listPrefixes[1]!.replace(/\/$/, "") })
+        ? listResourcesByPrefix({ cloudName, apiKey, apiSecret, resourceType: "image", folder: listPrefixes[1]!.replace(/\/$/, ""), folderPrefix })
         : Promise.resolve([] as CloudinaryResource[]),
       listPrefixes.length > 1
-        ? listResourcesByPrefix({ cloudName, apiKey, apiSecret, resourceType: "video", folder: listPrefixes[1]!.replace(/\/$/, "") })
+        ? listResourcesByPrefix({ cloudName, apiKey, apiSecret, resourceType: "video", folder: listPrefixes[1]!.replace(/\/$/, ""), folderPrefix })
         : Promise.resolve([] as CloudinaryResource[]),
       listSubfolderNames({ cloudName, apiKey, apiSecret, folderPath: folder }),
     ]);
@@ -158,7 +178,6 @@ export async function GET(req: Request) {
       }
     }
 
-    const folderPrefix = folder.endsWith("/") ? folder : `${folder}/`;
     const subfolderSet = new Set<string>(apiFolderNames);
     for (const r of allResources) {
       const id = r.public_id ?? "";
@@ -171,15 +190,8 @@ export async function GET(req: Request) {
     }
     const folders = Array.from(subfolderSet).sort();
 
-    // Only show items that are direct children of this folder (not in nested subfolders)
-    const directChildren = allResources.filter((r) => {
-      const id = r.public_id ?? "";
-      if (!id.startsWith(folderPrefix)) return false;
-      const after = id.slice(folderPrefix.length);
-      return after.length > 0 && !after.includes("/");
-    });
-
-    const items = directChildren
+    // Show all resources under this folder (no direct-children filter so uploads always appear)
+    const items = allResources
       .map((r) => {
         const isVideo = r.resource_type === "video";
         return {
@@ -207,7 +219,6 @@ export async function GET(req: Request) {
         rawImageCount: imgsFromPrimary.length + imgsFromFallback.length,
         rawVideoCount: vidsFromPrimary.length + vidsFromFallback.length,
         rawTotal: allResources.length,
-        directChildrenCount: directChildren.length,
         itemsReturned: items.length,
         samplePublicIds: allResources.slice(0, 10).map((r) => r.public_id),
       };

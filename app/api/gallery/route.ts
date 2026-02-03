@@ -20,7 +20,7 @@ function videoPosterUrl(cloudName: string, publicId: string) {
   return `https://res.cloudinary.com/${cloudName}/video/upload/so_0,c_fill,w_600,q_auto,f_jpg/${publicId}.jpg`;
 }
 
-/** List resources by prefix using Cloudinary REST Admin API (no SDK). */
+/** List resources by prefix using Cloudinary REST Admin API (no SDK). Tries with and without trailing slash. */
 async function listResourcesByPrefix(opts: {
   cloudName: string;
   apiKey: string;
@@ -29,28 +29,47 @@ async function listResourcesByPrefix(opts: {
   folder: string;
 }): Promise<CloudinaryResource[]> {
   const { cloudName, apiKey, apiSecret, resourceType, folder } = opts;
-  const listPrefix = folder.endsWith("/") ? folder : `${folder}/`;
-  const params = new URLSearchParams({
-    type: "upload",
-    prefix: listPrefix,
-    max_results: "500",
-  });
-  const url = `https://api.cloudinary.com/v1_1/${cloudName}/resources/${resourceType}/upload?${params.toString()}`;
+  const withSlash = folder.endsWith("/") ? folder : `${folder}/`;
+  const withoutSlash = folder.replace(/\/$/, "");
+  const prefixesToTry = [withSlash];
+  if (withoutSlash !== withSlash) prefixesToTry.push(withoutSlash);
+
+  const seenIds = new Set<string>();
+  const all: CloudinaryResource[] = [];
   const auth = Buffer.from(`${apiKey}:${apiSecret}`).toString("base64");
 
-  const res = await fetch(url, {
-    headers: { Authorization: `Basic ${auth}` },
-    cache: "no-store",
-  });
+  for (const listPrefix of prefixesToTry) {
+    const params = new URLSearchParams({
+      type: "upload",
+      prefix: listPrefix,
+      max_results: "500",
+    });
+    const url = `https://api.cloudinary.com/v1_1/${cloudName}/resources/${resourceType}/upload?${params.toString()}`;
 
-  const json = await res.json().catch(() => ({} as Record<string, unknown>));
-  if (!res.ok) {
-    const msg = (json as { error?: { message?: string } })?.error?.message ?? res.statusText;
-    throw new Error(msg || "Cloudinary list failed");
+    const res = await fetch(url, {
+      headers: { Authorization: `Basic ${auth}` },
+      cache: "no-store",
+    });
+
+    const json = await res.json().catch(() => ({} as Record<string, unknown>));
+    if (!res.ok) {
+      if (listPrefix === withSlash) {
+        const msg = (json as { error?: { message?: string } })?.error?.message ?? res.statusText;
+        throw new Error(msg || "Cloudinary list failed");
+      }
+      continue;
+    }
+
+    const resources = (json as { resources?: CloudinaryResource[] }).resources ?? [];
+    for (const r of resources) {
+      const id = r.public_id ?? "";
+      if (id && !seenIds.has(id)) {
+        seenIds.add(id);
+        all.push(r);
+      }
+    }
   }
-
-  const resources = (json as { resources?: CloudinaryResource[] }).resources ?? [];
-  return resources;
+  return all;
 }
 
 /** Fetch immediate subfolder names from Cloudinary folders API (includes empty folders). */
@@ -152,7 +171,15 @@ export async function GET(req: Request) {
     }
     const folders = Array.from(subfolderSet).sort();
 
-    const items = allResources
+    // Only show items that are direct children of this folder (not in nested subfolders)
+    const directChildren = allResources.filter((r) => {
+      const id = r.public_id ?? "";
+      if (!id.startsWith(folderPrefix)) return false;
+      const after = id.slice(folderPrefix.length);
+      return after.length > 0 && !after.includes("/");
+    });
+
+    const items = directChildren
       .map((r) => {
         const isVideo = r.resource_type === "video";
         return {
@@ -175,10 +202,14 @@ export async function GET(req: Request) {
         prefixParam,
         prefixNorm,
         folder,
+        folderPrefix,
         listPrefixes,
-        imageCount: imgsFromPrimary.length + imgsFromFallback.length,
-        videoCount: vidsFromPrimary.length + vidsFromFallback.length,
+        rawImageCount: imgsFromPrimary.length + imgsFromFallback.length,
+        rawVideoCount: vidsFromPrimary.length + vidsFromFallback.length,
+        rawTotal: allResources.length,
+        directChildrenCount: directChildren.length,
         itemsReturned: items.length,
+        samplePublicIds: allResources.slice(0, 10).map((r) => r.public_id),
       };
     }
     return NextResponse.json(body);

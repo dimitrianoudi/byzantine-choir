@@ -210,6 +210,12 @@ export default function Gallery({ role }: { role: Role }) {
         </div>
       )}
 
+      {!loading && !err && items.length === 0 && (folders.length > 0 || prefix) && (
+        <div className="card p-6 text-muted text-center">
+          Δεν βρέθηκαν αρχεία σε αυτόν τον φάκελο. Για έλεγχο API: <code className="text-xs">/api/gallery?prefix={encodeURIComponent(prefix)}&_debug=1</code>
+        </div>
+      )}
+
       {!loading && !err && (
         <div className="masonry">
           {items.map((it, i) => (

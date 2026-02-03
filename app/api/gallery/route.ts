@@ -39,20 +39,19 @@ function listResourcesByPrefix(opts: {
   });
 
   return new Promise((resolve, reject) => {
-    const callback = (err: unknown, result: { resources?: CloudinaryResource[] }) => {
-      if (err) {
-        reject(err instanceof Error ? err : new Error(String(err)));
-        return;
-      }
-      resolve((result?.resources ?? []) as CloudinaryResource[]);
-    };
     const options = {
       type: "upload",
       resource_type: resourceType,
       prefix: listPrefix,
       max_results: 500,
     };
-    cloudinary.api.resources(callback, options);
+    cloudinary.api.resources(options, (err: unknown, result: { resources?: CloudinaryResource[] }) => {
+      if (err) {
+        reject(err instanceof Error ? err : new Error(String(err)));
+        return;
+      }
+      resolve((result?.resources ?? []) as CloudinaryResource[]);
+    });
   });
 }
 

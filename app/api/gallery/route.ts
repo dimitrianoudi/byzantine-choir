@@ -1,7 +1,6 @@
 export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
-import { v2 as cloudinary } from "cloudinary";
 
 type CloudinaryResource = {
   public_id: string;
@@ -21,7 +20,8 @@ function videoPosterUrl(cloudName: string, publicId: string) {
   return `https://res.cloudinary.com/${cloudName}/video/upload/so_0,c_fill,w_600,q_auto,f_jpg/${publicId}.jpg`;
 }
 
-function listResourcesByPrefix(opts: {
+/** List resources by prefix using Cloudinary REST Admin API (no SDK). */
+async function listResourcesByPrefix(opts: {
   cloudName: string;
   apiKey: string;
   apiSecret: string;
@@ -30,29 +30,27 @@ function listResourcesByPrefix(opts: {
 }): Promise<CloudinaryResource[]> {
   const { cloudName, apiKey, apiSecret, resourceType, folder } = opts;
   const listPrefix = folder.endsWith("/") ? folder : `${folder}/`;
+  const params = new URLSearchParams({
+    type: "upload",
+    prefix: listPrefix,
+    max_results: "500",
+  });
+  const url = `https://api.cloudinary.com/v1_1/${cloudName}/resources/${resourceType}/upload?${params.toString()}`;
+  const auth = Buffer.from(`${apiKey}:${apiSecret}`).toString("base64");
 
-  cloudinary.config({
-    cloud_name: cloudName,
-    api_key: apiKey,
-    api_secret: apiSecret,
-    secure: true,
+  const res = await fetch(url, {
+    headers: { Authorization: `Basic ${auth}` },
+    cache: "no-store",
   });
 
-  return new Promise((resolve, reject) => {
-    const options = {
-      type: "upload",
-      resource_type: resourceType,
-      prefix: listPrefix,
-      max_results: 500,
-    };
-    cloudinary.api.resources(options, (err: unknown, result: { resources?: CloudinaryResource[] }) => {
-      if (err) {
-        reject(err instanceof Error ? err : new Error(String(err)));
-        return;
-      }
-      resolve((result?.resources ?? []) as CloudinaryResource[]);
-    });
-  });
+  const json = await res.json().catch(() => ({} as Record<string, unknown>));
+  if (!res.ok) {
+    const msg = (json as { error?: { message?: string } })?.error?.message ?? res.statusText;
+    throw new Error(msg || "Cloudinary list failed");
+  }
+
+  const resources = (json as { resources?: CloudinaryResource[] }).resources ?? [];
+  return resources;
 }
 
 /** Fetch immediate subfolder names from Cloudinary folders API (includes empty folders). */

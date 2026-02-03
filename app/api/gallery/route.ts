@@ -1,11 +1,11 @@
 export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
-import { getSession } from "@/lib/session";
+import { v2 as cloudinary } from "cloudinary";
 
 type CloudinaryResource = {
   public_id: string;
-  resource_type: "image" | "video";
+  resource_type: string;
   secure_url: string;
   width?: number;
   height?: number;
@@ -21,34 +21,40 @@ function videoPosterUrl(cloudName: string, publicId: string) {
   return `https://res.cloudinary.com/${cloudName}/video/upload/so_0,c_fill,w_600,q_auto,f_jpg/${publicId}.jpg`;
 }
 
-async function listResources(opts: {
+function listResourcesByPrefix(opts: {
   cloudName: string;
   apiKey: string;
   apiSecret: string;
   resourceType: "image" | "video";
   folder: string;
-}) {
+}): Promise<CloudinaryResource[]> {
   const { cloudName, apiKey, apiSecret, resourceType, folder } = opts;
   const listPrefix = folder.endsWith("/") ? folder : `${folder}/`;
-  const url = new URL(`https://api.cloudinary.com/v1_1/${cloudName}/resources/${resourceType}/upload`);
-  url.searchParams.set("prefix", listPrefix);
-  url.searchParams.set("max_results", "500");
 
-  const auth = Buffer.from(`${apiKey}:${apiSecret}`).toString("base64");
-
-  const res = await fetch(url.toString(), {
-    headers: {
-      Authorization: `Basic ${auth}`,
-    },
-    cache: "no-store",
+  cloudinary.config({
+    cloud_name: cloudName,
+    api_key: apiKey,
+    api_secret: apiSecret,
+    secure: true,
   });
 
-  const json = await res.json().catch(() => ({} as any));
-  if (!res.ok) {
-    throw new Error(json?.error?.message || json?.error || "Cloudinary list failed");
-  }
-
-  return (json?.resources || []) as CloudinaryResource[];
+  return new Promise((resolve, reject) => {
+    cloudinary.api.resources(
+      {
+        type: "upload",
+        resource_type: resourceType,
+        prefix: listPrefix,
+        max_results: 500,
+      },
+      (err: unknown, result: { resources?: CloudinaryResource[] }) => {
+        if (err) {
+          reject(err instanceof Error ? err : new Error(String(err)));
+          return;
+        }
+        resolve((result?.resources ?? []) as CloudinaryResource[]);
+      }
+    );
+  });
 }
 
 /** Fetch immediate subfolder names from Cloudinary folders API (includes empty folders). */
@@ -109,33 +115,24 @@ export async function GET(req: Request) {
 
   try {
     const [imgs, vids, apiFolderNames] = await Promise.all([
-      listResources({ cloudName, apiKey, apiSecret, resourceType: "image", folder }),
-      listResources({ cloudName, apiKey, apiSecret, resourceType: "video", folder }),
+      listResourcesByPrefix({ cloudName, apiKey, apiSecret, resourceType: "image", folder }),
+      listResourcesByPrefix({ cloudName, apiKey, apiSecret, resourceType: "video", folder }),
       listSubfolderNames({ cloudName, apiKey, apiSecret, folderPath: folder }),
     ]);
 
     const folderPrefix = folder.endsWith("/") ? folder : `${folder}/`;
     const allResources = [...imgs, ...vids];
     const subfolderSet = new Set<string>(apiFolderNames);
-    const directChildIds = new Set<string>();
     for (const r of allResources) {
-      const id = r.public_id ?? (r as any).public_id;
-      if (!id || typeof id !== "string") continue;
-      const normalizedId = id.startsWith("/") ? id.slice(1) : id;
-      if (!normalizedId.startsWith(folderPrefix)) continue;
-      const after = normalizedId.slice(folderPrefix.length);
+      const id = r.public_id ?? "";
+      if (!id || !id.startsWith(folderPrefix)) continue;
+      const after = id.slice(folderPrefix.length);
       const segment = after.split("/")[0];
-      if (segment && after !== segment) {
-        subfolderSet.add(segment);
-      } else {
-        directChildIds.add(id);
-      }
+      if (segment && after !== segment) subfolderSet.add(segment);
     }
     const folders = Array.from(subfolderSet).sort();
 
-    const itemIds = directChildIds.size > 0 ? directChildIds : new Set(allResources.map((r) => r.public_id ?? (r as any).public_id).filter(Boolean));
     const items = allResources
-      .filter((r) => itemIds.has(r.public_id ?? (r as any).public_id))
       .map((r) => {
         const isVideo = r.resource_type === "video";
         return {

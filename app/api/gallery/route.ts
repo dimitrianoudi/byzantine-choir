@@ -29,11 +29,10 @@ async function listResources(opts: {
   folder: string;
 }) {
   const { cloudName, apiKey, apiSecret, resourceType, folder } = opts;
-
-  const url = new URL(`https://api.cloudinary.com/v1_1/${cloudName}/resources/${resourceType}`);
-  url.searchParams.set("type", "upload");
-  url.searchParams.set("prefix", folder.endsWith("/") ? folder : `${folder}/`);
-  url.searchParams.set("max_results", "200");
+  const listPrefix = folder.endsWith("/") ? folder : `${folder}/`;
+  const url = new URL(`https://api.cloudinary.com/v1_1/${cloudName}/resources/${resourceType}/upload`);
+  url.searchParams.set("prefix", listPrefix);
+  url.searchParams.set("max_results", "500");
 
   const auth = Buffer.from(`${apiKey}:${apiSecret}`).toString("base64");
 
@@ -120,9 +119,11 @@ export async function GET(req: Request) {
     const subfolderSet = new Set<string>(apiFolderNames);
     const directChildIds = new Set<string>();
     for (const r of allResources) {
-      const id = r.public_id;
-      if (!id.startsWith(folderPrefix)) continue;
-      const after = id.slice(folderPrefix.length);
+      const id = r.public_id ?? (r as any).public_id;
+      if (!id || typeof id !== "string") continue;
+      const normalizedId = id.startsWith("/") ? id.slice(1) : id;
+      if (!normalizedId.startsWith(folderPrefix)) continue;
+      const after = normalizedId.slice(folderPrefix.length);
       const segment = after.split("/")[0];
       if (segment && after !== segment) {
         subfolderSet.add(segment);
@@ -132,8 +133,9 @@ export async function GET(req: Request) {
     }
     const folders = Array.from(subfolderSet).sort();
 
+    const itemIds = directChildIds.size > 0 ? directChildIds : new Set(allResources.map((r) => r.public_id ?? (r as any).public_id).filter(Boolean));
     const items = allResources
-      .filter((r) => directChildIds.has(r.public_id))
+      .filter((r) => itemIds.has(r.public_id ?? (r as any).public_id))
       .map((r) => {
         const isVideo = r.resource_type === "video";
         return {

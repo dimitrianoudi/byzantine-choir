@@ -52,16 +52,20 @@ async function listResources(opts: {
   return (json?.resources || []) as CloudinaryResource[];
 }
 
-export async function GET() {
-
+export async function GET(req: Request) {
   const cloudName = process.env.CLOUDINARY_CLOUD_NAME || "";
   const apiKey = process.env.CLOUDINARY_API_KEY || "";
   const apiSecret = process.env.CLOUDINARY_API_SECRET || "";
-  const folder = process.env.CLOUDINARY_GALLERY_FOLDER || "gallery";
+  const root = (process.env.CLOUDINARY_GALLERY_FOLDER || "gallery").replace(/\/$/, "");
 
   if (!cloudName || !apiKey || !apiSecret) {
     return NextResponse.json({ error: "Cloudinary env missing" }, { status: 500 });
   }
+
+  const { searchParams } = new URL(req.url);
+  const prefixParam = searchParams.get("prefix") ?? "";
+  const prefixNorm = prefixParam.replace(/^\/+/, "").replace(/\/$/, "");
+  const folder = prefixNorm ? `${root}/${prefixNorm}` : root;
 
   try {
     const [imgs, vids] = await Promise.all([
@@ -69,11 +73,30 @@ export async function GET() {
       listResources({ cloudName, apiKey, apiSecret, resourceType: "video", folder }),
     ]);
 
-    const items = [...imgs, ...vids]
+    const folderPrefix = folder.endsWith("/") ? folder : `${folder}/`;
+    const allResources = [...imgs, ...vids];
+    const subfolderSet = new Set<string>();
+    const directChildIds = new Set<string>();
+    for (const r of allResources) {
+      const id = r.public_id;
+      if (!id.startsWith(folderPrefix)) continue;
+      const after = id.slice(folderPrefix.length);
+      const segment = after.split("/")[0];
+      if (segment && after !== segment) {
+        subfolderSet.add(segment);
+      } else {
+        directChildIds.add(id);
+      }
+    }
+    const folders = Array.from(subfolderSet).sort();
+
+    const items = allResources
+      .filter((r) => directChildIds.has(r.public_id))
       .map((r) => {
         const isVideo = r.resource_type === "video";
         return {
           id: r.public_id,
+          publicId: r.public_id,
           type: isVideo ? "video" : "image",
           src: r.secure_url,
           thumb: isVideo ? videoPosterUrl(cloudName, r.public_id) : withImageThumb(r.secure_url),
@@ -85,7 +108,7 @@ export async function GET() {
       })
       .sort((a, b) => (a.id < b.id ? 1 : -1));
 
-    return NextResponse.json({ items });
+    return NextResponse.json({ items, folders });
   } catch (e: any) {
     return NextResponse.json({ error: e?.message || "Load failed" }, { status: 500 });
   }

@@ -31,7 +31,8 @@ export async function POST(req: Request) {
   const b = body as Record<string, unknown>;
 
   const folderFromClient = typeof b.folder === "string" ? b.folder : "";
-  const folder = (folderFromClient || `${root}/`).replace(/^\/+/, "").replace(/\/?$/, "/");
+  const prefixNorm = folderFromClient.replace(/^\/+/, "").replace(/\/$/, "");
+  const folder = prefixNorm ? `${root}/${prefixNorm}/` : `${root}/`;
 
   const timestamp = Math.floor(Date.now() / 1000);
   const signature = sign({ folder, timestamp: String(timestamp) }, apiSecret);

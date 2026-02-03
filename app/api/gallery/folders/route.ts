@@ -27,11 +27,12 @@ export async function POST(req: Request) {
   const b = body as Record<string, unknown>;
 
   const name = typeof b.name === "string" ? b.name.trim() : "";
-  const prefix = typeof b.prefix === "string" ? b.prefix : `${root}/`;
-
   if (!name) return NextResponse.json({ error: "Missing folder name" }, { status: 400 });
 
-  const full = `${prefix.replace(/\/?$/, "/")}${name}`.replace(/^\/+/, "");
+  const prefixFromClient = typeof b.prefix === "string" ? b.prefix : "";
+  const prefixNorm = prefixFromClient.replace(/^\/+/, "").replace(/\/$/, "");
+  const pathParts = [root, prefixNorm, name].filter(Boolean);
+  const full = pathParts.join("/").replace(/^\/+/, "");
 
   const res = await fetch(`https://api.cloudinary.com/v1_1/${cloudName}/folders/${encodeURIComponent(full)}`, {
     method: "POST",

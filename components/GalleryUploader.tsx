@@ -93,14 +93,19 @@ export default function GalleryUploader({ onUploaded, folder = '' }: Props) {
           throw new Error(err?.error || 'Αποτυχία υπογραφής upload');
         }
 
-        const { timestamp, signature, folder: signedFolder, cloudName, apiKey } = await signRes.json();
+        const { timestamp, signature, folder: signedFolder, public_id: signedPublicId, cloudName, apiKey } = await signRes.json();
 
         const form = new FormData();
         form.append('file', item.file);
         form.append('api_key', apiKey);
         form.append('timestamp', String(timestamp));
         form.append('signature', signature);
-        form.append('folder', signedFolder);
+        // Use public_id (includes path) so list-by-prefix works; fallback to folder for backwards compatibility
+        if (signedPublicId) {
+          form.append('public_id', signedPublicId);
+        } else {
+          form.append('folder', signedFolder);
+        }
 
         await new Promise<void>((resolve, reject) => {
           const xhr = new XMLHttpRequest();

@@ -218,13 +218,29 @@ export async function GET(req: Request) {
       listSubfolderNames({ cloudName, apiKey, apiSecret, folderPath: folder }),
     ]);
 
+    let allResources: CloudinaryResource[] = [];
     const seenIds = new Set<string>();
-    const allResources: CloudinaryResource[] = [];
     for (const r of [...imgsFromPrimary, ...vidsFromPrimary, ...imgsFromFallback, ...vidsFromFallback]) {
       const id = r.public_id ?? "";
       if (id && !seenIds.has(id)) {
         seenIds.add(id);
         allResources.push(r);
+      }
+    }
+
+    // Existing uploads may have public_id without folder path (folder stored separately). At root, show all.
+    if (allResources.length === 0 && folder === root) {
+      const [rootImgs, rootVids] = await Promise.all([
+        listResourcesByPrefix({ cloudName, apiKey, apiSecret, resourceType: "image", folder: "", folderPrefix: " " }),
+        listResourcesByPrefix({ cloudName, apiKey, apiSecret, resourceType: "video", folder: "", folderPrefix: " " }),
+      ]);
+      const rootSeen = new Set<string>();
+      for (const r of [...rootImgs, ...rootVids]) {
+        const id = r.public_id ?? "";
+        if (id && !rootSeen.has(id)) {
+          rootSeen.add(id);
+          allResources.push(r);
+        }
       }
     }
 

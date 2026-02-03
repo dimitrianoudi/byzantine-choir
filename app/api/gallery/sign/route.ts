@@ -31,16 +31,21 @@ export async function POST(req: Request) {
   const b = body as Record<string, unknown>;
 
   const folderFromClient = typeof b.folder === "string" ? b.folder : "";
+  const publicIdFromClient = typeof b.public_id === "string" ? b.public_id : "";
   const prefixNorm = folderFromClient.replace(/^\/+/, "").replace(/\/$/, "");
   const folder = prefixNorm ? `${root}/${prefixNorm}/` : `${root}/`;
 
   const timestamp = Math.floor(Date.now() / 1000);
-  const signature = sign({ folder, timestamp: String(timestamp) }, apiSecret);
+
+  // Use public_id that includes folder path so list-by-prefix works (folder param stores path separately and public_id stays short)
+  const public_id = publicIdFromClient || (prefixNorm ? `${root}/${prefixNorm}/${timestamp}-${Math.random().toString(36).slice(2, 10)}` : `${root}/${timestamp}-${Math.random().toString(36).slice(2, 10)}`);
+  const signature = sign({ public_id, timestamp: String(timestamp) }, apiSecret);
 
   return NextResponse.json({
     timestamp,
     signature,
     folder,
+    public_id,
     cloudName,
     apiKey,
   });

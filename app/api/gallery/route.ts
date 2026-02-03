@@ -105,7 +105,8 @@ export async function GET(req: Request) {
   const { searchParams } = new URL(req.url);
   const prefixParam = searchParams.get("prefix") ?? "";
   const prefixNorm = prefixParam.replace(/^\/+/, "").replace(/\/$/, "");
-  const folder = prefixNorm ? `${root}/${prefixNorm}` : root;
+  const folder =
+    !prefixNorm ? root : prefixNorm.startsWith(root + "/") || prefixNorm === root ? prefixNorm : `${root}/${prefixNorm}`;
 
   try {
     const [imgs, vids, apiFolderNames] = await Promise.all([

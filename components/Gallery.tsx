@@ -193,10 +193,14 @@ export default function Gallery({ role }: { role: Role }) {
           <div className="flex flex-col gap-2">
             {folders.map((f) => (
               <button
-                key={f}
+                key={prefix + f}
                 type="button"
                 className="btn btn-outline justify-between"
-                onClick={() => setPrefix(normalizePrefix(f))}
+                onClick={() => {
+                  const base = prefix.replace(/\/$/, '');
+                  const next = base ? `${base}/${f}` : f;
+                  setPrefix(normalizePrefix(next));
+                }}
               >
                 <span>📁 {folderLabel(f)}</span>
                 <span className="text-xs text-muted">Άνοιγμα</span>

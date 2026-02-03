@@ -52,6 +52,46 @@ async function listResources(opts: {
   return (json?.resources || []) as CloudinaryResource[];
 }
 
+/** Fetch immediate subfolder names from Cloudinary folders API (includes empty folders). */
+async function listSubfolderNames(opts: {
+  cloudName: string;
+  apiKey: string;
+  apiSecret: string;
+  folderPath: string;
+}): Promise<string[]> {
+  const { cloudName, apiKey, apiSecret, folderPath } = opts;
+  const pathEnc = encodeURIComponent(folderPath);
+  const url = `https://api.cloudinary.com/v1_1/${cloudName}/folders/${pathEnc}`;
+  const auth = Buffer.from(`${apiKey}:${apiSecret}`).toString("base64");
+
+  const res = await fetch(url, {
+    headers: { Authorization: `Basic ${auth}` },
+    cache: "no-store",
+  });
+
+  const json = await res.json().catch(() => ({} as any));
+  if (!res.ok) {
+    return [];
+  }
+
+  const raw = json?.folders ?? [];
+  const folders = Array.isArray(raw) ? raw : [];
+  const prefix = folderPath.endsWith("/") ? folderPath : `${folderPath}/`;
+  const names: string[] = [];
+  for (const f of folders) {
+    const full = typeof f === "string" ? f : (f?.path ?? f?.name ?? "");
+    if (!full || typeof full !== "string") continue;
+    if (full.startsWith(prefix)) {
+      const after = full.slice(prefix.length);
+      const segment = after.split("/")[0];
+      if (segment && !segment.includes("/")) names.push(segment);
+    } else if (!full.includes("/")) {
+      names.push(full);
+    }
+  }
+  return names;
+}
+
 export async function GET(req: Request) {
   const cloudName = process.env.CLOUDINARY_CLOUD_NAME || "";
   const apiKey = process.env.CLOUDINARY_API_KEY || "";
@@ -68,14 +108,15 @@ export async function GET(req: Request) {
   const folder = prefixNorm ? `${root}/${prefixNorm}` : root;
 
   try {
-    const [imgs, vids] = await Promise.all([
+    const [imgs, vids, apiFolderNames] = await Promise.all([
       listResources({ cloudName, apiKey, apiSecret, resourceType: "image", folder }),
       listResources({ cloudName, apiKey, apiSecret, resourceType: "video", folder }),
+      listSubfolderNames({ cloudName, apiKey, apiSecret, folderPath: folder }),
     ]);
 
     const folderPrefix = folder.endsWith("/") ? folder : `${folder}/`;
     const allResources = [...imgs, ...vids];
-    const subfolderSet = new Set<string>();
+    const subfolderSet = new Set<string>(apiFolderNames);
     const directChildIds = new Set<string>();
     for (const r of allResources) {
       const id = r.public_id;

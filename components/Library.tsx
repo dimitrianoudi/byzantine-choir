@@ -309,8 +309,6 @@ export default function Library({ role, prefix: initialPrefix = '' }: { role: Ro
           </button>
         )}
 
-        <div className="header-spacer" />
-
         <div className="text-xs text-muted flex flex-wrap items-center gap-1">
           {breadcrumbs.map((c, idx) => (
             <span key={c.value} className="flex items-center gap-1">

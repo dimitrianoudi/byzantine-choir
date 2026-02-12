@@ -85,7 +85,7 @@ export async function POST(req: Request) {
       if (course && courseMap[course] && year && lesson) {
         const courseFolder = courseMap[course];
         const lessonStr = String(lesson).padStart(2, "0");
-        key = `μαθήματα/${courseFolder}/${year}/Μάθημα ${lessonStr}/${typeFolder}/${Date.now()}-${safe}`;
+        key = `Μαθήματα/${courseFolder}/${year}/Μάθημα ${lessonStr}/${typeFolder}/${Date.now()}-${safe}`;
       } else {
         const legacyPrefix = mime === "application/pdf" ? "pdfs" : "podcasts";
         key = `${legacyPrefix}/${Date.now()}-${safe}`;

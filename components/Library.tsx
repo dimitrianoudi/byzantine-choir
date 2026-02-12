@@ -40,6 +40,9 @@ export default function Library({ role, prefix: initialPrefix = '' }: { role: Ro
   const [presigned, setPresigned] = useState<Record<string, string>>({});
   const [actionMsg, setActionMsg] = useState<string | null>(null);
 
+  const [autoplay, setAutoplay] = useState(false);
+  const [currentIndex, setCurrentIndex] = useState(-1);
+
   useEffect(() => {
     setPrefix(initialPrefix || '');
   }, [initialPrefix]);
@@ -85,6 +88,7 @@ export default function Library({ role, prefix: initialPrefix = '' }: { role: Ro
       setError(null);
       setActionMsg(null);
       setPlayingKey(null);
+      setCurrentIndex(-1);
 
       try {
         const res = await fetch(`/api/files/list?prefix=${encodeURIComponent(prefix)}`);
@@ -100,18 +104,6 @@ export default function Library({ role, prefix: initialPrefix = '' }: { role: Ro
     };
     load();
   }, [prefix]);
-
-  useEffect(() => {
-    if (activeTab !== 'podcast') return;
-    if (!hasPodcasts) return;
-
-    const audio = document.getElementById('audio-player') as HTMLAudioElement | null;
-    if (!audio) return;
-
-    const onEnded = () => setPlayingKey(null);
-    audio.addEventListener('ended', onEnded);
-    return () => audio.removeEventListener('ended', onEnded);
-  }, [activeTab, hasPodcasts]);
 
   const getUrl = async (key: string) => {
     if (presigned[key]) return presigned[key];
@@ -140,7 +132,7 @@ export default function Library({ role, prefix: initialPrefix = '' }: { role: Ro
     return data.url as string;
   };
 
-  const play = async (key: string) => {
+  const play = async (key: string, idx: number) => {
     setActionMsg(null);
     const audio = document.getElementById('audio-player') as HTMLAudioElement | null;
     if (!audio) {
@@ -150,6 +142,7 @@ export default function Library({ role, prefix: initialPrefix = '' }: { role: Ro
 
     try {
       if (playingKey === key) {
+        setCurrentIndex(idx);
         if (!audio.paused) {
           audio.pause();
           setPlayingKey(null);
@@ -159,13 +152,26 @@ export default function Library({ role, prefix: initialPrefix = '' }: { role: Ro
         }
         return;
       }
+
       const url = await getUrl(key);
       audio.src = url;
       await audio.play();
       setPlayingKey(key);
+      setCurrentIndex(idx);
     } catch (err: any) {
       setActionMsg(err?.message || 'Σφάλμα αναπαραγωγής');
     }
+  };
+
+  const onAudioEnded = async () => {
+    setPlayingKey(null);
+    if (!autoplay) return;
+    const nextIdx = currentIndex + 1;
+    if (nextIdx < 0 || nextIdx >= podcasts.length) {
+      setCurrentIndex(-1);
+      return;
+    }
+    await play(podcasts[nextIdx].key, nextIdx);
   };
 
   const openPdf = async (key: string) => {
@@ -217,6 +223,10 @@ export default function Library({ role, prefix: initialPrefix = '' }: { role: Ro
           audio.load();
         }
         setPlayingKey(null);
+        setCurrentIndex(-1);
+      } else {
+        const idx = podcasts.findIndex((p) => p.key === key);
+        if (idx >= 0 && currentIndex >= idx) setCurrentIndex((v) => Math.max(-1, v - 1));
       }
     } catch (err: any) {
       setActionMsg(err?.message || 'Σφάλμα διαγραφής');
@@ -245,9 +255,7 @@ export default function Library({ role, prefix: initialPrefix = '' }: { role: Ro
 
       setItems((prev) =>
         prev.map((it) =>
-          it.key === fromKey
-            ? { ...it, key: toKey, name: toKey.split('/').pop() || toKey }
-            : it
+          it.key === fromKey ? { ...it, key: toKey, name: toKey.split('/').pop() || toKey } : it
         )
       );
 
@@ -259,6 +267,7 @@ export default function Library({ role, prefix: initialPrefix = '' }: { role: Ro
           audio.load();
         }
         setPlayingKey(null);
+        setCurrentIndex(-1);
       }
     } catch (e: any) {
       setActionMsg(e?.message || 'Σφάλμα μετονομασίας');
@@ -289,6 +298,18 @@ export default function Library({ role, prefix: initialPrefix = '' }: { role: Ro
           </button>
         )}
 
+        {activeTab === 'podcast' && hasPodcasts && (
+          <button
+            className={clsx('btn btn-outline', autoplay && 'btn--selected')}
+            type="button"
+            onClick={() => setAutoplay((v) => !v)}
+          >
+            Non-stop
+          </button>
+        )}
+
+        <div className="header-spacer" />
+
         <div className="text-xs text-muted flex flex-wrap items-center gap-1">
           {breadcrumbs.map((c, idx) => (
             <span key={c.value} className="flex items-center gap-1">
@@ -304,8 +325,6 @@ export default function Library({ role, prefix: initialPrefix = '' }: { role: Ro
             </span>
           ))}
         </div>
-
-        <div className="header-spacer" />
       </div>
 
       {loading && <div className="card p-6">Φόρτωση...</div>}
@@ -317,12 +336,7 @@ export default function Library({ role, prefix: initialPrefix = '' }: { role: Ro
           <div className="text-sm font-semibold text-muted">Φάκελοι</div>
           <div className="flex flex-col gap-2">
             {folders.map((f) => (
-              <button
-                key={f}
-                type="button"
-                className="btn btn-outline justify-between"
-                onClick={() => setPrefix(f)}
-              >
+              <button key={f} type="button" className="btn btn-outline justify-between" onClick={() => setPrefix(f)}>
                 <span>📁 {folderLabel(f)}</span>
                 <span className="text-xs text-muted">Άνοιγμα</span>
               </button>
@@ -339,7 +353,7 @@ export default function Library({ role, prefix: initialPrefix = '' }: { role: Ro
         <>
           {activeTab === 'podcast' && hasPodcasts && (
             <div className="card p-6 divide-y divide-[color:var(--border)]">
-              {podcasts.map((p) => (
+              {podcasts.map((p, idx) => (
                 <div key={p.key} className="py-4">
                   <div className="flex flex-col sm:flex-row sm:items-center gap-3">
                     <div className="flex-1 min-w-0">
@@ -350,7 +364,7 @@ export default function Library({ role, prefix: initialPrefix = '' }: { role: Ro
                     </div>
 
                     <div className="flex gap-2 sm:gap-3 sm:ml-auto flex-wrap">
-                      <button className="btn" onClick={() => play(p.key)}>
+                      <button className="btn" onClick={() => play(p.key, idx)}>
                         {playingKey === p.key ? 'Παύση' : 'Αναπαραγωγή'}
                       </button>
                       <button className="btn btn-gold" onClick={() => downloadKey(p.key, p.name)}>
@@ -372,7 +386,13 @@ export default function Library({ role, prefix: initialPrefix = '' }: { role: Ro
               ))}
 
               <div className="border-t border-subtle bg-white p-3">
-                <audio id="audio-player" className="w-full h-10 block" controls preload="none" />
+                <audio
+                  id="audio-player"
+                  className="w-full h-10 block"
+                  controls
+                  preload="none"
+                  onEnded={onAudioEnded}
+                />
               </div>
             </div>
           )}
@@ -394,8 +414,12 @@ export default function Library({ role, prefix: initialPrefix = '' }: { role: Ro
                     </div>
 
                     <div className="flex gap-2 sm:gap-3 ml-auto flex-wrap">
-                      <button className="btn" onClick={() => openPdf(pdf.key)}>Άνοιγμα</button>
-                      <button className="btn btn-gold" onClick={() => downloadKey(pdf.key, pdf.name)}>Λήψη</button>
+                      <button className="btn" onClick={() => openPdf(pdf.key)}>
+                        Άνοιγμα
+                      </button>
+                      <button className="btn btn-gold" onClick={() => downloadKey(pdf.key, pdf.name)}>
+                        Λήψη
+                      </button>
                       {role === 'admin' && (
                         <>
                           <button className="btn btn-outline" onClick={() => renameKey(pdf.key, pdf.name)}>

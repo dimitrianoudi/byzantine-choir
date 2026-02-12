@@ -3,6 +3,14 @@
 import { useMemo, useState } from 'react';
 
 type CourseKey = 'kids' | 'women' | 'men';
+type Dest = 'lessons' | 'akolouthies';
+type Kind = 'podcast' | 'pdf';
+type InitialSearchParams = {
+  series?: string;
+  prefix?: string;
+  year?: string;
+  date?: string;
+};
 
 const COURSES: { key: CourseKey; label: string }[] = [
   { key: 'kids', label: 'Ψαλτική παιδικής φωνής' },
@@ -13,8 +21,6 @@ const COURSES: { key: CourseKey; label: string }[] = [
 const YEARS = [2025, 2026];
 const LESSONS = Array.from({ length: 30 }, (_, i) => i + 1);
 
-type Series = 'lessons' | 'akolouthies';
-
 type UploadFile = {
   id: string;
   file: File;
@@ -24,44 +30,60 @@ type UploadFile = {
   key?: string;
 };
 
-function todayISO() {
+function isoToday() {
   const d = new Date();
-  const pad = (n: number) => String(n).padStart(2, '0');
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
 }
 
-type Props = {
-  initialSearchParams?: {
-    series?: string;
-    prefix?: string;
-    year?: string;
-    date?: string;
-  };
-};
+function fileKindFromMime(mime: string): Kind | null {
+  if (mime === 'application/pdf') return 'pdf';
+  if (
+    mime.startsWith('audio/') ||
+    ['audio/mpeg', 'audio/mp4', 'audio/aac', 'audio/x-m4a'].includes(mime)
+  )
+    return 'podcast';
+  return null;
+}
 
-export default function Uploader({ initialSearchParams }: Props) {
-  const [series, setSeries] = useState<Series>('lessons');
+function parseInitialDest(initialSearchParams?: InitialSearchParams): Dest {
+  return initialSearchParams?.series === 'akolouthies' ? 'akolouthies' : 'lessons';
+}
 
-  const [files, setFiles] = useState<UploadFile[]>([]);
-  const [type, setType] = useState<'podcast' | 'pdf'>('podcast');
+function parseInitialAkYear(initialSearchParams?: InitialSearchParams): number {
+  const year = Number(initialSearchParams?.year);
+  return Number.isFinite(year) && year > 0 ? year : new Date().getFullYear();
+}
+
+function parseInitialAkDate(initialSearchParams?: InitialSearchParams): string {
+  const date = initialSearchParams?.date;
+  return date && /^\d{4}-\d{2}-\d{2}$/.test(date) ? date : isoToday();
+}
+
+export default function Uploader({ initialSearchParams }: { initialSearchParams?: InitialSearchParams }) {
+  const [dest, setDest] = useState<Dest>(() => parseInitialDest(initialSearchParams));
+  const [kind, setKind] = useState<Kind>('podcast');
 
   const [course, setCourse] = useState<CourseKey>('kids');
   const [year, setYear] = useState<number>(2025);
   const [lesson, setLesson] = useState<number>(1);
 
-  const [akYear, setAkYear] = useState<number>(new Date().getFullYear());
-  const [akDate, setAkDate] = useState<string>(todayISO());
+  const [akYear, setAkYear] = useState<number>(() => parseInitialAkYear(initialSearchParams));
+  const [akDate, setAkDate] = useState<string>(() => parseInitialAkDate(initialSearchParams));
 
-  const [status, setStatus] = useState<string | null>(null);
+  const [files, setFiles] = useState<UploadFile[]>([]);
   const [busy, setBusy] = useState(false);
+  const [status, setStatus] = useState<string | null>(null);
   const [dragOver, setDragOver] = useState(false);
 
-  const lockedType = series === 'akolouthies' ? 'podcast' : type;
-
   const accept = useMemo(() => {
-    if (lockedType === 'pdf') return 'application/pdf';
-    return 'audio/mpeg,audio/mp4,audio/aac,audio/x-m4a,audio/mp3';
-  }, [lockedType]);
+    if (dest === 'akolouthies') return 'audio/mpeg,audio/mp4,audio/aac,audio/x-m4a';
+    return kind === 'pdf'
+      ? 'application/pdf'
+      : 'audio/mpeg,audio/mp4,audio/aac,audio/x-m4a';
+  }, [dest, kind]);
 
   const addFiles = (fileList: FileList | null) => {
     if (!fileList) return;
@@ -103,25 +125,27 @@ export default function Uploader({ initialSearchParams }: Props) {
     setStatus(null);
   };
 
-  const validateFiles = () => {
+  const validate = () => {
+    if (files.length === 0) return 'Επιλέξτε ένα ή περισσότερα αρχεία.';
+
     const MAX = 200 * 1024 * 1024;
 
     for (const item of files) {
       if (item.file.size > MAX) return 'Κάποιο αρχείο είναι πολύ μεγάλο (όριο 200MB).';
 
-      if (lockedType === 'pdf') {
-        if (item.file.type !== 'application/pdf') return 'Κάποιο αρχείο δεν είναι PDF.';
+      const inferred = fileKindFromMime(item.file.type);
+      if (!inferred) return 'Κάποιο αρχείο έχει μη υποστηριζόμενο τύπο.';
+
+      if (dest === 'akolouthies') {
+        if (inferred !== 'podcast') return 'Στις Ακολουθίες επιτρέπονται μόνο podcasts (ήχος).';
       } else {
-        const ok = ['audio/mpeg', 'audio/mp4', 'audio/aac', 'audio/x-m4a', 'audio/mp3'].includes(
-          item.file.type
-        );
-        if (!ok) return 'Κάποιο αρχείο έχει μη υποστηριζόμενο τύπο ήχου.';
+        if (inferred !== kind) return 'Κάποιο αρχείο δεν ταιριάζει με το επιλεγμένο είδος.';
       }
     }
 
-    if (series === 'akolouthies') {
-      if (!akYear || !akDate) return 'Βάλτε έτος και ημερομηνία.';
-      if (!/^\d{4}-\d{2}-\d{2}$/.test(akDate)) return 'Η ημερομηνία πρέπει να είναι YYYY-MM-DD.';
+    if (dest === 'akolouthies') {
+      if (!akYear || !/^\d{4}$/.test(String(akYear))) return 'Μη έγκυρο έτος.';
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(akDate)) return 'Μη έγκυρη ημερομηνία (YYYY-MM-DD).';
     }
 
     return null;
@@ -131,12 +155,7 @@ export default function Uploader({ initialSearchParams }: Props) {
     e.preventDefault();
     setStatus(null);
 
-    if (files.length === 0) {
-      setStatus('Επιλέξτε ένα ή περισσότερα αρχεία.');
-      return;
-    }
-
-    const v = validateFiles();
+    const v = validate();
     if (v) {
       setStatus(v);
       return;
@@ -151,29 +170,27 @@ export default function Uploader({ initialSearchParams }: Props) {
       setFiles((prev) => prev.map((f) => (f.id === item.id ? { ...f, status: 'uploading', progress: 0 } : f)));
 
       try {
-        const body =
-          series === 'akolouthies'
-            ? {
-                filename: item.file.name,
-                mime: item.file.type,
-                kind: 'podcast',
-                series: 'akolouthies',
-                year: akYear,
-                date: akDate,
-              }
-            : {
-                filename: item.file.name,
-                mime: item.file.type,
-                kind: lockedType,
-                course,
-                year,
-                lesson,
-              };
+        const payload: any = {
+          filename: item.file.name,
+          mime: item.file.type,
+        };
+
+        if (dest === 'akolouthies') {
+          payload.series = 'akolouthies';
+          payload.kind = 'podcast';
+          payload.year = akYear;
+          payload.date = akDate;
+        } else {
+          payload.kind = kind;
+          payload.course = course;
+          payload.year = year;
+          payload.lesson = lesson;
+        }
 
         const presignRes = await fetch('/api/files/presign', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(body),
+          body: JSON.stringify(payload),
         });
 
         if (!presignRes.ok) {
@@ -196,9 +213,7 @@ export default function Uploader({ initialSearchParams }: Props) {
 
           xhr.onload = () => {
             if (xhr.status >= 200 && xhr.status < 300) {
-              setFiles((prev) =>
-                prev.map((f) => (f.id === item.id ? { ...f, status: 'done', progress: 100, key } : f))
-              );
+              setFiles((prev) => prev.map((f) => (f.id === item.id ? { ...f, status: 'done', progress: 100, key } : f)));
               resolve();
             } else {
               reject(new Error(`Upload failed (${xhr.status})`));
@@ -206,6 +221,7 @@ export default function Uploader({ initialSearchParams }: Props) {
           };
 
           xhr.onerror = () => reject(new Error('Network error κατά το ανέβασμα'));
+
           xhr.setRequestHeader('Content-Type', item.file.type || 'application/octet-stream');
           xhr.send(item.file);
         });
@@ -220,100 +236,47 @@ export default function Uploader({ initialSearchParams }: Props) {
       }
     }
 
-    if (successCount === 0) {
-      setStatus('Αποτυχία ανεβάσματος για όλα τα αρχεία.');
-      setBusy(false);
-      return;
+    if (successCount === 0) setStatus('Αποτυχία ανεβάσματος για όλα τα αρχεία.');
+    else if (successCount < files.length) setStatus(`Ολοκληρώθηκαν ${successCount} από τα ${files.length} αρχεία.`);
+    else {
+      setStatus('Όλα τα αρχεία ανέβηκαν επιτυχώς.');
+      setTimeout(() => (window.location.href = '/material'), 650);
     }
-
-    if (successCount < files.length) {
-      setStatus(`Ολοκληρώθηκαν ${successCount} από τα ${files.length} αρχεία.`);
-      setBusy(false);
-      return;
-    }
-
-    setStatus('Όλα τα αρχεία ανέβηκαν επιτυχώς.');
-
-    const redirectPrefix =
-      series === 'akolouthies'
-        ? `Ακολουθίες/${akYear}/${akDate}/podcasts/`
-        : `μαθήματα/${COURSES.find((c) => c.key === course)?.label || course}/${year}/Μάθημα ${String(lesson).padStart(
-            2,
-            '0'
-          )}/${lockedType === 'pdf' ? 'pdfs' : 'podcasts'}/`;
-
-    setTimeout(() => {
-      window.location.href = `/material?prefix=${encodeURIComponent(redirectPrefix)}`;
-    }, 600);
 
     setBusy(false);
   };
 
-  const onChangeSeries = (s: Series) => {
-    setSeries(s);
-    setFiles([]);
-    setStatus(null);
-    if (s === 'akolouthies') setType('podcast');
-  };
-
   return (
     <div className="max-w-xl mx-auto card p-6 space-y-6">
-      <h1 className="font-heading text-xl font-semibold mb-2">
-        Ανέβασμα Αρχείων
-      </h1>
+      <h1 className="font-heading text-xl font-semibold">Ανέβασμα Αρχείων</h1>
 
       <form onSubmit={uploadAll} className="space-y-4">
         <div>
-          <label className="text-sm text-muted">Κατηγορία ανεβάσματος</label>
+          <label className="text-sm text-muted">Προορισμός</label>
           <div className="mt-2 flex flex-wrap gap-3">
             <label className="inline-flex items-center gap-2 cursor-pointer">
-              <input
-                type="radio"
-                name="series"
-                value="lessons"
-                checked={series === 'lessons'}
-                onChange={() => onChangeSeries('lessons')}
-              />
+              <input type="radio" name="dest" value="lessons" checked={dest === 'lessons'} onChange={() => setDest('lessons')} />
               <span>Μαθήματα</span>
             </label>
-
             <label className="inline-flex items-center gap-2 cursor-pointer">
-              <input
-                type="radio"
-                name="series"
-                value="akolouthies"
-                checked={series === 'akolouthies'}
-                onChange={() => onChangeSeries('akolouthies')}
-              />
+              <input type="radio" name="dest" value="akolouthies" checked={dest === 'akolouthies'} onChange={() => setDest('akolouthies')} />
               <span>Ακολουθίες</span>
             </label>
           </div>
         </div>
 
-        {series === 'lessons' && (
+        {dest === 'lessons' && (
           <>
             <div>
               <label className="text-sm text-muted">Είδος αρχείου</label>
               <div className="mt-2 flex flex-wrap gap-3">
                 <label className="inline-flex items-center gap-2 cursor-pointer">
-                  <input
-                    type="radio"
-                    name="kind"
-                    value="podcast"
-                    checked={type === 'podcast'}
-                    onChange={() => setType('podcast')}
-                  />
+                  <input type="radio" name="kind" value="podcast" checked={kind === 'podcast'} onChange={() => setKind('podcast')} />
                   <span>Podcast (ήχος)</span>
                 </label>
                 <label className="inline-flex items-center gap-2 cursor-pointer">
-                  <input
-                    type="radio"
-                    name="kind"
-                    value="pdf"
-                    checked={type === 'pdf'}
-                    onChange={() => setType('pdf')}
-                  />
-                  <span>PDF (σημειώσεις)</span>
+                  <input type="radio" name="kind" value="pdf" checked={kind === 'pdf'} onChange={() => setKind('pdf')} />
+                  <span>PDF</span>
                 </label>
               </div>
             </div>
@@ -355,23 +318,17 @@ export default function Uploader({ initialSearchParams }: Props) {
           </>
         )}
 
-        {series === 'akolouthies' && (
-          <>
-            <div className="card p-4">
-              <div className="text-sm text-muted">Ακολουθίες: ανεβαίνουν μόνο αρχεία ήχου (podcasts).</div>
+        {dest === 'akolouthies' && (
+          <div className="grid sm:grid-cols-2 gap-4">
+            <div>
+              <label className="text-sm text-muted">Έτος</label>
+              <input className="input mt-1" value={String(akYear)} onChange={(e) => setAkYear(Number(e.target.value))} />
             </div>
-
-            <div className="grid sm:grid-cols-2 gap-4">
-              <div>
-                <label className="text-sm text-muted">Έτος</label>
-                <input className="input mt-1" type="number" value={akYear} onChange={(e) => setAkYear(Number(e.target.value))} />
-              </div>
-              <div>
-                <label className="text-sm text-muted">Ημερομηνία (Κυριακή)</label>
-                <input className="input mt-1" type="date" value={akDate} onChange={(e) => setAkDate(e.target.value)} />
-              </div>
+            <div>
+              <label className="text-sm text-muted">Ημερομηνία (YYYY-MM-DD)</label>
+              <input className="input mt-1" value={akDate} onChange={(e) => setAkDate(e.target.value)} />
             </div>
-          </>
+          </div>
         )}
 
         <div
@@ -384,14 +341,7 @@ export default function Uploader({ initialSearchParams }: Props) {
           onDragLeave={onDragLeave}
         >
           <p className="text-sm text-muted mb-3">Σύρετε και αφήστε αρχεία εδώ ή πατήστε για επιλογή.</p>
-          <input
-            type="file"
-            className="hidden"
-            id="file-input"
-            multiple
-            accept={accept}
-            onChange={onInputChange}
-          />
+          <input id="file-input" type="file" className="hidden" multiple accept={accept} onChange={onInputChange} />
           <button type="button" className="btn btn-outline" onClick={() => document.getElementById('file-input')?.click()}>
             Επιλογή αρχείων
           </button>
@@ -409,8 +359,8 @@ export default function Uploader({ initialSearchParams }: Props) {
             <div className="max-h-64 overflow-y-auto space-y-2">
               {files.map((f) => (
                 <div key={f.id} className="border border-subtle rounded-md px-3 py-2 flex items-center gap-3 text-sm">
-                  <div className="w-8 h-8 rounded-md bg-[rgba(0,0,0,0.05)] flex items-center justify-center text-xs">
-                    {lockedType === 'pdf' ? 'PDF' : 'AUDIO'}
+                  <div className="w-10 h-10 rounded-md bg-[rgba(0,0,0,0.05)] flex items-center justify-center text-[11px]">
+                    {fileKindFromMime(f.file.type) === 'pdf' ? 'PDF' : 'AUDIO'}
                   </div>
                   <div className="min-w-0 flex-1">
                     <div className="truncate">{f.file.name}</div>
@@ -418,12 +368,8 @@ export default function Uploader({ initialSearchParams }: Props) {
                     <div className="mt-1 h-1.5 bg-[rgba(0,0,0,0.06)] rounded-full overflow-hidden">
                       <div
                         className={
-                          'h-full rounded-full ' +
-                          (f.status === 'error'
-                            ? 'bg-red-600'
-                            : f.status === 'done'
-                            ? 'bg-green-600'
-                            : 'bg-[var(--muted)]')
+                          'h-full ' +
+                          (f.status === 'error' ? 'bg-red-600' : f.status === 'done' ? 'bg-green-600' : 'bg-[var(--muted)]')
                         }
                         style={{ width: `${f.progress}%` }}
                       />
@@ -442,7 +388,9 @@ export default function Uploader({ initialSearchParams }: Props) {
         )}
 
         <div className="flex justify-end gap-3">
-          <a href="/material" className="btn btn-outline">Πίσω στο Υλικό</a>
+          <a href="/material" className="btn btn-outline">
+            Πίσω στο Υλικό
+          </a>
           <button className="btn btn-gold" type="submit" disabled={files.length === 0 || busy}>
             {busy ? 'Ανέβασμα…' : 'Ανέβασμα'}
           </button>

@@ -16,7 +16,13 @@ type CourseKey = keyof typeof courseMap;
 type Kind = "podcast" | "pdf";
 
 function sanitizeFilename(name: string): string {
-  return String(name).replace(/[^\w\d\-_.]+/g, "_");
+  const n = String(name).normalize("NFC").trim();
+  const sanitized = n
+    .replace(/\//g, "_")
+    .replace(/[\u0000-\u001F]/g, "_")
+    .replace(/[<>:"\\|?*]/g, "_")
+    .replace(/\s+/g, " ");
+  return sanitized || "file";
 }
 function isIsoDate(s: string): boolean {
   return /^\d{4}-\d{2}-\d{2}$/.test(s);

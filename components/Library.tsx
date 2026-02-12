@@ -300,8 +300,9 @@ export default function Library({ role, prefix: initialPrefix = '' }: { role: Ro
 
         {activeTab === 'podcast' && hasPodcasts && (
           <button
-            className={clsx('btn btn-outline', autoplay && 'btn--selected')}
+            className={clsx('btn btn-outline btn--toggle', autoplay && 'btn--autoplay-on')}
             type="button"
+            aria-pressed={autoplay}
             onClick={() => setAutoplay((v) => !v)}
           >
             Non-stop

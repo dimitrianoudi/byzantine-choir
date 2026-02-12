@@ -142,6 +142,20 @@
     color: #fff;
   }
 
+  /* Toggle buttons (e.g. Non-stop): clear press + enabled states */
+  .btn--toggle:active {
+    background: var(--btn-sky);
+    border-color: var(--btn-sky);
+    color: #fff;
+    transform: translateY(1px);
+  }
+  .btn--autoplay-on,
+  .btn--autoplay-on:hover {
+    background: var(--gold-500);
+    border-color: var(--gold-500);
+    color: #fff;
+  }
+
   .btn-sm { --btn-h: 34px; --btn-fz: 14px; --btn-px: 12px; --btn-minw: 100px; }
   .btn-lg { --btn-h: 46px; --btn-fz: 16px; --btn-px: 16px; --btn-minw: 140px; }
 

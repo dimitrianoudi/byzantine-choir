@@ -357,7 +357,7 @@ export default function Library({ role, prefix: initialPrefix = '' }: { role: Ro
                 <div key={p.key} className="py-4">
                   <div className="flex flex-col sm:flex-row sm:items-center gap-3">
                     <div className="flex-1 min-w-0">
-                      <div className="font-medium break-all">{prettyName(p.name || p.key)}</div>
+                      <div className="font-medium break-words">{prettyName(p.name || p.key)}</div>
                       <div className="text-xs text-muted">
                         {p.lastModified ? new Date(p.lastModified).toLocaleString() : ''}
                       </div>
@@ -401,19 +401,19 @@ export default function Library({ role, prefix: initialPrefix = '' }: { role: Ro
             <div className="card p-6 divide-y divide-[color:var(--border)]">
               {pdfs.map((pdf) => (
                 <div key={pdf.key} className="py-4">
-                  <div className="flex items-center gap-4">
+                  <div className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4">
                     <div className="shrink-0">
                       <PdfThumb storageKey={pdf.key} getUrl={getUrl} width={50} />
                     </div>
 
                     <div className="min-w-0 flex-1">
-                      <div className="font-medium break-all">{prettyName(pdf.name || pdf.key)}</div>
+                      <div className="font-medium break-words">{prettyName(pdf.name || pdf.key)}</div>
                       <div className="text-xs text-muted">
                         {pdf.lastModified ? new Date(pdf.lastModified).toLocaleDateString() : ''}
                       </div>
                     </div>
 
-                    <div className="flex gap-2 sm:gap-3 ml-auto flex-wrap">
+                    <div className="flex gap-2 sm:gap-3 sm:ml-auto flex-wrap">
                       <button className="btn" onClick={() => openPdf(pdf.key)}>
                         Άνοιγμα
                       </button>

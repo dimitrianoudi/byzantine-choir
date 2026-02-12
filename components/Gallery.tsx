@@ -41,6 +41,7 @@ export default function Gallery({ role }: { role: Role }) {
   });
 
   const [busyDelete, setBusyDelete] = useState(false);
+  const [busyCreateFolder, setBusyCreateFolder] = useState(false);
 
   const breadcrumbs = useMemo(() => {
     const segs = prefix.split('/').filter(Boolean);
@@ -121,11 +122,33 @@ export default function Gallery({ role }: { role: Role }) {
 
   const [newFolder, setNewFolder] = useState('');
 
-  const createFolder = () => {
+  const createFolder = async () => {
+    if (role !== 'admin') return;
     const name = newFolder.trim();
     if (!name) return;
-    setPrefix((p) => normalizePrefix(p + name));
-    setNewFolder('');
+
+    setErr(null);
+    setBusyCreateFolder(true);
+
+    try {
+      const res = await fetch('/api/gallery/folders', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name, prefix }),
+      });
+
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(json?.error || 'Create folder failed');
+
+      const nextPrefix = normalizePrefix((prefix ? `${prefix.replace(/\/$/, '')}/` : '') + name);
+      setPrefix(nextPrefix);
+      setNewFolder('');
+      await loadItems();
+    } catch (e: any) {
+      setErr(e?.message || 'Σφάλμα δημιουργίας φακέλου');
+    } finally {
+      setBusyCreateFolder(false);
+    }
   };
 
   return (
@@ -172,10 +195,9 @@ export default function Gallery({ role }: { role: Role }) {
                 className="btn btn-outline"
                 type="button"
                 onClick={createFolder}
-                disabled={!newFolder.trim()}
-                title="Σημείωση: ο φάκελος θα εμφανιστεί αφού ανεβεί τουλάχιστον 1 αρχείο"
+                disabled={!newFolder.trim() || busyCreateFolder}
               >
-                Δημιουργία
+                {busyCreateFolder ? 'Δημιουργία…' : 'Δημιουργία'}
               </button>
             </div>
           </div>

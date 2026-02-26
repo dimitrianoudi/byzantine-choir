@@ -13,8 +13,16 @@ type CloudinaryResource = {
   duration?: number;
 };
 
-function withImageThumb(url: string) {
-  return url.replace("/upload/", "/upload/c_fill,w_600,q_auto,f_auto/");
+function imageUrl(cloudName: string, publicId: string, transform: string) {
+  return `https://res.cloudinary.com/${cloudName}/image/upload/${transform}/${publicId}`;
+}
+
+function withImageThumb(cloudName: string, publicId: string) {
+  return imageUrl(cloudName, publicId, "c_limit,w_600,q_auto,f_auto");
+}
+
+function withImageFull(cloudName: string, publicId: string) {
+  return imageUrl(cloudName, publicId, "c_fit,w_2200,h_2200,q_auto,f_auto");
 }
 
 function videoPosterUrl(cloudName: string, publicId: string) {
@@ -264,8 +272,8 @@ export async function GET(req: Request) {
           id: r.public_id,
           publicId: r.public_id,
           type: isVideo ? "video" : "image",
-          src: r.secure_url,
-          thumb: isVideo ? videoPosterUrl(cloudName, r.public_id) : withImageThumb(r.secure_url),
+          src: isVideo ? r.secure_url : withImageFull(cloudName, r.public_id),
+          thumb: isVideo ? videoPosterUrl(cloudName, r.public_id) : withImageThumb(cloudName, r.public_id),
           width: r.width,
           height: r.height,
           format: r.format,

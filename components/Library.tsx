@@ -1,8 +1,9 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import clsx from 'clsx';
 import PdfThumb from './PdfThumb';
+import { USER_SETTINGS_EVENT, getUserSettings, type UserSettings } from '@/lib/userSettings';
 
 type Role = 'member' | 'admin';
 
@@ -30,6 +31,8 @@ function getPrefixFromUrl() {
   return new URL(window.location.href).searchParams.get('prefix') || '';
 }
 
+const LIBRARY_LAST_PREFIX_KEY = 'bcp:library:last-prefix';
+
 export default function Library({ role, prefix: initialPrefix = '' }: { role: Role; prefix?: string }) {
   const [items, setItems] = useState<Item[]>([]);
   const [folders, setFolders] = useState<string[]>([]);
@@ -47,6 +50,12 @@ export default function Library({ role, prefix: initialPrefix = '' }: { role: Ro
 
   const [autoplay, setAutoplay] = useState(false);
   const [currentIndex, setCurrentIndex] = useState(-1);
+  const [playerCurrentTime, setPlayerCurrentTime] = useState(0);
+  const [playerDuration, setPlayerDuration] = useState(0);
+  const [preferredPlaybackRate, setPreferredPlaybackRate] = useState(1);
+  const [preferredDefaultTab, setPreferredDefaultTab] = useState<'podcast' | 'pdf'>('podcast');
+  const [rememberLastFolder, setRememberLastFolder] = useState(true);
+  const audioRefs = useRef<Record<string, HTMLAudioElement | null>>({});
 
   useEffect(() => {
     setPrefix(initialPrefix || '');
@@ -60,7 +69,7 @@ export default function Library({ role, prefix: initialPrefix = '' }: { role: Ro
     return () => window.removeEventListener('popstate', onPopState);
   }, []);
 
-  const navigatePrefix = (nextPrefix: string) => {
+  const navigatePrefix = (nextPrefix: string, mode: 'push' | 'replace' = 'push') => {
     setPrefix(nextPrefix);
 
     if (typeof window === 'undefined') return;
@@ -68,8 +77,39 @@ export default function Library({ role, prefix: initialPrefix = '' }: { role: Ro
     const url = new URL(window.location.href);
     if (nextPrefix) url.searchParams.set('prefix', nextPrefix);
     else url.searchParams.delete('prefix');
-    window.history.pushState({}, '', `${url.pathname}${url.search}`);
+    const nextUrl = `${url.pathname}${url.search}`;
+    if (mode === 'replace') window.history.replaceState({}, '', nextUrl);
+    else window.history.pushState({}, '', nextUrl);
   };
+
+  useEffect(() => {
+    const applySettings = (next: UserSettings) => {
+      setAutoplay(next.defaultAutoplay);
+      setPreferredPlaybackRate(next.playbackRate);
+      setPreferredDefaultTab(next.defaultMaterialTab);
+      setRememberLastFolder(next.rememberLastFolder);
+    };
+
+    const settings = getUserSettings();
+    applySettings(settings);
+
+    if (!initialPrefix && settings.rememberLastFolder && typeof window !== 'undefined') {
+      const remembered = window.localStorage.getItem(LIBRARY_LAST_PREFIX_KEY) || '';
+      if (remembered) navigatePrefix(remembered, 'replace');
+    }
+
+    const onSettingsChanged = (event: Event) => {
+      const detail = (event as CustomEvent<UserSettings>).detail;
+      applySettings(detail || getUserSettings());
+    };
+    window.addEventListener(USER_SETTINGS_EVENT, onSettingsChanged as EventListener);
+    return () => window.removeEventListener(USER_SETTINGS_EVENT, onSettingsChanged as EventListener);
+  }, [initialPrefix]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined' || !rememberLastFolder) return;
+    window.localStorage.setItem(LIBRARY_LAST_PREFIX_KEY, prefix);
+  }, [prefix, rememberLastFolder]);
 
   useEffect(() => {
     if (isAkolouthies) {
@@ -78,7 +118,10 @@ export default function Library({ role, prefix: initialPrefix = '' }: { role: Ro
     }
     if (prefix.toLowerCase().includes('/pdfs/')) setActiveTab('pdf');
     if (prefix.toLowerCase().includes('/podcasts/')) setActiveTab('podcast');
-  }, [prefix, isAkolouthies]);
+    if (!prefix && !prefix.toLowerCase().includes('/pdfs/') && !prefix.toLowerCase().includes('/podcasts/')) {
+      setActiveTab(preferredDefaultTab);
+    }
+  }, [prefix, isAkolouthies, preferredDefaultTab]);
 
   const podcasts = useMemo(() => items.filter((i) => i.type === 'podcast'), [items]);
   const pdfs = useMemo(() => items.filter((i) => i.type === 'pdf'), [items]);
@@ -113,6 +156,8 @@ export default function Library({ role, prefix: initialPrefix = '' }: { role: Ro
       setActionMsg(null);
       setPlayingKey(null);
       setCurrentIndex(-1);
+      setPlayerCurrentTime(0);
+      setPlayerDuration(0);
 
       try {
         const res = await fetch(`/api/files/list?prefix=${encodeURIComponent(prefix)}`);
@@ -158,14 +203,16 @@ export default function Library({ role, prefix: initialPrefix = '' }: { role: Ro
 
   const play = async (key: string, idx: number) => {
     setActionMsg(null);
-    const audio = document.getElementById('audio-player') as HTMLAudioElement | null;
+    const audio = audioRefs.current[key];
     if (!audio) {
       setActionMsg('Δεν βρέθηκε ο player ήχου');
       return;
     }
 
     try {
-      if (playingKey === key) {
+      const isCurrentTrackLoaded = currentIndex === idx && !!audio.src;
+
+      if (isCurrentTrackLoaded) {
         setCurrentIndex(idx);
         if (!audio.paused) {
           audio.pause();
@@ -177,8 +224,16 @@ export default function Library({ role, prefix: initialPrefix = '' }: { role: Ro
         return;
       }
 
+      if (playingKey && playingKey !== key) {
+        const prevAudio = audioRefs.current[playingKey];
+        prevAudio?.pause();
+      }
+
       const url = await getUrl(key);
+      setPlayerCurrentTime(0);
+      setPlayerDuration(0);
       audio.src = url;
+      audio.playbackRate = preferredPlaybackRate;
       await audio.play();
       setPlayingKey(key);
       setCurrentIndex(idx);
@@ -187,10 +242,11 @@ export default function Library({ role, prefix: initialPrefix = '' }: { role: Ro
     }
   };
 
-  const onAudioEnded = async () => {
+  const onAudioEnded = async (endedIdx: number) => {
     setPlayingKey(null);
+    setPlayerCurrentTime(0);
     if (!autoplay) return;
-    const nextIdx = currentIndex + 1;
+    const nextIdx = endedIdx + 1;
     if (nextIdx < 0 || nextIdx >= podcasts.length) {
       setCurrentIndex(-1);
       return;
@@ -240,7 +296,7 @@ export default function Library({ role, prefix: initialPrefix = '' }: { role: Ro
       setItems((prev) => prev.filter((i) => i.key !== key));
 
       if (playingKey === key) {
-        const audio = document.getElementById('audio-player') as HTMLAudioElement | null;
+        const audio = audioRefs.current[key];
         if (audio) {
           audio.pause();
           audio.removeAttribute('src');
@@ -284,7 +340,7 @@ export default function Library({ role, prefix: initialPrefix = '' }: { role: Ro
       );
 
       if (playingKey === fromKey) {
-        const audio = document.getElementById('audio-player') as HTMLAudioElement | null;
+        const audio = audioRefs.current[fromKey];
         if (audio) {
           audio.pause();
           audio.removeAttribute('src');
@@ -300,6 +356,22 @@ export default function Library({ role, prefix: initialPrefix = '' }: { role: Ro
 
   const showPodcastTab = hasPodcasts || isAkolouthies;
   const showPdfTab = !isAkolouthies && hasPdfs;
+  const activeTrack = currentIndex >= 0 ? podcasts[currentIndex] : null;
+
+  useEffect(() => {
+    if (!activeTrack) return;
+    const audio = audioRefs.current[activeTrack.key];
+    if (!audio) return;
+    audio.playbackRate = preferredPlaybackRate;
+  }, [activeTrack, preferredPlaybackRate]);
+
+  const seekActiveTrack = (nextTime: number) => {
+    if (!activeTrack) return;
+    const audio = audioRefs.current[activeTrack.key];
+    if (!audio) return;
+    audio.currentTime = nextTime;
+    setPlayerCurrentTime(nextTime);
+  };
 
   return (
     <div className="space-y-6">
@@ -410,18 +482,54 @@ export default function Library({ role, prefix: initialPrefix = '' }: { role: Ro
                       )}
                     </div>
                   </div>
+
+                  <div className={clsx(currentIndex === idx ? 'now-playing mt-3' : 'hidden')}>
+                    <div className="now-playing-head">
+                      <span className="now-playing-badge">Τώρα παίζει</span>
+                      <span className="now-playing-title">{prettyName(p.name || p.key)}</span>
+                    </div>
+                    <div className="player-controls">
+                      <button className="btn btn-sm btn-outline" type="button" onClick={() => play(p.key, idx)}>
+                        {playingKey === p.key ? 'Παύση' : 'Αναπαραγωγή'}
+                      </button>
+                      <div className="player-seek-wrap">
+                        <input
+                          type="range"
+                          min={0}
+                          max={Math.max(playerDuration, 0)}
+                          step={0.1}
+                          value={Math.min(playerCurrentTime, playerDuration || 0)}
+                          onChange={(e) => seekActiveTrack(Number(e.target.value))}
+                          className="player-seek"
+                          aria-label="Μετακίνηση αναπαραγωγής"
+                        />
+                        <div className="player-time">
+                          <span>{formatTime(playerCurrentTime)}</span>
+                          <span>{formatTime(playerDuration)}</span>
+                        </div>
+                      </div>
+                    </div>
+                    <audio
+                      ref={(el) => {
+                        audioRefs.current[p.key] = el;
+                      }}
+                      className="sr-only"
+                      preload="none"
+                      onPlay={() => {
+                        setPlayingKey(p.key);
+                        setCurrentIndex(idx);
+                      }}
+                      onPause={() => {
+                        setPlayingKey((v) => (v === p.key ? null : v));
+                      }}
+                      onLoadedMetadata={(e) => setPlayerDuration(e.currentTarget.duration || 0)}
+                      onDurationChange={(e) => setPlayerDuration(e.currentTarget.duration || 0)}
+                      onTimeUpdate={(e) => setPlayerCurrentTime(e.currentTarget.currentTime || 0)}
+                      onEnded={() => onAudioEnded(idx)}
+                    />
+                  </div>
                 </div>
               ))}
-
-              <div className="border-t border-subtle bg-white p-3">
-                <audio
-                  id="audio-player"
-                  className="w-full h-10 block"
-                  controls
-                  preload="none"
-                  onEnded={onAudioEnded}
-                />
-              </div>
             </div>
           )}
 
@@ -466,8 +574,104 @@ export default function Library({ role, prefix: initialPrefix = '' }: { role: Ro
           )}
         </>
       )}
+
+      <style jsx>{`
+        .now-playing {
+          border: 1px solid var(--border);
+          border-radius: 14px;
+          background: linear-gradient(135deg, rgba(215, 166, 74, 0.1), rgba(255, 255, 255, 0.95));
+          padding: 10px 12px 12px;
+          box-shadow: 0 4px 18px rgba(0, 0, 0, 0.06);
+        }
+
+        .now-playing-head {
+          display: flex;
+          align-items: center;
+          gap: 10px;
+          margin-bottom: 8px;
+          min-width: 0;
+        }
+
+        .now-playing-badge {
+          border-radius: 999px;
+          background: rgba(0, 0, 0, 0.8);
+          color: #fff;
+          font-size: 11px;
+          font-weight: 700;
+          letter-spacing: 0.02em;
+          padding: 4px 10px;
+          white-space: nowrap;
+        }
+
+        .now-playing-title {
+          font-size: 13px;
+          color: var(--muted);
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
+        }
+
+        .player-controls {
+          display: flex;
+          align-items: center;
+          gap: 10px;
+        }
+
+        .player-seek-wrap {
+          flex: 1;
+          min-width: 0;
+        }
+
+        .player-seek {
+          width: 100%;
+          accent-color: var(--blue-600);
+        }
+
+        .player-time {
+          display: flex;
+          justify-content: space-between;
+          font-size: 12px;
+          color: var(--muted);
+          margin-top: 2px;
+          font-variant-numeric: tabular-nums;
+        }
+
+        @media (max-width: 640px) {
+          .now-playing {
+            border-radius: 12px;
+            padding: 10px;
+          }
+
+          .now-playing-head {
+            flex-direction: column;
+            align-items: flex-start;
+            gap: 6px;
+          }
+
+          .now-playing-title {
+            white-space: normal;
+            display: -webkit-box;
+            -webkit-box-orient: vertical;
+            -webkit-line-clamp: 2;
+            line-clamp: 2;
+          }
+
+          .player-controls {
+            flex-direction: column;
+            align-items: stretch;
+          }
+        }
+      `}</style>
     </div>
   );
+}
+
+function formatTime(seconds: number) {
+  if (!Number.isFinite(seconds) || seconds < 0) return '0:00';
+  const total = Math.floor(seconds);
+  const mins = Math.floor(total / 60);
+  const secs = total % 60;
+  return `${mins}:${String(secs).padStart(2, '0')}`;
 }
 
 async function safeText(res: Response) {

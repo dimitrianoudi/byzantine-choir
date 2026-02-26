@@ -25,6 +25,11 @@ function folderLabel(prefix: string): string {
   return parts[parts.length - 1] || prefix;
 }
 
+function getPrefixFromUrl() {
+  if (typeof window === 'undefined') return '';
+  return new URL(window.location.href).searchParams.get('prefix') || '';
+}
+
 export default function Library({ role, prefix: initialPrefix = '' }: { role: Role; prefix?: string }) {
   const [items, setItems] = useState<Item[]>([]);
   const [folders, setFolders] = useState<string[]>([]);
@@ -46,6 +51,25 @@ export default function Library({ role, prefix: initialPrefix = '' }: { role: Ro
   useEffect(() => {
     setPrefix(initialPrefix || '');
   }, [initialPrefix]);
+
+  useEffect(() => {
+    const onPopState = () => {
+      setPrefix(getPrefixFromUrl());
+    };
+    window.addEventListener('popstate', onPopState);
+    return () => window.removeEventListener('popstate', onPopState);
+  }, []);
+
+  const navigatePrefix = (nextPrefix: string) => {
+    setPrefix(nextPrefix);
+
+    if (typeof window === 'undefined') return;
+
+    const url = new URL(window.location.href);
+    if (nextPrefix) url.searchParams.set('prefix', nextPrefix);
+    else url.searchParams.delete('prefix');
+    window.history.pushState({}, '', `${url.pathname}${url.search}`);
+  };
 
   useEffect(() => {
     if (isAkolouthies) {
@@ -315,7 +339,7 @@ export default function Library({ role, prefix: initialPrefix = '' }: { role: Ro
               {idx > 0 && <span>/</span>}
               <button
                 type="button"
-                onClick={() => setPrefix(c.value)}
+                onClick={() => navigatePrefix(c.value)}
                 style={{ background: 'transparent', border: 'none', padding: 0, cursor: 'pointer' }}
                 className={clsx(c.value === prefix ? 'font-semibold text-blue' : 'hover:underline')}
               >
@@ -335,7 +359,12 @@ export default function Library({ role, prefix: initialPrefix = '' }: { role: Ro
           <div className="text-sm font-semibold text-muted">Φάκελοι</div>
           <div className="flex flex-col gap-2">
             {folders.map((f) => (
-              <button key={f} type="button" className="btn btn-outline justify-between" onClick={() => setPrefix(f)}>
+              <button
+                key={f}
+                type="button"
+                className="btn btn-outline justify-between"
+                onClick={() => navigatePrefix(f)}
+              >
                 <span>📁 {folderLabel(f)}</span>
                 <span className="text-xs text-muted">Άνοιγμα</span>
               </button>

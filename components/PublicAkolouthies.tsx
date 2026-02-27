@@ -28,6 +28,10 @@ export default function PublicAkolouthies() {
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
   const didAutoPlay = useRef(false);
+  const yearOptions = useMemo(() => {
+    const current = new Date().getFullYear();
+    return Array.from({ length: 12 }, (_, i) => String(current - i));
+  }, []);
 
   const shareUrl = useMemo(() => {
     const u = new URL(window.location.href);
@@ -96,8 +100,9 @@ export default function PublicAkolouthies() {
   };
 
   useEffect(() => {
-    load(initialYear, initialDate);
-  }, []);
+    didAutoPlay.current = false;
+    load(year, date);
+  }, [year, date]);
 
   const presign = async (key: string) => {
     const res = await fetch("/api/public/presign", {
@@ -161,12 +166,18 @@ export default function PublicAkolouthies() {
         <div className="flex flex-col sm:flex-row gap-3">
           <div>
             <label className="text-sm text-muted">Έτος</label>
-            <input
+            <select
               className="input mt-1"
               value={year}
               onChange={(e) => setYear(e.target.value)}
               style={{ maxWidth: 160 }}
-            />
+            >
+              {yearOptions.map((y) => (
+                <option key={y} value={y}>
+                  {y}
+                </option>
+              ))}
+            </select>
           </div>
 
           <div>
@@ -186,10 +197,6 @@ export default function PublicAkolouthies() {
             </select>
           </div>
         </div>
-
-        <button className="btn btn-gold" type="button" onClick={() => { didAutoPlay.current = false; load(year, date); }}>
-          Φόρτωση
-        </button>
       </div>
 
       {loading && <div className="card p-6">Φόρτωση…</div>}

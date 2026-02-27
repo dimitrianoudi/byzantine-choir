@@ -2,6 +2,7 @@ import "./globals.css";
 import { EB_Garamond, Noto_Sans } from "next/font/google";
 import Header from "@/components/Header";
 import { getSession } from "@/lib/session";
+import Script from "next/script";
 
 const heading = EB_Garamond({
   subsets: ["greek", "latin"],
@@ -33,6 +34,18 @@ export default async function RootLayout({
         <script src="https://accounts.google.com/gsi/client" async defer></script>
       </head>
       <body className="overflow-x-hidden with-left-ornament with-right-ornament">
+        <Script
+          src="https://www.googletagmanager.com/gtag/js?id=G-5SMV0NMGEY"
+          strategy="afterInteractive"
+        />
+        <Script id="ga4-init" strategy="afterInteractive">
+          {`
+            window.dataLayer = window.dataLayer || [];
+            function gtag(){dataLayer.push(arguments);}
+            gtag('js', new Date());
+            gtag('config', 'G-5SMV0NMGEY');
+          `}
+        </Script>
         <div aria-hidden="true" className="left-ornament" />
         <div aria-hidden="true" className="right-ornament" />
         <Header

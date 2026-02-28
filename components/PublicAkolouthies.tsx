@@ -38,6 +38,7 @@ export default function PublicAkolouthies() {
   }, []);
 
   const shareUrl = useMemo(() => {
+    if (typeof window === "undefined") return "";
     const u = new URL(window.location.href);
     u.pathname = "/akolouthies";
     u.searchParams.set("year", year);

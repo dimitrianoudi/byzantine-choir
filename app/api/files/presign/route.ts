@@ -5,6 +5,7 @@ import { getSession } from "@/lib/session";
 import { s3, BUCKET, presignGet } from "@/lib/s3";
 import { PutObjectCommand } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
+import * as Sentry from "@sentry/nextjs";
 
 const courseMap = {
   kids: "Ψαλτική παιδικής φωνής",
@@ -29,8 +30,10 @@ function isIsoDate(s: string): boolean {
 }
 
 export async function POST(req: Request) {
+  const t0 = Date.now();
   const session = await getSession();
   if (!session.isLoggedIn) {
+    Sentry.metrics.count("api.files_presign.unauthorized", 1);
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
@@ -38,6 +41,7 @@ export async function POST(req: Request) {
   try {
     body = await req.json();
   } catch {
+    Sentry.metrics.count("api.files_presign.bad_body", 1);
     return NextResponse.json({ error: "Invalid body" }, { status: 400 });
   }
 
@@ -46,8 +50,12 @@ export async function POST(req: Request) {
   if (b?.key && !b?.filename && !b?.mime && !b?.type) {
     try {
       const url = await presignGet(String(b.key), 60 * 60);
+      Sentry.metrics.count("api.files_presign.download.success", 1);
+      Sentry.metrics.distribution("api.files_presign.duration_ms", Date.now() - t0);
       return NextResponse.json({ url, key: b.key });
     } catch (err: any) {
+      Sentry.captureException(err);
+      Sentry.metrics.count("api.files_presign.download.error", 1);
       return NextResponse.json({ error: err?.message || "Internal error" }, { status: 500 });
     }
   }
@@ -56,6 +64,7 @@ export async function POST(req: Request) {
   const mime = typeof b?.mime === "string" ? b.mime : (typeof b?.type === "string" ? b.type : undefined);
 
   if (!filename || !mime) {
+    Sentry.metrics.count("api.files_presign.invalid_body", 1);
     return NextResponse.json(
       { error: "Invalid body. Use { key } for download or { filename, mime } for upload." },
       { status: 400 }
@@ -63,6 +72,7 @@ export async function POST(req: Request) {
   }
 
   if (session.user?.role !== "admin") {
+    Sentry.metrics.count("api.files_presign.upload.unauthorized", 1);
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
@@ -105,8 +115,12 @@ export async function POST(req: Request) {
     });
     const url = await getSignedUrl(s3, cmd, { expiresIn: 300 });
 
+    Sentry.metrics.count("api.files_presign.upload.success", 1);
+    Sentry.metrics.distribution("api.files_presign.duration_ms", Date.now() - t0);
     return NextResponse.json({ url, key });
   } catch (err: any) {
+    Sentry.captureException(err);
+    Sentry.metrics.count("api.files_presign.upload.error", 1);
     return NextResponse.json({ error: err?.message || "Internal error" }, { status: 500 });
   }
 }

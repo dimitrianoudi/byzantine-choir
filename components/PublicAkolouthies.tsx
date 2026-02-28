@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
+import * as Sentry from "@sentry/nextjs";
 
 type Item = {
   key: string;
@@ -61,6 +62,7 @@ export default function PublicAkolouthies() {
     try {
       if (navigator.share) {
         await navigator.share({ title: "Ακολουθία", text: title, url });
+        trackCount("public_akolouthies.share.native");
         return;
       }
     } catch {}
@@ -68,8 +70,10 @@ export default function PublicAkolouthies() {
     try {
       await navigator.clipboard.writeText(url);
       alert("Αντιγράφηκε ο σύνδεσμος.");
+      trackCount("public_akolouthies.share.copy");
     } catch {
       prompt("Αντιγράψτε τον σύνδεσμο:", url);
+      trackCount("public_akolouthies.share.prompt");
     }
   };
 
@@ -83,6 +87,7 @@ export default function PublicAkolouthies() {
   };
 
   const load = async (y: string, d: string) => {
+    const t0 = performance.now();
     setLoading(true);
     setErr(null);
     try {
@@ -95,9 +100,13 @@ export default function PublicAkolouthies() {
       setDates(json.dates || []);
       setItems(json.items || []);
       setDate(json.date || d);
+      trackCount("public_akolouthies.load.success");
     } catch (e: any) {
+      Sentry.captureException(e);
+      trackCount("public_akolouthies.load.error");
       setErr(e?.message || "Σφάλμα φόρτωσης");
     } finally {
+      trackDistribution("public_akolouthies.load.duration_ms", performance.now() - t0);
       setLoading(false);
     }
   };
@@ -108,6 +117,7 @@ export default function PublicAkolouthies() {
   }, [year, date]);
 
   const presign = async (key: string) => {
+    const t0 = performance.now();
     const res = await fetch("/api/public/presign", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -115,6 +125,8 @@ export default function PublicAkolouthies() {
     });
     const json = await res.json().catch(() => ({}));
     if (!res.ok) throw new Error(json?.error || "Presign failed");
+    trackCount("public_akolouthies.presign.success");
+    trackDistribution("public_akolouthies.presign.duration_ms", performance.now() - t0);
     return json.url as string;
   };
 
@@ -127,12 +139,14 @@ export default function PublicAkolouthies() {
       if (isCurrentTrackLoaded && !audio.paused) {
         audio.pause();
         setPlayingKey(null);
+        trackCount("public_akolouthies.podcast.pause");
         return;
       }
 
       if (isCurrentTrackLoaded && audio.paused) {
         await audio.play();
         setPlayingKey(key);
+        trackCount("public_akolouthies.podcast.resume");
         return;
       }
 
@@ -143,7 +157,10 @@ export default function PublicAkolouthies() {
       await audio.play();
       setPlayingKey(key);
       setCurrentKey(key);
+      trackCount("public_akolouthies.podcast.play");
     } catch (e: any) {
+      Sentry.captureException(e);
+      trackCount("public_akolouthies.podcast.play_error");
       alert(e?.message || "Σφάλμα αναπαραγωγής");
     }
   };
@@ -246,6 +263,7 @@ export default function PublicAkolouthies() {
                       document.body.appendChild(a);
                       a.click();
                       a.remove();
+                      trackCount("public_akolouthies.file.download");
                     }}
                   >
                     Λήψη
@@ -415,4 +433,16 @@ function formatTime(seconds: number) {
   const mins = Math.floor(total / 60);
   const secs = total % 60;
   return `${mins}:${String(secs).padStart(2, "0")}`;
+}
+
+function trackCount(name: string) {
+  try {
+    Sentry.metrics.count(name, 1);
+  } catch {}
+}
+
+function trackDistribution(name: string, value: number) {
+  try {
+    Sentry.metrics.distribution(name, Math.max(0, Math.round(value)));
+  } catch {}
 }

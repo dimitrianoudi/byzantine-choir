@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import clsx from 'clsx';
 import PdfThumb from './PdfThumb';
 import { USER_SETTINGS_EVENT, getUserSettings, type UserSettings } from '@/lib/userSettings';
+import * as Sentry from '@sentry/nextjs';
 
 type Role = 'member' | 'admin';
 
@@ -70,6 +71,9 @@ export default function Library({ role, prefix: initialPrefix = '' }: { role: Ro
   }, []);
 
   const navigatePrefix = (nextPrefix: string, mode: 'push' | 'replace' = 'push') => {
+    if (mode === 'push' && nextPrefix !== prefix) {
+      trackCount('library.navigate_folder');
+    }
     setPrefix(nextPrefix);
 
     if (typeof window === 'undefined') return;
@@ -151,6 +155,7 @@ export default function Library({ role, prefix: initialPrefix = '' }: { role: Ro
 
   useEffect(() => {
     const load = async () => {
+      const t0 = performance.now();
       setLoading(true);
       setError(null);
       setActionMsg(null);
@@ -166,8 +171,11 @@ export default function Library({ role, prefix: initialPrefix = '' }: { role: Ro
         setItems(data.items || []);
         setFolders(data.folders || []);
       } catch (e: any) {
+        Sentry.captureException(e);
+        trackCount('library.load.error');
         setError(e?.message || 'Σφάλμα φόρτωσης');
       } finally {
+        trackDistribution('library.load.duration_ms', performance.now() - t0);
         setLoading(false);
       }
     };
@@ -176,6 +184,7 @@ export default function Library({ role, prefix: initialPrefix = '' }: { role: Ro
 
   const getUrl = async (key: string) => {
     if (presigned[key]) return presigned[key];
+    const t0 = performance.now();
 
     const res = await fetch('/api/files/presign', {
       method: 'POST',
@@ -191,6 +200,7 @@ export default function Library({ role, prefix: initialPrefix = '' }: { role: Ro
       } catch {
         msg = await safeText(res);
       }
+      trackCount('library.presign.error');
       throw new Error(msg || `HTTP ${res.status}`);
     }
 
@@ -198,6 +208,8 @@ export default function Library({ role, prefix: initialPrefix = '' }: { role: Ro
     if (!data?.url) throw new Error('Το presign δεν επέστρεψε URL.');
 
     setPresigned((prev) => ({ ...prev, [key]: data.url as string }));
+    trackCount('library.presign.success');
+    trackDistribution('library.presign.duration_ms', performance.now() - t0);
     return data.url as string;
   };
 
@@ -217,9 +229,11 @@ export default function Library({ role, prefix: initialPrefix = '' }: { role: Ro
         if (!audio.paused) {
           audio.pause();
           setPlayingKey(null);
+          trackCount('library.podcast.pause');
         } else {
           await audio.play();
           setPlayingKey(key);
+          trackCount('library.podcast.resume');
         }
         return;
       }
@@ -237,7 +251,10 @@ export default function Library({ role, prefix: initialPrefix = '' }: { role: Ro
       await audio.play();
       setPlayingKey(key);
       setCurrentIndex(idx);
+      trackCount('library.podcast.play');
     } catch (err: any) {
+      Sentry.captureException(err);
+      trackCount('library.podcast.play_error');
       setActionMsg(err?.message || 'Σφάλμα αναπαραγωγής');
     }
   };
@@ -259,7 +276,10 @@ export default function Library({ role, prefix: initialPrefix = '' }: { role: Ro
     try {
       const url = await getUrl(key);
       window.open(url, '_blank', 'noopener,noreferrer');
+      trackCount('library.pdf.open');
     } catch (err: any) {
+      Sentry.captureException(err);
+      trackCount('library.pdf.open_error');
       setActionMsg(err?.message || 'Σφάλμα ανοίγματος PDF');
     }
   };
@@ -274,7 +294,10 @@ export default function Library({ role, prefix: initialPrefix = '' }: { role: Ro
       document.body.appendChild(a);
       a.click();
       a.remove();
+      trackCount('library.file.download');
     } catch (err: any) {
+      Sentry.captureException(err);
+      trackCount('library.file.download_error');
       setActionMsg(err?.message || 'Σφάλμα λήψης αρχείου');
     }
   };
@@ -680,4 +703,16 @@ async function safeText(res: Response) {
   } catch {
     return `HTTP ${res.status}`;
   }
+}
+
+function trackCount(name: string) {
+  try {
+    Sentry.metrics.count(name, 1);
+  } catch {}
+}
+
+function trackDistribution(name: string, value: number) {
+  try {
+    Sentry.metrics.distribution(name, Math.max(0, Math.round(value)));
+  } catch {}
 }

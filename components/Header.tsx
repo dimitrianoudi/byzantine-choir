@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import clsx from 'clsx';
 import { useEffect, useRef, useState } from 'react';
 import {
@@ -22,6 +22,8 @@ export default function Header({
   user: HeaderUser;
 }) {
   const pathname = usePathname();
+  const router = useRouter();
+  const secretBufferRef = useRef('');
 
   const NavLink = ({ href, label }: { href: string; label: string }) => {
     const active = href === '/' ? pathname === '/' : pathname?.startsWith(href);
@@ -54,6 +56,39 @@ export default function Header({
       document.removeEventListener('keydown', onKey);
     };
   }, [open]);
+
+  useEffect(() => {
+    if (!isLoggedIn || user?.role !== 'admin') return;
+
+    const secret = (process.env.NEXT_PUBLIC_ANALYTICS_SECRET_WORD || 'analytics').toLowerCase();
+
+    const onSecretKey = (e: KeyboardEvent) => {
+      const target = e.target as HTMLElement | null;
+      const tag = (target?.tagName || '').toLowerCase();
+      const typingField =
+        tag === 'input' ||
+        tag === 'textarea' ||
+        tag === 'select' ||
+        !!target?.isContentEditable;
+      if (typingField) return;
+
+      if (e.key === 'Backspace') {
+        secretBufferRef.current = secretBufferRef.current.slice(0, -1);
+        return;
+      }
+      if (e.key.length !== 1) return;
+
+      const next = (secretBufferRef.current + e.key.toLowerCase()).slice(-secret.length);
+      secretBufferRef.current = next;
+      if (next === secret) {
+        secretBufferRef.current = '';
+        router.push('/admin/analytics');
+      }
+    };
+
+    window.addEventListener('keydown', onSecretKey);
+    return () => window.removeEventListener('keydown', onSecretKey);
+  }, [isLoggedIn, user?.role, router]);
 
   const logout = async () => {
     try {
@@ -111,7 +146,6 @@ export default function Header({
             <NavLink href="/calendar" label="Ημερολόγιο" />
             <NavLink href="/gallery" label="Στιγμιότυπα" />
 
-            {user?.role === 'admin' && <NavLink href="/admin/analytics" label="Στατιστικά" />}
             {user?.role === 'admin' && <NavLink href="/upload" label="Ανέβασμα" />}
 
             {!isLoggedIn && (

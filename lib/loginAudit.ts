@@ -22,6 +22,13 @@ export type LoginAnalytics = {
     uniqueMembers: number;
     uniqueAdmins: number;
   };
+  memberStats: Array<{
+    email: string;
+    successCount: number;
+    failureCount: number;
+    lastSuccessAt: string | null;
+    lastAttemptAt: string;
+  }>;
   topMembers: Array<{ email: string; count: number; lastLoginAt: string }>;
   recent: Array<{
     email: string;
@@ -143,8 +150,34 @@ export async function getLoginAnalytics(rangeDays = 30): Promise<LoginAnalytics>
   const memberSet = new Set<string>();
   const adminSet = new Set<string>();
   const memberMap = new Map<string, { count: number; lastLoginAt: string }>();
+  const memberStatsMap = new Map<
+    string,
+    { successCount: number; failureCount: number; lastSuccessAt: string | null; lastAttemptAt: string }
+  >();
 
   for (const e of parsed) {
+    if (e.role === "member" && e.email !== "unknown") {
+      const prev = memberStatsMap.get(e.email);
+      if (!prev) {
+        memberStatsMap.set(e.email, {
+          successCount: e.status === "success" ? 1 : 0,
+          failureCount: e.status === "failure" ? 1 : 0,
+          lastSuccessAt: e.status === "success" ? e.at : null,
+          lastAttemptAt: e.at,
+        });
+      } else {
+        if (e.status === "success") {
+          prev.successCount += 1;
+          if (!prev.lastSuccessAt || new Date(e.at) > new Date(prev.lastSuccessAt)) {
+            prev.lastSuccessAt = e.at;
+          }
+        } else {
+          prev.failureCount += 1;
+        }
+        if (new Date(e.at) > new Date(prev.lastAttemptAt)) prev.lastAttemptAt = e.at;
+      }
+    }
+
     if (e.status === "success") {
       success++;
       if (e.role === "member") {
@@ -168,6 +201,16 @@ export async function getLoginAnalytics(rangeDays = 30): Promise<LoginAnalytics>
     .sort((a, b) => b.count - a.count || +new Date(b.lastLoginAt) - +new Date(a.lastLoginAt))
     .slice(0, 20);
 
+  const memberStats = [...memberStatsMap.entries()]
+    .map(([email, value]) => ({
+      email,
+      successCount: value.successCount,
+      failureCount: value.failureCount,
+      lastSuccessAt: value.lastSuccessAt,
+      lastAttemptAt: value.lastAttemptAt,
+    }))
+    .sort((a, b) => +new Date(b.lastAttemptAt) - +new Date(a.lastAttemptAt));
+
   return {
     rangeDays: days,
     totals: {
@@ -176,6 +219,7 @@ export async function getLoginAnalytics(rangeDays = 30): Promise<LoginAnalytics>
       uniqueMembers: memberSet.size,
       uniqueAdmins: adminSet.size,
     },
+    memberStats,
     topMembers,
     recent: parsed.slice(0, 50),
   };

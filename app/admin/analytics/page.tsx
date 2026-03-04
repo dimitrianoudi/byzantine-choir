@@ -31,6 +31,11 @@ export default async function AdminAnalyticsPage({
         </h1>
       </header>
 
+      <div className="card p-4">
+        <div className="text-xs text-muted">Συνδεδεμένος ως</div>
+        <div className="text-sm font-medium mt-1 break-all">{session.user?.email || "—"}</div>
+      </div>
+
       <div className="card p-3">
         <div className="text-xs text-muted mb-2">Προβολή activity για</div>
         <div className="flex gap-2 flex-wrap">
@@ -124,6 +129,37 @@ export default async function AdminAnalyticsPage({
                   <tr key={l.location} className="border-t border-subtle">
                     <td className="py-2 pr-4">{l.location}</td>
                     <td className="py-2">{l.sessions}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </section>
+
+      <section className="card p-4 space-y-3">
+        <h2 className="font-semibold">Στατιστικά ανά μέλος (email)</h2>
+        {analytics.memberStats.length === 0 && <div className="text-sm text-muted">Δεν υπάρχουν δεδομένα.</div>}
+        {analytics.memberStats.length > 0 && (
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="text-left text-muted">
+                  <th className="py-2 pr-4">Email</th>
+                  <th className="py-2 pr-4">Επιτυχείς</th>
+                  <th className="py-2 pr-4">Αποτυχημένες</th>
+                  <th className="py-2 pr-4">Τελευταία επιτυχής</th>
+                  <th className="py-2">Τελευταία προσπάθεια</th>
+                </tr>
+              </thead>
+              <tbody>
+                {analytics.memberStats.map((m) => (
+                  <tr key={m.email} className="border-t border-subtle">
+                    <td className="py-2 pr-4 break-all">{m.email}</td>
+                    <td className="py-2 pr-4">{m.successCount}</td>
+                    <td className="py-2 pr-4">{m.failureCount}</td>
+                    <td className="py-2 pr-4">{m.lastSuccessAt ? fmtDate(m.lastSuccessAt) : "—"}</td>
+                    <td className="py-2">{fmtDate(m.lastAttemptAt)}</td>
                   </tr>
                 ))}
               </tbody>

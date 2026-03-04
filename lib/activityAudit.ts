@@ -28,6 +28,7 @@ export type ActivityAnalytics = {
   topPages: Array<{ path: string; views: number }>;
   topLocations: Array<{ location: string; sessions: number }>;
 };
+export type ActivityRoleFilter = "member" | "admin" | "all";
 
 const PREFIX = "_audit/activity/";
 
@@ -143,7 +144,10 @@ async function listKeys() {
   return out;
 }
 
-export async function getActivityAnalytics(rangeDays = 30): Promise<ActivityAnalytics> {
+export async function getActivityAnalytics(
+  rangeDays = 30,
+  roleFilter: ActivityRoleFilter = "member"
+): Promise<ActivityAnalytics> {
   const days = Math.max(1, Math.min(90, Number(rangeDays) || 30));
   const cutoff = Date.now() - days * 24 * 60 * 60 * 1000;
 
@@ -151,7 +155,10 @@ export async function getActivityAnalytics(rangeDays = 30): Promise<ActivityAnal
     .map(parseKey)
     .filter((x): x is Parsed => !!x)
     .filter((x) => x.atMs >= cutoff)
-    .filter((x) => x.role === "member");
+    .filter((x) => {
+      if (roleFilter === "all") return x.role === "member" || x.role === "admin";
+      return x.role === roleFilter;
+    });
 
   const pageMap = new Map<string, number>();
   const locationMap = new Map<string, Set<string>>();

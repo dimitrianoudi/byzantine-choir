@@ -1,18 +1,27 @@
 import { redirect } from "next/navigation";
 import { getSession } from "@/lib/session";
 import { getLoginAnalytics } from "@/lib/loginAudit";
-import { getActivityAnalytics } from "@/lib/activityAudit";
+import { getActivityAnalytics, type ActivityRoleFilter } from "@/lib/activityAudit";
+import Link from "next/link";
 
 function fmtDate(iso: string) {
   return new Date(iso).toLocaleString("el-GR");
 }
 
-export default async function AdminAnalyticsPage() {
+export default async function AdminAnalyticsPage({
+  searchParams,
+}: {
+  searchParams?: Promise<{ audience?: string }>;
+}) {
   const session = await getSession();
   if (!session.isLoggedIn || session.user?.role !== "admin") redirect("/");
 
+  const sp = (await searchParams) || {};
+  const audience: ActivityRoleFilter =
+    sp.audience === "admin" ? "admin" : sp.audience === "all" ? "all" : "member";
+
   const analytics = await getLoginAnalytics(30);
-  const activity = await getActivityAnalytics(30);
+  const activity = await getActivityAnalytics(30, audience);
 
   return (
     <div className="space-y-6">
@@ -21,6 +30,21 @@ export default async function AdminAnalyticsPage() {
           Στατιστικά Συνδέσεων
         </h1>
       </header>
+
+      <div className="card p-3">
+        <div className="text-xs text-muted mb-2">Προβολή activity για</div>
+        <div className="flex gap-2 flex-wrap">
+          <Link href="/admin/analytics?audience=member" className={audience === "member" ? "btn btn-gold btn-sm" : "btn btn-outline btn-sm"}>
+            Μέλη
+          </Link>
+          <Link href="/admin/analytics?audience=admin" className={audience === "admin" ? "btn btn-gold btn-sm" : "btn btn-outline btn-sm"}>
+            Διαχειριστές
+          </Link>
+          <Link href="/admin/analytics?audience=all" className={audience === "all" ? "btn btn-gold btn-sm" : "btn btn-outline btn-sm"}>
+            Όλοι
+          </Link>
+        </div>
+      </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
         <div className="card p-4">
@@ -43,7 +67,9 @@ export default async function AdminAnalyticsPage() {
 
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
         <div className="card p-4">
-          <div className="text-xs text-muted">Συνεδρίες μελών ({activity.rangeDays} ημέρες)</div>
+          <div className="text-xs text-muted">
+            Συνεδρίες ({audience === "member" ? "μέλη" : audience === "admin" ? "διαχειριστές" : "όλοι"}) ({activity.rangeDays} ημέρες)
+          </div>
           <div className="text-2xl font-semibold mt-1">{activity.totals.sessions}</div>
         </div>
         <div className="card p-4">

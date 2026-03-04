@@ -3,6 +3,7 @@ import { EB_Garamond, Noto_Sans } from "next/font/google";
 import Header from "@/components/Header";
 import { getSession } from "@/lib/session";
 import Script from "next/script";
+import ActivityTracker from "@/components/ActivityTracker";
 
 const heading = EB_Garamond({
   subsets: ["greek", "latin"],
@@ -52,6 +53,7 @@ export default async function RootLayout({
           isLoggedIn={!!session.isLoggedIn}
           user={{ role: user.role, email: user.email }}
         />
+        <ActivityTracker enabled={!!session.isLoggedIn} />
         <main className="section section--flush-right container container--flush-right space-y-6">
           {children}
         </main>

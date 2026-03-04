@@ -111,6 +111,7 @@ export default function Header({
             <NavLink href="/calendar" label="Ημερολόγιο" />
             <NavLink href="/gallery" label="Στιγμιότυπα" />
 
+            {user?.role === 'admin' && <NavLink href="/admin/analytics" label="Στατιστικά" />}
             {user?.role === 'admin' && <NavLink href="/upload" label="Ανέβασμα" />}
 
             {!isLoggedIn && (

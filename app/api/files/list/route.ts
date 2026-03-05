@@ -27,6 +27,12 @@ function inferType(key: string): "podcast" | "pdf" | null {
   return null;
 }
 
+function isHiddenSystemPrefix(fullPrefix: string, currentPrefix: string) {
+  const relative = fullPrefix.slice((currentPrefix || "").length);
+  const firstSegment = relative.split("/").filter(Boolean)[0] || "";
+  return firstSegment.startsWith("_");
+}
+
 export async function GET(req: Request) {
   const session = await getSession();
   if (!session.isLoggedIn) {
@@ -60,6 +66,7 @@ export async function GET(req: Request) {
 
       for (const cp of res.CommonPrefixes ?? []) {
         if (!cp.Prefix) continue;
+        if (isHiddenSystemPrefix(cp.Prefix, prefix)) continue;
         if (!folders.includes(cp.Prefix)) {
           folders.push(cp.Prefix);
         }

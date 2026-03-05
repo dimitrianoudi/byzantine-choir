@@ -88,56 +88,6 @@ export default async function AdminAnalyticsPage({
       </div>
 
       <section className="card p-4 space-y-3">
-        <h2 className="font-semibold">Από ποιες σελίδες μπαίνουν/κινούνται</h2>
-        {activity.topPages.length === 0 && <div className="text-sm text-muted">Δεν υπάρχουν δεδομένα.</div>}
-        {activity.topPages.length > 0 && (
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="text-left text-muted">
-                  <th className="py-2 pr-4">Σελίδα</th>
-                  <th className="py-2">Προβολές</th>
-                </tr>
-              </thead>
-              <tbody>
-                {activity.topPages.map((p) => (
-                  <tr key={p.path} className="border-t border-subtle">
-                    <td className="py-2 pr-4 break-all">{p.path}</td>
-                    <td className="py-2">{p.views}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </section>
-
-      <section className="card p-4 space-y-3">
-        <h2 className="font-semibold">Από πού συνδέονται</h2>
-        {activity.topLocations.length === 0 && <div className="text-sm text-muted">Δεν υπάρχουν δεδομένα.</div>}
-        {activity.topLocations.length > 0 && (
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="text-left text-muted">
-                  <th className="py-2 pr-4">Τοποθεσία</th>
-                  <th className="py-2">Συνεδρίες</th>
-                </tr>
-              </thead>
-              <tbody>
-                {activity.topLocations.map((l) => (
-                  <tr key={l.location} className="border-t border-subtle">
-                    <td className="py-2 pr-4">{l.location}</td>
-                    <td className="py-2">{l.sessions}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </section>
-
-      <section className="card p-4 space-y-3">
         <h2 className="font-semibold">Στατιστικά ανά μέλος (email)</h2>
         {analytics.memberStats.length === 0 && <div className="text-sm text-muted">Δεν υπάρχουν δεδομένα.</div>}
         {analytics.memberStats.length > 0 && (

@@ -17,7 +17,8 @@ function isAudioKey(key: string) {
 }
 
 function filename(key: string) {
-  return key.split("/").pop() || key;
+  const base = key.split("/").pop() || key;
+  return base.replace(/^\d{13}[-_]/, "");
 }
 
 export async function GET(req: Request) {

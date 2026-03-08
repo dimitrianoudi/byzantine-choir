@@ -29,7 +29,9 @@ export default function PublicAkolouthies() {
   const [currentKey, setCurrentKey] = useState<string | null>(null);
   const [playerCurrentTime, setPlayerCurrentTime] = useState(0);
   const [playerDuration, setPlayerDuration] = useState(0);
+  const [highlightedKey, setHighlightedKey] = useState<string | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
+  const itemRefs = useRef<Record<string, HTMLDivElement | null>>({});
 
   const didAutoPlay = useRef(false);
   const yearOptions = useMemo(() => {
@@ -37,28 +39,29 @@ export default function PublicAkolouthies() {
     return Array.from({ length: 12 }, (_, i) => String(current - i));
   }, []);
 
+  const getPublicPageUrl = (params?: Record<string, string>) => {
+    const base =
+      process.env.NEXT_PUBLIC_BASE_URL?.replace(/\/$/, "") ||
+      (typeof window !== "undefined" ? window.location.origin : "");
+    const u = new URL("/akolouthies", `${base}/`);
+    for (const [k, v] of Object.entries(params || {})) {
+      if (v) u.searchParams.set(k, v);
+    }
+    return u;
+  };
+
   const shareUrl = useMemo(() => {
-    if (typeof window === "undefined") return "";
-    const u = new URL(window.location.href);
-    u.pathname = "/akolouthies";
-    u.searchParams.set("year", year);
-    if (date) u.searchParams.set("date", date);
-    else u.searchParams.delete("date");
-    u.searchParams.delete("key");
+    const u = getPublicPageUrl({ year, date });
     return u.toString();
   }, [year, date]);
 
   const buildItemUrl = (k: string) => {
-    const u = new URL(window.location.href);
-    u.pathname = "/akolouthies";
-    u.searchParams.set("year", year);
-    if (date) u.searchParams.set("date", date);
-    u.searchParams.set("key", k);
+    const u = getPublicPageUrl({ year, date, key: k });
     return u.toString();
   };
 
   const shareItem = async (k: string, title: string) => {
-    const url = buildItemUrl(k);
+    const url = await presign(k, true);
 
     try {
       if (navigator.share) {
@@ -70,7 +73,6 @@ export default function PublicAkolouthies() {
 
     try {
       await navigator.clipboard.writeText(url);
-      alert("Αντιγράφηκε ο σύνδεσμος.");
       trackCount("public_akolouthies.share.copy");
     } catch {
       prompt("Αντιγράψτε τον σύνδεσμο:", url);
@@ -81,7 +83,6 @@ export default function PublicAkolouthies() {
   const copyShare = async () => {
     try {
       await navigator.clipboard.writeText(shareUrl);
-      alert("Αντιγράφηκε ο σύνδεσμος!");
     } catch {
       prompt("Αντιγράψτε τον σύνδεσμο:", shareUrl);
     }
@@ -117,12 +118,12 @@ export default function PublicAkolouthies() {
     load(year, date);
   }, [year, date]);
 
-  const presign = async (key: string) => {
+  const presign = async (key: string, forShare = false) => {
     const t0 = performance.now();
     const res = await fetch("/api/public/presign", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ key }),
+      body: JSON.stringify({ key, share: forShare }),
     });
     const json = await res.json().catch(() => ({}));
     if (!res.ok) throw new Error(json?.error || "Presign failed");
@@ -155,6 +156,7 @@ export default function PublicAkolouthies() {
       setPlayerCurrentTime(0);
       setPlayerDuration(0);
       audio.src = url;
+      audio.load();
       await audio.play();
       setPlayingKey(key);
       setCurrentKey(key);
@@ -182,7 +184,14 @@ export default function PublicAkolouthies() {
     if (!found) return;
 
     didAutoPlay.current = true;
-    togglePlay(found.key);
+    setCurrentKey(found.key);
+    setHighlightedKey(found.key);
+    setTimeout(() => {
+      itemRefs.current[found.key]?.scrollIntoView({ behavior: "smooth", block: "center" });
+    }, 0);
+    window.setTimeout(() => {
+      setHighlightedKey((prev) => (prev === found.key ? null : prev));
+    }, 3000);
   }, [items, initialKey]);
 
   return (
@@ -239,7 +248,13 @@ export default function PublicAkolouthies() {
           {items.length === 0 && <div className="p-4 text-muted">Δεν υπάρχουν αρχεία.</div>}
 
           {items.map((it) => (
-            <div key={it.key} className="py-4">
+            <div
+              key={it.key}
+              className={highlightedKey === it.key ? "py-4 shared-highlight" : "py-4"}
+              ref={(el) => {
+                itemRefs.current[it.key] = el;
+              }}
+            >
               <div className="flex flex-col sm:flex-row sm:items-center gap-3">
                 <div className="flex-1 min-w-0">
                   <div className="font-medium break-all">{it.name}</div>
@@ -321,7 +336,7 @@ export default function PublicAkolouthies() {
           <audio
             ref={audioRef}
             className="sr-only"
-            preload="none"
+            preload="auto"
             onPlay={() => {
               if (currentKey) setPlayingKey(currentKey);
             }}
@@ -330,6 +345,7 @@ export default function PublicAkolouthies() {
             onDurationChange={(e) => setPlayerDuration(e.currentTarget.duration || 0)}
             onTimeUpdate={(e) => setPlayerCurrentTime(e.currentTarget.currentTime || 0)}
             onEnded={() => {
+              if (audioRef.current) audioRef.current.currentTime = 0;
               setPlayingKey(null);
               setPlayerCurrentTime(0);
             }}
@@ -338,6 +354,15 @@ export default function PublicAkolouthies() {
       )}
 
       <style jsx>{`
+        .shared-highlight {
+          border-radius: 12px;
+          background: rgba(49, 91, 153, 0.08);
+          box-shadow: 0 0 0 2px rgba(49, 91, 153, 0.14);
+          transition: background 220ms ease, box-shadow 220ms ease;
+          padding-left: 10px;
+          padding-right: 10px;
+        }
+
         .now-playing {
           border: 1px solid var(--border);
           border-radius: 14px;

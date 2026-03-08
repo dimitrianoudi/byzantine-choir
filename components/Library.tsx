@@ -51,12 +51,13 @@ export default function Library({ role, prefix: initialPrefix = '' }: { role: Ro
 
   const [autoplay, setAutoplay] = useState(false);
   const [currentIndex, setCurrentIndex] = useState(-1);
+  const [currentKey, setCurrentKey] = useState<string | null>(null);
   const [playerCurrentTime, setPlayerCurrentTime] = useState(0);
   const [playerDuration, setPlayerDuration] = useState(0);
   const [preferredPlaybackRate, setPreferredPlaybackRate] = useState(1);
   const [preferredDefaultTab, setPreferredDefaultTab] = useState<'podcast' | 'pdf'>('podcast');
   const [rememberLastFolder, setRememberLastFolder] = useState(true);
-  const audioRefs = useRef<Record<string, HTMLAudioElement | null>>({});
+  const audioRef = useRef<HTMLAudioElement | null>(null);
 
   useEffect(() => {
     setPrefix(initialPrefix || '');
@@ -160,6 +161,7 @@ export default function Library({ role, prefix: initialPrefix = '' }: { role: Ro
       setError(null);
       setActionMsg(null);
       setPlayingKey(null);
+      setCurrentKey(null);
       setCurrentIndex(-1);
       setPlayerCurrentTime(0);
       setPlayerDuration(0);
@@ -215,14 +217,14 @@ export default function Library({ role, prefix: initialPrefix = '' }: { role: Ro
 
   const play = async (key: string, idx: number) => {
     setActionMsg(null);
-    const audio = audioRefs.current[key];
+    const audio = audioRef.current;
     if (!audio) {
       setActionMsg('Δεν βρέθηκε ο player ήχου');
       return;
     }
 
     try {
-      const isCurrentTrackLoaded = currentIndex === idx && !!audio.src;
+      const isCurrentTrackLoaded = currentKey === key && !!audio.src;
 
       if (isCurrentTrackLoaded) {
         setCurrentIndex(idx);
@@ -239,17 +241,18 @@ export default function Library({ role, prefix: initialPrefix = '' }: { role: Ro
       }
 
       if (playingKey && playingKey !== key) {
-        const prevAudio = audioRefs.current[playingKey];
-        prevAudio?.pause();
+        audio.pause();
       }
 
       const url = await getUrl(key);
       setPlayerCurrentTime(0);
       setPlayerDuration(0);
       audio.src = url;
+      audio.load();
       audio.playbackRate = preferredPlaybackRate;
       await audio.play();
       setPlayingKey(key);
+      setCurrentKey(key);
       setCurrentIndex(idx);
       trackCount('library.podcast.play');
     } catch (err: any) {
@@ -265,6 +268,7 @@ export default function Library({ role, prefix: initialPrefix = '' }: { role: Ro
     if (!autoplay) return;
     const nextIdx = endedIdx + 1;
     if (nextIdx < 0 || nextIdx >= podcasts.length) {
+      setCurrentKey(null);
       setCurrentIndex(-1);
       return;
     }
@@ -319,13 +323,14 @@ export default function Library({ role, prefix: initialPrefix = '' }: { role: Ro
       setItems((prev) => prev.filter((i) => i.key !== key));
 
       if (playingKey === key) {
-        const audio = audioRefs.current[key];
+        const audio = audioRef.current;
         if (audio) {
           audio.pause();
           audio.removeAttribute('src');
           audio.load();
         }
         setPlayingKey(null);
+        setCurrentKey(null);
         setCurrentIndex(-1);
       } else {
         const idx = podcasts.findIndex((p) => p.key === key);
@@ -363,13 +368,14 @@ export default function Library({ role, prefix: initialPrefix = '' }: { role: Ro
       );
 
       if (playingKey === fromKey) {
-        const audio = audioRefs.current[fromKey];
+        const audio = audioRef.current;
         if (audio) {
           audio.pause();
           audio.removeAttribute('src');
           audio.load();
         }
         setPlayingKey(null);
+        setCurrentKey(null);
         setCurrentIndex(-1);
       }
     } catch (e: any) {
@@ -383,14 +389,14 @@ export default function Library({ role, prefix: initialPrefix = '' }: { role: Ro
 
   useEffect(() => {
     if (!activeTrack) return;
-    const audio = audioRefs.current[activeTrack.key];
+    const audio = audioRef.current;
     if (!audio) return;
     audio.playbackRate = preferredPlaybackRate;
   }, [activeTrack, preferredPlaybackRate]);
 
   const seekActiveTrack = (nextTime: number) => {
     if (!activeTrack) return;
-    const audio = audioRefs.current[activeTrack.key];
+    const audio = audioRef.current;
     if (!audio) return;
     audio.currentTime = nextTime;
     setPlayerCurrentTime(nextTime);
@@ -532,24 +538,6 @@ export default function Library({ role, prefix: initialPrefix = '' }: { role: Ro
                         </div>
                       </div>
                     </div>
-                    <audio
-                      ref={(el) => {
-                        audioRefs.current[p.key] = el;
-                      }}
-                      className="sr-only"
-                      preload="none"
-                      onPlay={() => {
-                        setPlayingKey(p.key);
-                        setCurrentIndex(idx);
-                      }}
-                      onPause={() => {
-                        setPlayingKey((v) => (v === p.key ? null : v));
-                      }}
-                      onLoadedMetadata={(e) => setPlayerDuration(e.currentTarget.duration || 0)}
-                      onDurationChange={(e) => setPlayerDuration(e.currentTarget.duration || 0)}
-                      onTimeUpdate={(e) => setPlayerCurrentTime(e.currentTarget.currentTime || 0)}
-                      onEnded={() => onAudioEnded(idx)}
-                    />
                   </div>
                 </div>
               ))}
@@ -597,6 +585,26 @@ export default function Library({ role, prefix: initialPrefix = '' }: { role: Ro
           )}
         </>
       )}
+
+      <audio
+        ref={audioRef}
+        className="sr-only"
+        preload="auto"
+        onPlay={() => {
+          if (currentKey) setPlayingKey(currentKey);
+        }}
+        onPause={() => {
+          setPlayingKey((v) => (v === currentKey ? null : v));
+        }}
+        onLoadedMetadata={(e) => setPlayerDuration(e.currentTarget.duration || 0)}
+        onDurationChange={(e) => setPlayerDuration(e.currentTarget.duration || 0)}
+        onTimeUpdate={(e) => setPlayerCurrentTime(e.currentTarget.currentTime || 0)}
+        onEnded={() => {
+          const endedIdx = currentIndex;
+          if (audioRef.current) audioRef.current.currentTime = 0;
+          void onAudioEnded(endedIdx);
+        }}
+      />
 
       <style jsx>{`
         .now-playing {

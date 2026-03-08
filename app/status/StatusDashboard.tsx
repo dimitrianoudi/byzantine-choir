@@ -73,10 +73,10 @@ export default function StatusDashboard({ initialStatus }: { initialStatus: Syst
     <main className="container section space-y-6">
       <section className="card status-hero">
         <div className="status-hero-copy">
-          <div className="status-kicker">Live system status</div>
-          <h1 className="font-heading text-blue status-title">Service Health Dashboard</h1>
+          <div className="status-kicker">Ζωντανή κατάσταση συστήματος</div>
+          <h1 className="font-heading text-blue status-title">Πίνακας Κατάστασης Υπηρεσιών</h1>
           <p className="text-muted status-subtitle">
-            Public overview of the portal&apos;s core systems and connected services.
+            Δημόσια επισκόπηση των βασικών συστημάτων και των συνδεδεμένων υπηρεσιών της πλατφόρμας.
           </p>
         </div>
         <div className={status.healthy ? "badge status-badge-ok" : "badge status-badge-bad"}>
@@ -86,26 +86,26 @@ export default function StatusDashboard({ initialStatus }: { initialStatus: Syst
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
         <div className="card p-4">
-          <div className="text-xs text-muted">Current uptime snapshot</div>
-          <div className="text-lg font-semibold mt-1">{status.healthy ? "Healthy" : "Degraded"}</div>
+          <div className="text-xs text-muted">Τρέχουσα εικόνα λειτουργίας</div>
+          <div className="text-lg font-semibold mt-1">{status.healthy ? "Ομαλή" : "Υποβαθμισμένη"}</div>
         </div>
         <div className="card p-4">
-          <div className="text-xs text-muted">Healthy services</div>
+          <div className="text-xs text-muted">Υγιείς υπηρεσίες</div>
           <div className="text-2xl font-semibold mt-1">{okCount}</div>
         </div>
         <div className="card p-4">
-          <div className="text-xs text-muted">Issues detected</div>
+          <div className="text-xs text-muted">Προβλήματα</div>
           <div className="text-2xl font-semibold mt-1">{badCount}</div>
         </div>
         <div className="card p-4">
-          <div className="text-xs text-muted">Last checked</div>
+          <div className="text-xs text-muted">Τελευταίος έλεγχος</div>
           <div className="text-sm font-medium mt-1">{fmtDate(status.checkedAt)}</div>
         </div>
       </div>
 
       <div className="card status-toolbar">
         <div className="text-sm text-muted">
-          Auto-refreshes every 30 seconds. Next refresh in {secondsUntilRefresh}s.
+          Αυτόματη ανανέωση κάθε 30 δευτερόλεπτα. Επόμενη ανανέωση σε {secondsUntilRefresh}δ.
         </div>
         <div className="status-toolbar-right">
           {refreshError ? <span className="badge status-badge-bad">{refreshError}</span> : null}

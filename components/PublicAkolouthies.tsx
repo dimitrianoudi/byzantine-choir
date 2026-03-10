@@ -39,33 +39,28 @@ export default function PublicAkolouthies() {
     return Array.from({ length: 12 }, (_, i) => String(current - i));
   }, []);
 
-  const getPublicPageUrl = (params?: Record<string, string>) => {
-    const base =
+  const getPublicBaseUrl = () => {
+    return (
       process.env.NEXT_PUBLIC_BASE_URL?.replace(/\/$/, "") ||
-      (typeof window !== "undefined" ? window.location.origin : "");
-    const u = new URL("/akolouthies", `${base}/`);
-    for (const [k, v] of Object.entries(params || {})) {
-      if (v) u.searchParams.set(k, v);
-    }
-    return u;
+      (typeof window !== "undefined" ? window.location.origin : "")
+    );
   };
 
-  const shareUrl = useMemo(() => {
-    const u = getPublicPageUrl({ year, date });
-    return u.toString();
-  }, [year, date]);
-
-  const buildItemUrl = (k: string) => {
-    const u = getPublicPageUrl({ year, date, key: k });
+  const buildSharedAudioUrl = (title: string) => {
+    const base = getPublicBaseUrl();
+    const u = new URL(
+      `/akolouthies/audio/${encodeURIComponent(date)}/${encodeURIComponent(title)}`,
+      `${base}/`
+    );
     return u.toString();
   };
 
-  const shareItem = async (k: string, title: string) => {
-    const url = await presign(k, true);
+  const shareItem = async (title: string) => {
+    const url = buildSharedAudioUrl(title);
 
     try {
       if (navigator.share) {
-        await navigator.share({ title: "Ακολουθία", text: title, url });
+        await navigator.share({ url });
         trackCount("public_akolouthies.share.native");
         return;
       }
@@ -77,14 +72,6 @@ export default function PublicAkolouthies() {
     } catch {
       prompt("Αντιγράψτε τον σύνδεσμο:", url);
       trackCount("public_akolouthies.share.prompt");
-    }
-  };
-
-  const copyShare = async () => {
-    try {
-      await navigator.clipboard.writeText(shareUrl);
-    } catch {
-      prompt("Αντιγράψτε τον σύνδεσμο:", shareUrl);
     }
   };
 
@@ -118,12 +105,12 @@ export default function PublicAkolouthies() {
     load(year, date);
   }, [year, date]);
 
-  const presign = async (key: string, forShare = false) => {
+  const presign = async (key: string) => {
     const t0 = performance.now();
     const res = await fetch("/api/public/presign", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ key, share: forShare }),
+      body: JSON.stringify({ key }),
     });
     const json = await res.json().catch(() => ({}));
     if (!res.ok) throw new Error(json?.error || "Presign failed");
@@ -290,7 +277,7 @@ export default function PublicAkolouthies() {
                     className="icon-btn icon-btn-outline"
                     aria-label="Κοινοποίηση"
                     title="Κοινοποίηση"
-                    onClick={() => shareItem(it.key, it.name)}
+                    onClick={() => shareItem(it.name)}
                   >
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden="true">
                       <path d="M16 8a3 3 0 1 0-2.83-4H13a3 3 0 0 0 3 4Z" stroke="currentColor" strokeWidth="1.5"/>

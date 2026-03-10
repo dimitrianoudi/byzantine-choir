@@ -3,6 +3,7 @@ export const runtime = "nodejs";
 import { NextResponse } from "next/server";
 import { ListObjectsV2Command, ListObjectsV2CommandOutput } from "@aws-sdk/client-s3";
 import { s3, BUCKET } from "@/lib/s3";
+import { displayAkolouthiesFilename } from "@/lib/akolouthies";
 
 type Item = {
   key: string;
@@ -14,11 +15,6 @@ type Item = {
 function isAudioKey(key: string) {
   const k = key.toLowerCase();
   return k.endsWith(".mp3") || k.endsWith(".m4a") || k.endsWith(".aac");
-}
-
-function filename(key: string) {
-  const base = key.split("/").pop() || key;
-  return base.replace(/^\d{13}[-_]/, "");
 }
 
 export async function GET(req: Request) {
@@ -90,7 +86,7 @@ export async function GET(req: Request) {
 
         items.push({
           key: o.Key,
-          name: filename(o.Key),
+          name: displayAkolouthiesFilename(o.Key),
           size: o.Size ?? undefined,
           lastModified: o.LastModified ? new Date(o.LastModified).toISOString() : undefined,
         });

@@ -2,14 +2,8 @@ export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
 import { presignGet } from "@/lib/s3";
+import { isAkolouthiesAudioKey } from "@/lib/akolouthies";
 import * as Sentry from "@sentry/nextjs";
-
-function isAllowedKey(key: string) {
-  const k = key.toLowerCase();
-  const okPath = key.startsWith("Ακολουθίες/");
-  const okExt = k.endsWith(".mp3") || k.endsWith(".m4a") || k.endsWith(".aac");
-  return okPath && okExt;
-}
 
 export async function POST(req: Request) {
   const t0 = Date.now();
@@ -18,7 +12,7 @@ export async function POST(req: Request) {
 
   const key = typeof body?.key === "string" ? body.key : "";
   const share = body?.share === true;
-  if (!key || !isAllowedKey(key)) {
+  if (!key || !isAkolouthiesAudioKey(key)) {
     Sentry.metrics.count("api.public_presign.invalid_key", 1);
     return NextResponse.json({ error: "Invalid key" }, { status: 400 });
   }

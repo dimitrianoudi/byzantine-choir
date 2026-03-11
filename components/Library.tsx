@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import clsx from 'clsx';
 import PdfThumb from './PdfThumb';
 import { USER_SETTINGS_EVENT, getUserSettings, type UserSettings } from '@/lib/userSettings';
-import { buildMaterialAudioPathFromKey } from '@/lib/material';
+import { buildMaterialAudioPathFromKey, buildMaterialPdfPathFromKey } from '@/lib/material';
 import * as Sentry from '@sentry/nextjs';
 
 type Role = 'member' | 'admin';
@@ -320,7 +320,8 @@ export default function Library({ role, prefix: initialPrefix = '' }: { role: Ro
   const openPdf = async (key: string) => {
     setActionMsg(null);
     try {
-      const url = await getUrl(key);
+      const cleanUrl = buildMaterialPdfPathFromKey(key);
+      const url = cleanUrl || (await getUrl(key));
       window.open(url, '_blank', 'noopener,noreferrer');
       trackCount('library.pdf.open');
     } catch (err: any) {
@@ -353,6 +354,11 @@ export default function Library({ role, prefix: initialPrefix = '' }: { role: Ro
     const audioPath = item.type === 'podcast' ? buildMaterialAudioPathFromKey(item.key) : null;
     if (audioPath) {
       return new URL(audioPath, `${base}/`).toString();
+    }
+
+    const pdfPath = item.type === 'pdf' ? buildMaterialPdfPathFromKey(item.key) : null;
+    if (pdfPath) {
+      return new URL(pdfPath, `${base}/`).toString();
     }
 
     const url = new URL('/material', `${base}/`);

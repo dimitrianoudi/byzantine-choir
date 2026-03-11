@@ -40,10 +40,10 @@ export default function PublicAkolouthies() {
   }, []);
 
   const getPublicBaseUrl = () => {
-    return (
-      process.env.NEXT_PUBLIC_BASE_URL?.replace(/\/$/, "") ||
-      (typeof window !== "undefined" ? window.location.origin : "")
-    );
+    if (typeof window !== "undefined" && window.location.origin) {
+      return window.location.origin.replace(/\/$/, "");
+    }
+    return process.env.NEXT_PUBLIC_BASE_URL?.replace(/\/$/, "") || "";
   };
 
   const buildSharedAudioUrl = (title: string) => {

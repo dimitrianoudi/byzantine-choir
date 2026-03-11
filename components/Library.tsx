@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import clsx from 'clsx';
 import PdfThumb from './PdfThumb';
 import { USER_SETTINGS_EVENT, getUserSettings, type UserSettings } from '@/lib/userSettings';
+import { buildMaterialAudioPathFromKey } from '@/lib/material';
 import * as Sentry from '@sentry/nextjs';
 
 type Role = 'member' | 'admin';
@@ -349,6 +350,11 @@ export default function Library({ role, prefix: initialPrefix = '' }: { role: Ro
 
   const buildSharedItemUrl = (item: Item) => {
     const base = getShareBaseUrl();
+    const audioPath = item.type === 'podcast' ? buildMaterialAudioPathFromKey(item.key) : null;
+    if (audioPath) {
+      return new URL(audioPath, `${base}/`).toString();
+    }
+
     const url = new URL('/material', `${base}/`);
     const itemPrefix = getParentPrefix(item.key);
     if (itemPrefix) url.searchParams.set('prefix', itemPrefix);

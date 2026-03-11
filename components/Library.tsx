@@ -32,6 +32,24 @@ function getPrefixFromUrl() {
   return new URL(window.location.href).searchParams.get('prefix') || '';
 }
 
+function getSelectedKeyFromUrl() {
+  if (typeof window === 'undefined') return '';
+  return new URL(window.location.href).searchParams.get('key') || '';
+}
+
+function getShareBaseUrl() {
+  return (
+    process.env.NEXT_PUBLIC_BASE_URL?.replace(/\/$/, '') ||
+    (typeof window !== 'undefined' ? window.location.origin : '')
+  );
+}
+
+function getParentPrefix(key: string) {
+  const parts = key.split('/').filter(Boolean);
+  if (parts.length <= 1) return '';
+  return `${parts.slice(0, -1).join('/')}/`;
+}
+
 const LIBRARY_LAST_PREFIX_KEY = 'bcp:library:last-prefix';
 
 export default function Library({ role, prefix: initialPrefix = '' }: { role: Role; prefix?: string }) {
@@ -48,6 +66,7 @@ export default function Library({ role, prefix: initialPrefix = '' }: { role: Ro
   const [playingKey, setPlayingKey] = useState<string | null>(null);
   const [presigned, setPresigned] = useState<Record<string, string>>({});
   const [actionMsg, setActionMsg] = useState<string | null>(null);
+  const [highlightedKey, setHighlightedKey] = useState<string | null>(null);
 
   const [autoplay, setAutoplay] = useState(false);
   const [currentIndex, setCurrentIndex] = useState(-1);
@@ -58,6 +77,7 @@ export default function Library({ role, prefix: initialPrefix = '' }: { role: Ro
   const [preferredDefaultTab, setPreferredDefaultTab] = useState<'podcast' | 'pdf'>('podcast');
   const [rememberLastFolder, setRememberLastFolder] = useState(true);
   const audioRef = useRef<HTMLAudioElement | null>(null);
+  const itemRefs = useRef<Record<string, HTMLDivElement | null>>({});
 
   useEffect(() => {
     setPrefix(initialPrefix || '');
@@ -82,6 +102,7 @@ export default function Library({ role, prefix: initialPrefix = '' }: { role: Ro
     const url = new URL(window.location.href);
     if (nextPrefix) url.searchParams.set('prefix', nextPrefix);
     else url.searchParams.delete('prefix');
+    if (nextPrefix !== prefix) url.searchParams.delete('key');
     const nextUrl = `${url.pathname}${url.search}`;
     if (mode === 'replace') window.history.replaceState({}, '', nextUrl);
     else window.history.pushState({}, '', nextUrl);
@@ -165,6 +186,7 @@ export default function Library({ role, prefix: initialPrefix = '' }: { role: Ro
       setCurrentIndex(-1);
       setPlayerCurrentTime(0);
       setPlayerDuration(0);
+      setHighlightedKey(null);
 
       try {
         const res = await fetch(`/api/files/list?prefix=${encodeURIComponent(prefix)}`);
@@ -183,6 +205,25 @@ export default function Library({ role, prefix: initialPrefix = '' }: { role: Ro
     };
     load();
   }, [prefix]);
+
+  useEffect(() => {
+    const sharedKey = getSelectedKeyFromUrl();
+    if (!sharedKey || !items.length) return;
+
+    const found = items.find((item) => item.key === sharedKey);
+    if (!found) return;
+
+    setHighlightedKey(found.key);
+    setTimeout(() => {
+      itemRefs.current[found.key]?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }, 0);
+
+    const timeoutId = window.setTimeout(() => {
+      setHighlightedKey((prev) => (prev === found.key ? null : prev));
+    }, 3000);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [items]);
 
   const getUrl = async (key: string) => {
     if (presigned[key]) return presigned[key];
@@ -303,6 +344,41 @@ export default function Library({ role, prefix: initialPrefix = '' }: { role: Ro
       Sentry.captureException(err);
       trackCount('library.file.download_error');
       setActionMsg(err?.message || 'Σφάλμα λήψης αρχείου');
+    }
+  };
+
+  const buildSharedItemUrl = (item: Item) => {
+    const base = getShareBaseUrl();
+    const url = new URL('/material', `${base}/`);
+    const itemPrefix = getParentPrefix(item.key);
+    if (itemPrefix) url.searchParams.set('prefix', itemPrefix);
+    url.searchParams.set('key', item.key);
+    return url.toString();
+  };
+
+  const shareItem = async (item: Item) => {
+    setActionMsg(null);
+    const url = buildSharedItemUrl(item);
+    const title = prettyName(item.name || item.key);
+
+    try {
+      if (navigator.share) {
+        await navigator.share({ title, url });
+        trackCount('library.share.native');
+        setActionMsg('Ο σύνδεσμος κοινοποιήθηκε.');
+        return;
+      }
+    } catch (err: any) {
+      if (err?.name === 'AbortError') return;
+    }
+
+    try {
+      await navigator.clipboard.writeText(url);
+      trackCount('library.share.copy');
+      setActionMsg('Ο σύνδεσμος αντιγράφηκε.');
+    } catch {
+      window.prompt('Αντιγράψτε τον σύνδεσμο:', url);
+      trackCount('library.share.prompt');
     }
   };
 
@@ -483,7 +559,13 @@ export default function Library({ role, prefix: initialPrefix = '' }: { role: Ro
           {activeTab === 'podcast' && hasPodcasts && (
             <div className="card p-6 divide-y divide-[color:var(--border)]">
               {podcasts.map((p, idx) => (
-                <div key={p.key} className="py-4">
+                <div
+                  key={p.key}
+                  className={clsx('py-4', highlightedKey === p.key && 'shared-highlight')}
+                  ref={(el) => {
+                    itemRefs.current[p.key] = el;
+                  }}
+                >
                   <div className="flex flex-col sm:flex-row sm:items-center gap-3">
                     <div className="flex-1 min-w-0">
                       <div className="font-medium break-words">{prettyName(p.name || p.key)}</div>
@@ -498,6 +580,15 @@ export default function Library({ role, prefix: initialPrefix = '' }: { role: Ro
                       </button>
                       <button className="btn btn-gold" onClick={() => downloadKey(p.key, p.name)}>
                         Λήψη
+                      </button>
+                      <button
+                        type="button"
+                        className="icon-btn icon-btn-outline"
+                        aria-label="Κοινοποίηση"
+                        title="Κοινοποίηση"
+                        onClick={() => shareItem(p)}
+                      >
+                        <ShareIcon />
                       </button>
                       {role === 'admin' && (
                         <>
@@ -547,7 +638,13 @@ export default function Library({ role, prefix: initialPrefix = '' }: { role: Ro
           {!isAkolouthies && activeTab === 'pdf' && hasPdfs && (
             <div className="card p-6 divide-y divide-[color:var(--border)]">
               {pdfs.map((pdf) => (
-                <div key={pdf.key} className="py-4">
+                <div
+                  key={pdf.key}
+                  className={clsx('py-4', highlightedKey === pdf.key && 'shared-highlight')}
+                  ref={(el) => {
+                    itemRefs.current[pdf.key] = el;
+                  }}
+                >
                   <div className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4">
                     <div className="shrink-0">
                       <PdfThumb storageKey={pdf.key} getUrl={getUrl} width={50} />
@@ -566,6 +663,15 @@ export default function Library({ role, prefix: initialPrefix = '' }: { role: Ro
                       </button>
                       <button className="btn btn-gold" onClick={() => downloadKey(pdf.key, pdf.name)}>
                         Λήψη
+                      </button>
+                      <button
+                        type="button"
+                        className="icon-btn icon-btn-outline"
+                        aria-label="Κοινοποίηση"
+                        title="Κοινοποίηση"
+                        onClick={() => shareItem(pdf)}
+                      >
+                        <ShareIcon />
                       </button>
                       {role === 'admin' && (
                         <>
@@ -607,6 +713,15 @@ export default function Library({ role, prefix: initialPrefix = '' }: { role: Ro
       />
 
       <style jsx>{`
+        .shared-highlight {
+          border-radius: 12px;
+          background: rgba(49, 91, 153, 0.08);
+          box-shadow: 0 0 0 2px rgba(49, 91, 153, 0.14);
+          transition: background 220ms ease, box-shadow 220ms ease;
+          padding-left: 10px;
+          padding-right: 10px;
+        }
+
         .now-playing {
           border: 1px solid var(--border);
           border-radius: 14px;
@@ -703,6 +818,22 @@ function formatTime(seconds: number) {
   const mins = Math.floor(total / 60);
   const secs = total % 60;
   return `${mins}:${String(secs).padStart(2, '0')}`;
+}
+
+function ShareIcon() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <path d="M16 8a3 3 0 1 0-2.83-4H13a3 3 0 0 0 3 4Z" stroke="currentColor" strokeWidth="1.5" />
+      <path d="M6 14a3 3 0 1 0 2.83 4H9a3 3 0 0 0-3-4Z" stroke="currentColor" strokeWidth="1.5" />
+      <path d="M18 21a3 3 0 1 0-2.83-4H15a3 3 0 0 0 3 4Z" stroke="currentColor" strokeWidth="1.5" />
+      <path
+        d="M8.6 15.4l6.8 3.2M15.4 7.4L8.6 10.6"
+        stroke="currentColor"
+        strokeWidth="1.5"
+        strokeLinecap="round"
+      />
+    </svg>
+  );
 }
 
 async function safeText(res: Response) {

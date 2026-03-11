@@ -87,12 +87,13 @@ export function buildMaterialAudioPathFromKey(key: string) {
 }
 
 export function buildMaterialPdfPathFromKey(key: string) {
-  const parsed = parseMaterialPdfKey(key);
-  if (!parsed) return null;
-
-  return `/material/pdf/${encodeURIComponent(parsed.courseSlug)}/${encodeURIComponent(
-    parsed.year
-  )}/${encodeURIComponent(parsed.lesson)}/${encodeURIComponent(parsed.name)}`;
+  if (!isMaterialPdfKey(key)) return null;
+  const encodedKey = key
+    .split("/")
+    .filter(Boolean)
+    .map((part) => encodeURIComponent(part))
+    .join("/");
+  return `/material/pdf/${encodedKey}`;
 }
 
 function getMaterialPrefix(courseSlug: string, year: string, lesson: string, typeFolder: MaterialTypeFolder) {

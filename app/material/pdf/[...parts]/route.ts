@@ -45,6 +45,15 @@ async function findPdfKey(courseSlug: string, year: string, lesson: string, name
   return null;
 }
 
+function getDirectKeyFromParts(parts: string[]) {
+  try {
+    const key = parts.map((part) => decodeURIComponent(part)).join("/");
+    return isMaterialPdfKey(key) ? key : null;
+  } catch {
+    return null;
+  }
+}
+
 function buildHeaders(name: string, res: GetObjectCommandOutput) {
   const headers = new Headers();
   headers.set("Cache-Control", "no-store");
@@ -72,9 +81,39 @@ export async function GET(
 
   const { parts } = await params;
   if (!Array.isArray(parts) || parts.length !== 4) {
-    return new Response("PDF not found", {
-      status: 404,
-      headers: { "Content-Type": "text/plain; charset=utf-8", "Cache-Control": "no-store" },
+    const directKey = Array.isArray(parts) ? getDirectKeyFromParts(parts) : null;
+    if (!directKey) {
+      return new Response("PDF not found", {
+        status: 404,
+        headers: { "Content-Type": "text/plain; charset=utf-8", "Cache-Control": "no-store" },
+      });
+    }
+
+    const range = req.headers.get("range") || undefined;
+    const res = await s3.send(
+      new GetObjectCommand({
+        Bucket: BUCKET,
+        Key: directKey,
+        Range: range,
+      })
+    );
+
+    if (!res.Body) {
+      return new Response("PDF unavailable", {
+        status: 500,
+        headers: { "Content-Type": "text/plain; charset=utf-8", "Cache-Control": "no-store" },
+      });
+    }
+
+    const body = res.Body as any;
+    const stream =
+      typeof body.transformToWebStream === "function"
+        ? body.transformToWebStream()
+        : (Readable.toWeb(body) as ReadableStream);
+
+    return new Response(stream, {
+      status: range ? 206 : 200,
+      headers: buildHeaders(displayMaterialFilename(directKey), res),
     });
   }
 

@@ -17,10 +17,22 @@ function parseAkolouthies(prefix: string) {
   };
 }
 
-export default function MaterialPageContent({ role, prefix }: { role: Role; prefix: string }) {
+export default function MaterialPageContent({
+  role,
+  prefix,
+  query = "",
+}: {
+  role: Role;
+  prefix: string;
+  query?: string;
+}) {
   const year = new Date().getFullYear();
   const akPrefix = `Ακολουθίες/${year}/`;
   const ak = parseAkolouthies(prefix);
+  const isAkolouthies = prefix.startsWith("Ακολουθίες/");
+  const searchAction = isAkolouthies ? buildMaterialUrlForPrefix(prefix) : "/material";
+  const clearSearchHref = buildMaterialUrlForPrefix(prefix);
+  const searchQuery = query.trim();
 
   const uploadHref =
     ak && (ak.year || ak.date)
@@ -36,7 +48,29 @@ export default function MaterialPageContent({ role, prefix }: { role: Role; pref
           Υλικό
         </h1>
         <div className="header-spacer" />
-        <nav className="actions">
+
+        <div className="actions">
+          <form action={searchAction} className="flex flex-wrap items-center gap-2">
+            {!isAkolouthies && !!prefix && <input type="hidden" name="prefix" value={prefix} />}
+            <input
+              type="search"
+              name="q"
+              defaultValue={searchQuery}
+              className="input"
+              placeholder="Αναζήτηση σε όλα τα PDF"
+              aria-label="Αναζήτηση PDF"
+              style={{ maxWidth: 280 }}
+            />
+            <button type="submit" className="btn btn-outline">
+              Αναζήτηση PDF
+            </button>
+            {searchQuery && (
+              <Link href={clearSearchHref} className="btn btn-outline">
+                Καθαρισμός
+              </Link>
+            )}
+          </form>
+
           <Link href="/material" className="btn btn-outline">
             Όλα
           </Link>
@@ -54,11 +88,11 @@ export default function MaterialPageContent({ role, prefix }: { role: Role; pref
               Ανέβασμα
             </Link>
           )}
-        </nav>
+        </div>
       </header>
 
       <section className="space-y-4">
-        <Library role={role} prefix={prefix} />
+        <Library role={role} prefix={prefix} query={searchQuery} />
       </section>
     </div>
   );

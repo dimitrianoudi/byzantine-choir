@@ -53,12 +53,27 @@ function getParentPrefix(key: string) {
   return `${parts.slice(0, -1).join('/')}/`;
 }
 
+function formatItemFolder(key: string) {
+  const parent = getParentPrefix(key).replace(/\/$/, '');
+  return parent || 'Αρχή';
+}
+
 const LIBRARY_LAST_PREFIX_KEY = 'bcp:library:last-prefix';
 
-export default function Library({ role, prefix: initialPrefix = '' }: { role: Role; prefix?: string }) {
+export default function Library({
+  role,
+  prefix: initialPrefix = '',
+  query = '',
+}: {
+  role: Role;
+  prefix?: string;
+  query?: string;
+}) {
   const [items, setItems] = useState<Item[]>([]);
   const [folders, setFolders] = useState<string[]>([]);
   const [prefix, setPrefix] = useState<string>(initialPrefix);
+  const searchQuery = query.trim();
+  const hasSearchQuery = searchQuery.length > 0;
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -137,6 +152,10 @@ export default function Library({ role, prefix: initialPrefix = '' }: { role: Ro
   }, [prefix, rememberLastFolder]);
 
   useEffect(() => {
+    if (hasSearchQuery) {
+      setActiveTab('pdf');
+      return;
+    }
     if (isAkolouthies) {
       setActiveTab('podcast');
       return;
@@ -146,7 +165,7 @@ export default function Library({ role, prefix: initialPrefix = '' }: { role: Ro
     if (!prefix && !prefix.toLowerCase().includes('/pdfs/') && !prefix.toLowerCase().includes('/podcasts/')) {
       setActiveTab(preferredDefaultTab);
     }
-  }, [prefix, isAkolouthies, preferredDefaultTab]);
+  }, [prefix, isAkolouthies, preferredDefaultTab, hasSearchQuery]);
 
   const podcasts = useMemo(() => items.filter((i) => i.type === 'podcast'), [items]);
   const pdfs = useMemo(() => items.filter((i) => i.type === 'pdf'), [items]);
@@ -155,13 +174,17 @@ export default function Library({ role, prefix: initialPrefix = '' }: { role: Ro
   const hasPdfs = pdfs.length > 0;
 
   useEffect(() => {
+    if (hasSearchQuery) {
+      if (activeTab !== 'pdf') setActiveTab('pdf');
+      return;
+    }
     if (isAkolouthies) {
       if (activeTab !== 'podcast') setActiveTab('podcast');
       return;
     }
     if (activeTab === 'podcast' && !hasPodcasts && hasPdfs) setActiveTab('pdf');
     if (activeTab === 'pdf' && !hasPdfs && hasPodcasts) setActiveTab('podcast');
-  }, [activeTab, hasPodcasts, hasPdfs, isAkolouthies]);
+  }, [activeTab, hasPodcasts, hasPdfs, isAkolouthies, hasSearchQuery]);
 
   const breadcrumbs = useMemo(() => {
     const segments = prefix.split('/').filter(Boolean);
@@ -188,7 +211,14 @@ export default function Library({ role, prefix: initialPrefix = '' }: { role: Ro
       setHighlightedKey(null);
 
       try {
-        const res = await fetch(`/api/files/list?prefix=${encodeURIComponent(prefix)}`);
+        const params = new URLSearchParams();
+        if (prefix) params.set('prefix', prefix);
+        if (hasSearchQuery) {
+          params.set('q', searchQuery);
+          params.set('type', 'pdf');
+        }
+
+        const res = await fetch(`/api/files/list?${params.toString()}`);
         if (!res.ok) throw new Error(await safeText(res));
         const data = await res.json();
         setItems(data.items || []);
@@ -203,7 +233,7 @@ export default function Library({ role, prefix: initialPrefix = '' }: { role: Ro
       }
     };
     load();
-  }, [prefix]);
+  }, [prefix, hasSearchQuery, searchQuery]);
 
   useEffect(() => {
     const sharedKey = getSelectedKeyFromUrl();
@@ -475,8 +505,8 @@ export default function Library({ role, prefix: initialPrefix = '' }: { role: Ro
     }
   };
 
-  const showPodcastTab = hasPodcasts || isAkolouthies;
-  const showPdfTab = !isAkolouthies && hasPdfs;
+  const showPodcastTab = !hasSearchQuery && (hasPodcasts || isAkolouthies);
+  const showPdfTab = hasPdfs && (!isAkolouthies || hasSearchQuery);
   const activeTrack = currentIndex >= 0 ? podcasts[currentIndex] : null;
 
   useEffect(() => {
@@ -547,6 +577,20 @@ export default function Library({ role, prefix: initialPrefix = '' }: { role: Ro
       {error && <div className="card p-6 text-red-400">{error}</div>}
       {actionMsg && <div className="card p-4 text-amber-600 text-sm">{actionMsg}</div>}
 
+      {!loading && !error && hasSearchQuery && (
+        <div className="card p-4 flex flex-col sm:flex-row gap-2 sm:items-center sm:justify-between">
+          <div>
+            <div className="font-medium">Αποτελέσματα PDF για "{searchQuery}"</div>
+            <div className="text-xs text-muted">
+              Η αναζήτηση γίνεται σε όλα τα PDF του portal με βάση το όνομα και τη διαδρομή τους.
+            </div>
+          </div>
+          <div className="text-sm text-muted">
+            {pdfs.length} {pdfs.length === 1 ? 'αποτέλεσμα' : 'αποτελέσματα'}
+          </div>
+        </div>
+      )}
+
       {!loading && !error && folders.length > 0 && (
         <div className="card p-4 space-y-2">
           <div className="text-sm font-semibold text-muted">Φάκελοι</div>
@@ -566,8 +610,12 @@ export default function Library({ role, prefix: initialPrefix = '' }: { role: Ro
         </div>
       )}
 
-      {!loading && !error && !hasPodcasts && !hasPdfs && folders.length === 0 && (
+      {!loading && !error && !hasPodcasts && !hasPdfs && folders.length === 0 && !hasSearchQuery && (
         <div className="card p-6 text-muted">Δεν υπάρχουν αρχεία σε αυτόν τον φάκελο.</div>
+      )}
+
+      {!loading && !error && !hasPdfs && hasSearchQuery && (
+        <div className="card p-6 text-muted">Δεν βρέθηκαν PDF για αυτήν την αναζήτηση.</div>
       )}
 
       {!loading && !error && (
@@ -651,7 +699,7 @@ export default function Library({ role, prefix: initialPrefix = '' }: { role: Ro
             </div>
           )}
 
-          {!isAkolouthies && activeTab === 'pdf' && hasPdfs && (
+          {(hasSearchQuery || !isAkolouthies) && activeTab === 'pdf' && hasPdfs && (
             <div className="card p-6 divide-y divide-[color:var(--border)]">
               {pdfs.map((pdf) => (
                 <div
@@ -669,7 +717,12 @@ export default function Library({ role, prefix: initialPrefix = '' }: { role: Ro
                     <div className="min-w-0 flex-1">
                       <div className="font-medium break-words">{prettyName(pdf.name || pdf.key)}</div>
                       <div className="text-xs text-muted">
-                        {pdf.lastModified ? new Date(pdf.lastModified).toLocaleDateString() : ''}
+                        {[
+                          hasSearchQuery ? `Φάκελος: ${formatItemFolder(pdf.key)}` : '',
+                          pdf.lastModified ? new Date(pdf.lastModified).toLocaleDateString() : '',
+                        ]
+                          .filter(Boolean)
+                          .join(' • ')}
                       </div>
                     </div>
 

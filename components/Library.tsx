@@ -4,7 +4,9 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import clsx from 'clsx';
 import PdfThumb from './PdfThumb';
 import { USER_SETTINGS_EVENT, getUserSettings, type UserSettings } from '@/lib/userSettings';
+import { buildAkolouthiesAudioPathFromKey } from '@/lib/akolouthies';
 import { buildMaterialAudioPathFromKey, buildMaterialPdfPathFromKey } from '@/lib/material';
+import { buildMaterialUrlForPrefix, getMaterialPrefixFromUrl } from '@/lib/materialNavigation';
 import * as Sentry from '@sentry/nextjs';
 
 type Role = 'member' | 'admin';
@@ -30,7 +32,7 @@ function folderLabel(prefix: string): string {
 
 function getPrefixFromUrl() {
   if (typeof window === 'undefined') return '';
-  return new URL(window.location.href).searchParams.get('prefix') || '';
+  return getMaterialPrefixFromUrl(window.location.pathname, window.location.search);
 }
 
 function getSelectedKeyFromUrl() {
@@ -100,11 +102,7 @@ export default function Library({ role, prefix: initialPrefix = '' }: { role: Ro
 
     if (typeof window === 'undefined') return;
 
-    const url = new URL(window.location.href);
-    if (nextPrefix) url.searchParams.set('prefix', nextPrefix);
-    else url.searchParams.delete('prefix');
-    if (nextPrefix !== prefix) url.searchParams.delete('key');
-    const nextUrl = `${url.pathname}${url.search}`;
+    const nextUrl = buildMaterialUrlForPrefix(nextPrefix);
     if (mode === 'replace') window.history.replaceState({}, '', nextUrl);
     else window.history.pushState({}, '', nextUrl);
   };
@@ -351,6 +349,12 @@ export default function Library({ role, prefix: initialPrefix = '' }: { role: Ro
 
   const buildSharedItemUrl = (item: Item) => {
     const base = getShareBaseUrl();
+    const akolouthiesAudioPath =
+      item.type === 'podcast' ? buildAkolouthiesAudioPathFromKey(item.key) : null;
+    if (akolouthiesAudioPath) {
+      return new URL(akolouthiesAudioPath, `${base}/`).toString();
+    }
+
     const audioPath = item.type === 'podcast' ? buildMaterialAudioPathFromKey(item.key) : null;
     if (audioPath) {
       return new URL(audioPath, `${base}/`).toString();

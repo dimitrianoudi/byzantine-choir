@@ -28,7 +28,7 @@ self.addEventListener('fetch', (event) => {
   const url = new URL(request.url);
   if (url.origin !== self.location.origin) return;
 
-  if (url.pathname === '/pdf.worker.min.mjs' || url.pathname.startsWith('/_next/static/')) {
+  if (url.pathname === '/pdf.worker.min.js' || url.pathname.startsWith('/_next/static/')) {
     event.respondWith(staleWhileRevalidate(request, ASSET_CACHE));
     return;
   }

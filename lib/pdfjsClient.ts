@@ -38,7 +38,7 @@ function ensurePromiseWithResolvers() {
 async function warmPdfWorkerAsset() {
   if (typeof window === 'undefined') return;
   try {
-    await fetch('/pdf.worker.min.mjs');
+    await fetch('/pdf.worker.min.js');
   } catch {}
 }
 
@@ -47,7 +47,7 @@ export async function getPdfJs() {
 
   if (!pdfJsPromise) {
     pdfJsPromise = import('pdfjs-dist/legacy/build/pdf.mjs').then((pdfjs: any) => {
-      pdfjs.GlobalWorkerOptions.workerSrc = '/pdf.worker.min.mjs';
+      pdfjs.GlobalWorkerOptions.workerSrc = '/pdf.worker.min.js';
       return pdfjs as PdfJsModule;
     });
   }

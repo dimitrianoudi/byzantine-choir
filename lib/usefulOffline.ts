@@ -5,7 +5,7 @@ export const USEFUL_OFFLINE_SW_URL = '/useful-offline-sw.js';
 export const USEFUL_OFFLINE_CACHE_PREFIX = 'bcp-useful-offline-';
 export const USEFUL_OFFLINE_PAGE_CACHE = `${USEFUL_OFFLINE_CACHE_PREFIX}pages-v1`;
 export const USEFUL_OFFLINE_API_CACHE = `${USEFUL_OFFLINE_CACHE_PREFIX}api-v1`;
-export const USEFUL_OFFLINE_PDF_CACHE = `${USEFUL_OFFLINE_CACHE_PREFIX}pdfs-v2`;
+export const USEFUL_OFFLINE_PDF_CACHE = `${USEFUL_OFFLINE_CACHE_PREFIX}pdfs-v3`;
 export const USEFUL_OFFLINE_ASSET_CACHE = `${USEFUL_OFFLINE_CACHE_PREFIX}assets-v1`;
 export const USEFUL_OFFLINE_CACHE_NAMES = [
   USEFUL_OFFLINE_PAGE_CACHE,
@@ -111,7 +111,10 @@ export async function registerUsefulOfflineSupport(enabled: boolean) {
   }
 
   try {
-    await navigator.serviceWorker.register(USEFUL_OFFLINE_SW_URL, { scope: '/' });
+    const registration = await navigator.serviceWorker.register(USEFUL_OFFLINE_SW_URL, { scope: '/' });
+    try {
+      await registration.update();
+    } catch {}
   } catch {}
 }
 

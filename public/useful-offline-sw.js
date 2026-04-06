@@ -1,7 +1,7 @@
 const CACHE_PREFIX = 'bcp-useful-offline-';
 const PAGE_CACHE = `${CACHE_PREFIX}pages-v1`;
 const API_CACHE = `${CACHE_PREFIX}api-v1`;
-const PDF_CACHE = `${CACHE_PREFIX}pdfs-v1`;
+const PDF_CACHE = `${CACHE_PREFIX}pdfs-v3`;
 const ASSET_CACHE = `${CACHE_PREFIX}assets-v1`;
 const ACTIVE_CACHES = [PAGE_CACHE, API_CACHE, PDF_CACHE, ASSET_CACHE];
 const USEFUL_ROOT = 'Χρήσιμα';
@@ -47,7 +47,7 @@ self.addEventListener('fetch', (event) => {
   }
 
   if (isUsefulPdfRequest(url)) {
-    event.respondWith(cacheFirst(request, PDF_CACHE));
+    return;
   }
 });
 

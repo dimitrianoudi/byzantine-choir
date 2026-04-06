@@ -10,6 +10,7 @@ import { buildMaterialUrlForPrefix, getMaterialPrefixFromUrl } from '@/lib/mater
 import {
   cacheUsefulFolderResponse,
   getCachedUsefulOfflinePdfs,
+  getUsefulOfflinePdfObjectUrl,
   isUsefulPrefix,
   supportsUsefulOffline,
   warmUsefulMaterialPage,
@@ -118,6 +119,7 @@ export default function Library({
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const itemRefs = useRef<Record<string, HTMLDivElement | null>>({});
   const warmedUsefulPdfUrlsRef = useRef<Set<string>>(new Set());
+  const usefulPdfObjectUrlsRef = useRef<string[]>([]);
 
   useEffect(() => {
     setPrefix(initialPrefix || '');
@@ -142,6 +144,13 @@ export default function Library({
     return () => {
       window.removeEventListener('online', updateOnlineStatus);
       window.removeEventListener('offline', updateOnlineStatus);
+    };
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      usefulPdfObjectUrlsRef.current.forEach((url) => URL.revokeObjectURL(url));
+      usefulPdfObjectUrlsRef.current = [];
     };
   }, []);
 
@@ -473,6 +482,18 @@ export default function Library({
     setActionMsg(null);
     try {
       const cleanUrl = buildMaterialPdfPathFromKey(key);
+      const isUsefulPdf = isUsefulPrefix(getParentPrefix(key));
+
+      if (cleanUrl && isUsefulPdf) {
+        const objectUrl = await getUsefulOfflinePdfObjectUrl(cleanUrl);
+        if (objectUrl) {
+          usefulPdfObjectUrlsRef.current.push(objectUrl);
+          window.open(objectUrl, '_blank', 'noopener,noreferrer');
+          trackCount('library.pdf.open');
+          return;
+        }
+      }
+
       const url = cleanUrl || (await getUrl(key));
       window.open(url, '_blank', 'noopener,noreferrer');
       trackCount('library.pdf.open');

@@ -124,6 +124,31 @@ export async function getCachedUsefulOfflinePdfs(urls: string[]) {
   return matches.filter((value): value is string => !!value);
 }
 
+export async function getUsefulOfflinePdfResponse(url: string) {
+  if (!canUseCacheStorage()) return null;
+
+  const cache = await caches.open(USEFUL_OFFLINE_PDF_CACHE);
+  const request = new Request(url, { credentials: 'same-origin' });
+  const cached = (await cache.match(request)) || (await cache.match(url));
+  if (cached) return cached;
+
+  if (typeof navigator !== 'undefined' && !navigator.onLine) return null;
+
+  const response = await fetch(request);
+  if (!response.ok) return null;
+
+  await cache.put(request, response.clone());
+  return response;
+}
+
+export async function getUsefulOfflinePdfObjectUrl(url: string) {
+  const response = await getUsefulOfflinePdfResponse(url);
+  if (!response) return null;
+
+  const blob = await response.blob();
+  return URL.createObjectURL(blob);
+}
+
 export async function warmUsefulOfflinePdfs(
   urls: string[],
   options?: {

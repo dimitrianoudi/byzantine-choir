@@ -14,6 +14,12 @@ export const USEFUL_OFFLINE_CACHE_NAMES = [
   USEFUL_OFFLINE_ASSET_CACHE,
 ];
 
+type WarmUsefulOfflineProgress = {
+  completed: number;
+  total: number;
+  warmedCount: number;
+};
+
 function canUseCacheStorage() {
   return typeof window !== 'undefined' && 'caches' in window;
 }
@@ -57,6 +63,14 @@ export function isUsefulPrefix(prefix: string) {
   return prefix === USEFUL_ROOT || prefix.startsWith(`${USEFUL_ROOT}/`);
 }
 
+export function supportsUsefulOffline() {
+  return (
+    typeof window !== 'undefined' &&
+    'serviceWorker' in navigator &&
+    'caches' in window
+  );
+}
+
 export async function registerUsefulOfflineSupport(enabled: boolean) {
   if (typeof window === 'undefined' || !('serviceWorker' in navigator)) return;
 
@@ -94,11 +108,34 @@ export async function warmUsefulMaterialPage(url: string) {
   } catch {}
 }
 
-export async function warmUsefulOfflinePdfs(urls: string[]) {
+export async function getCachedUsefulOfflinePdfs(urls: string[]) {
+  if (!canUseCacheStorage()) return [];
+
+  const cache = await caches.open(USEFUL_OFFLINE_PDF_CACHE);
+  const unique = uniqueUrls(urls);
+  const matches = await Promise.all(
+    unique.map(async (url) => {
+      const request = new Request(url, { credentials: 'same-origin' });
+      const response = await cache.match(request);
+      return response ? url : null;
+    })
+  );
+
+  return matches.filter((value): value is string => !!value);
+}
+
+export async function warmUsefulOfflinePdfs(
+  urls: string[],
+  options?: {
+    onProgress?: (progress: WarmUsefulOfflineProgress) => void;
+  }
+) {
   if (!canUseCacheStorage() || typeof navigator === 'undefined' || !navigator.onLine) return [];
 
   const queue = uniqueUrls(urls);
   const warmed: string[] = [];
+  let completed = 0;
+  const total = queue.length;
   const concurrency = 2;
   const workers = Array.from({ length: Math.min(concurrency, queue.length) }, async () => {
     while (queue.length > 0) {
@@ -108,6 +145,8 @@ export async function warmUsefulOfflinePdfs(urls: string[]) {
         const ok = await cacheSuccessfulGet(USEFUL_OFFLINE_PDF_CACHE, next);
         if (ok) warmed.push(next);
       } catch {}
+      completed += 1;
+      options?.onProgress?.({ completed, total, warmedCount: warmed.length });
     }
   });
 

@@ -9,7 +9,9 @@ import { buildMaterialAudioPathFromKey, buildMaterialPdfPathFromKey } from '@/li
 import { buildMaterialUrlForPrefix, getMaterialPrefixFromUrl } from '@/lib/materialNavigation';
 import {
   cacheUsefulFolderResponse,
+  getCachedUsefulOfflinePdfs,
   isUsefulPrefix,
+  supportsUsefulOffline,
   warmUsefulMaterialPage,
   warmUsefulOfflinePdfs,
 } from '@/lib/usefulOffline';
@@ -23,6 +25,12 @@ type Item = {
   size?: number;
   lastModified?: string;
   type: 'podcast' | 'pdf';
+};
+
+type UsefulOfflineStatus = {
+  phase: 'idle' | 'checking' | 'syncing' | 'ready' | 'partial' | 'offline' | 'unsupported';
+  total: number;
+  cached: number;
 };
 
 function prettyName(raw: string) {
@@ -101,6 +109,12 @@ export default function Library({
   const [preferredPlaybackRate, setPreferredPlaybackRate] = useState(1);
   const [preferredDefaultTab, setPreferredDefaultTab] = useState<'podcast' | 'pdf'>('podcast');
   const [rememberLastFolder, setRememberLastFolder] = useState(true);
+  const [isOnline, setIsOnline] = useState(true);
+  const [usefulOfflineStatus, setUsefulOfflineStatus] = useState<UsefulOfflineStatus>({
+    phase: 'idle',
+    total: 0,
+    cached: 0,
+  });
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const itemRefs = useRef<Record<string, HTMLDivElement | null>>({});
   const warmedUsefulPdfUrlsRef = useRef<Set<string>>(new Set());
@@ -115,6 +129,20 @@ export default function Library({
     };
     window.addEventListener('popstate', onPopState);
     return () => window.removeEventListener('popstate', onPopState);
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === 'undefined' || typeof navigator === 'undefined') return;
+
+    const updateOnlineStatus = () => setIsOnline(navigator.onLine);
+    updateOnlineStatus();
+
+    window.addEventListener('online', updateOnlineStatus);
+    window.addEventListener('offline', updateOnlineStatus);
+    return () => {
+      window.removeEventListener('online', updateOnlineStatus);
+      window.removeEventListener('offline', updateOnlineStatus);
+    };
   }, []);
 
   const navigatePrefix = (nextPrefix: string, mode: 'push' | 'replace' = 'push') => {
@@ -177,6 +205,13 @@ export default function Library({
 
   const podcasts = useMemo(() => items.filter((i) => i.type === 'podcast'), [items]);
   const pdfs = useMemo(() => items.filter((i) => i.type === 'pdf'), [items]);
+  const usefulPdfUrls = useMemo(
+    () =>
+      pdfs
+        .map((pdf) => buildMaterialPdfPathFromKey(pdf.key))
+        .filter((url): url is string => !!url),
+    [pdfs]
+  );
 
   const hasPodcasts = podcasts.length > 0;
   const hasPdfs = pdfs.length > 0;
@@ -270,29 +305,78 @@ export default function Library({
   }, [isUseful, hasSearchQuery, prefix]);
 
   useEffect(() => {
-    if (
-      !isUseful ||
-      hasSearchQuery ||
-      loading ||
-      !!error ||
-      typeof window === 'undefined' ||
-      !('caches' in window) ||
-      typeof navigator === 'undefined' ||
-      !navigator.onLine
-    ) {
+    if (!isUseful || hasSearchQuery || loading || !!error || typeof window === 'undefined') {
+      setUsefulOfflineStatus({ phase: 'idle', total: 0, cached: 0 });
       return;
     }
 
-    const urls = pdfs
-      .map((pdf) => buildMaterialPdfPathFromKey(pdf.key))
-      .filter((url): url is string => !!url);
-    const missing = urls.filter((url) => !warmedUsefulPdfUrlsRef.current.has(url));
-    if (missing.length === 0) return;
+    if (!supportsUsefulOffline()) {
+      setUsefulOfflineStatus({ phase: 'unsupported', total: usefulPdfUrls.length, cached: 0 });
+      return;
+    }
 
-    void warmUsefulOfflinePdfs(missing).then((warmed) => {
+    let cancelled = false;
+
+    const syncUsefulOffline = async () => {
+      const total = usefulPdfUrls.length;
+      if (total === 0) {
+        setUsefulOfflineStatus({ phase: 'ready', total: 0, cached: 0 });
+        return;
+      }
+
+      setUsefulOfflineStatus({ phase: 'checking', total, cached: 0 });
+
+      const cachedUrls = await getCachedUsefulOfflinePdfs(usefulPdfUrls);
+      if (cancelled) return;
+
+      cachedUrls.forEach((url) => warmedUsefulPdfUrlsRef.current.add(url));
+      const cachedCount = cachedUrls.length;
+
+      if (!isOnline) {
+        setUsefulOfflineStatus({
+          phase: cachedCount === total ? 'ready' : 'offline',
+          total,
+          cached: cachedCount,
+        });
+        return;
+      }
+
+      const missing = usefulPdfUrls.filter((url) => !warmedUsefulPdfUrlsRef.current.has(url));
+      if (missing.length === 0) {
+        setUsefulOfflineStatus({ phase: 'ready', total, cached: cachedCount });
+        return;
+      }
+
+      setUsefulOfflineStatus({ phase: 'syncing', total, cached: cachedCount });
+
+      const warmed = await warmUsefulOfflinePdfs(missing, {
+        onProgress: ({ warmedCount }) => {
+          if (cancelled) return;
+          const nextCached = Math.min(total, cachedCount + warmedCount);
+          setUsefulOfflineStatus({
+            phase: nextCached === total ? 'ready' : 'syncing',
+            total,
+            cached: nextCached,
+          });
+        },
+      });
+      if (cancelled) return;
+
       warmed.forEach((url) => warmedUsefulPdfUrlsRef.current.add(url));
-    });
-  }, [isUseful, hasSearchQuery, loading, error, pdfs]);
+      const finalCached = Math.min(total, cachedCount + warmed.length);
+      setUsefulOfflineStatus({
+        phase: finalCached === total ? 'ready' : 'partial',
+        total,
+        cached: finalCached,
+      });
+    };
+
+    void syncUsefulOffline();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [isUseful, hasSearchQuery, loading, error, usefulPdfUrls, isOnline]);
 
   const getUrl = async (key: string) => {
     if (presigned[key]) return presigned[key];
@@ -548,6 +632,7 @@ export default function Library({
   const showPodcastTab = !hasSearchQuery && (hasPodcasts || isAkolouthies);
   const showPdfTab = hasPdfs && (!isAkolouthies || hasSearchQuery);
   const activeTrack = currentIndex >= 0 ? podcasts[currentIndex] : null;
+  const usefulOfflineNotice = getUsefulOfflineNotice(usefulOfflineStatus, isUseful, hasSearchQuery);
 
   useEffect(() => {
     if (!activeTrack) return;
@@ -616,6 +701,14 @@ export default function Library({
       {loading && <div className="card p-6">Φόρτωση...</div>}
       {error && <div className="card p-6 text-red-400">{error}</div>}
       {actionMsg && <div className="card p-4 text-amber-600 text-sm">{actionMsg}</div>}
+      {usefulOfflineNotice && !loading && !error && (
+        <div className="card p-4">
+          <div className={clsx('text-sm font-medium', usefulOfflineNotice.toneClass)}>
+            {usefulOfflineNotice.title}
+          </div>
+          <div className="text-xs text-muted mt-1">{usefulOfflineNotice.detail}</div>
+        </div>
+      )}
 
       {!loading && !error && hasSearchQuery && (
         <div className="card p-4 flex flex-col sm:flex-row gap-2 sm:items-center sm:justify-between">
@@ -927,6 +1020,71 @@ function formatTime(seconds: number) {
   const mins = Math.floor(total / 60);
   const secs = total % 60;
   return `${mins}:${String(secs).padStart(2, '0')}`;
+}
+
+function getUsefulOfflineNotice(
+  status: UsefulOfflineStatus,
+  isUseful: boolean,
+  hasSearchQuery: boolean
+) {
+  if (!isUseful || hasSearchQuery || status.phase === 'idle') return null;
+
+  if (status.phase === 'unsupported') {
+    return {
+      title: 'Η offline αποθήκευση δεν υποστηρίζεται σε αυτόν τον browser.',
+      detail: 'Τα PDF του φακέλου Χρήσιμα θα ανοίγουν μόνο όσο υπάρχει σύνδεση στο internet.',
+      toneClass: 'text-amber-600',
+    };
+  }
+
+  if (status.total === 0) {
+    return {
+      title: 'Δεν υπάρχουν ακόμη PDF για offline αποθήκευση.',
+      detail: 'Όταν προστεθούν αρχεία στον φάκελο Χρήσιμα, θα αποθηκεύονται αυτόματα σε αυτή τη συσκευή.',
+      toneClass: 'text-muted',
+    };
+  }
+
+  if (status.phase === 'checking') {
+    return {
+      title: 'Έλεγχος offline διαθεσιμότητας...',
+      detail: `Ελέγχουμε ποια από τα ${status.total} PDF υπάρχουν ήδη αποθηκευμένα σε αυτή τη συσκευή.`,
+      toneClass: 'text-blue',
+    };
+  }
+
+  if (status.phase === 'syncing') {
+    return {
+      title: 'Γίνεται αποθήκευση για offline χρήση.',
+      detail: `Διαθέσιμα offline: ${status.cached}/${status.total} PDF.`,
+      toneClass: 'text-blue',
+    };
+  }
+
+  if (status.phase === 'ready') {
+    return {
+      title: 'Ο φάκελος είναι διαθέσιμος offline.',
+      detail:
+        status.total > 0
+          ? `Όλα τα PDF του φακέλου Χρήσιμα είναι αποθηκευμένα σε αυτή τη συσκευή (${status.cached}/${status.total}).`
+          : 'Τα νέα PDF θα αποθηκεύονται αυτόματα όταν προστεθούν.',
+      toneClass: 'text-green-600',
+    };
+  }
+
+  if (status.phase === 'offline') {
+    return {
+      title: 'Είστε offline.',
+      detail: `Διαθέσιμα σε αυτή τη συσκευή: ${status.cached}/${status.total} PDF από τον φάκελο Χρήσιμα.`,
+      toneClass: 'text-amber-600',
+    };
+  }
+
+  return {
+    title: 'Η offline αποθήκευση ολοκληρώθηκε μερικώς.',
+    detail: `Αποθηκεύτηκαν ${status.cached}/${status.total} PDF. Τα υπόλοιπα θα προσπαθήσουν ξανά όταν ανοίξει ξανά ο φάκελος με σύνδεση.`,
+    toneClass: 'text-amber-600',
+  };
 }
 
 function ShareIcon() {

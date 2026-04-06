@@ -14,6 +14,7 @@ type Props = {
 export default function UsefulPdfViewerModal({ open, title, pdfUrl, onClose }: Props) {
   const [mounted, setMounted] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [loadingStep, setLoadingStep] = useState('Φόρτωση PDF...');
   const [error, setError] = useState<string | null>(null);
   const [pageNumber, setPageNumber] = useState(1);
   const [pageCount, setPageCount] = useState(0);
@@ -30,6 +31,7 @@ export default function UsefulPdfViewerModal({ open, title, pdfUrl, onClose }: P
     if (!open) {
       setError(null);
       setLoading(false);
+      setLoadingStep('Φόρτωση PDF...');
       setPageNumber(1);
       setPageCount(0);
       if (pdfDocRef.current) {
@@ -46,6 +48,7 @@ export default function UsefulPdfViewerModal({ open, title, pdfUrl, onClose }: P
     const load = async () => {
       setLoading(true);
       setError(null);
+      setLoadingStep('Ανάγνωση αποθηκευμένου PDF...');
       setPageNumber(1);
       setPageCount(0);
 
@@ -56,7 +59,9 @@ export default function UsefulPdfViewerModal({ open, title, pdfUrl, onClose }: P
         }
 
         const data = new Uint8Array(await response.arrayBuffer());
+        setLoadingStep('Φόρτωση μηχανής PDF...');
         const pdfjs: any = await import('pdfjs-dist');
+        setLoadingStep('Ανάλυση PDF...');
         const task = pdfjs.getDocument({
           data,
           disableWorker: true,
@@ -104,6 +109,7 @@ export default function UsefulPdfViewerModal({ open, title, pdfUrl, onClose }: P
     const render = async () => {
       try {
         const pdf = pdfDocRef.current;
+        setLoadingStep('Απόδοση σελίδας...');
         const page = await pdf.getPage(pageNumber);
         if (cancelled || !canvasRef.current) return;
 
@@ -129,6 +135,7 @@ export default function UsefulPdfViewerModal({ open, title, pdfUrl, onClose }: P
           viewport,
           canvas,
         }).promise;
+        if (!cancelled) setLoadingStep('');
       } catch (err: any) {
         if (!cancelled) {
           setError(err?.message || 'Αποτυχία απόδοσης PDF.');
@@ -190,7 +197,7 @@ export default function UsefulPdfViewerModal({ open, title, pdfUrl, onClose }: P
         </div>
 
         <div className="pdf-body" ref={containerRef}>
-          {loading && <div className="pdf-status">Φόρτωση PDF...</div>}
+          {loading && <div className="pdf-status">{loadingStep || 'Φόρτωση PDF...'}</div>}
           {!loading && error && <div className="pdf-status pdf-status-error">{error}</div>}
           {!loading && !error && <canvas ref={canvasRef} className="pdf-canvas" />}
         </div>

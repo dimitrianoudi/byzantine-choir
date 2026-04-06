@@ -120,6 +120,7 @@ export default function Library({
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const itemRefs = useRef<Record<string, HTMLDivElement | null>>({});
   const warmedUsefulPdfUrlsRef = useRef<Set<string>>(new Set());
+  const loadRequestIdRef = useRef(0);
 
   useEffect(() => {
     setPrefix(initialPrefix || '');
@@ -243,11 +244,16 @@ export default function Library({
   }, [prefix]);
 
   useEffect(() => {
+    const requestId = ++loadRequestIdRef.current;
+    const controller = new AbortController();
+
     const load = async () => {
       const t0 = performance.now();
       setLoading(true);
       setError(null);
       setActionMsg(null);
+      setItems([]);
+      setFolders([]);
       setPlayingKey(null);
       setCurrentKey(null);
       setCurrentIndex(-1);
@@ -264,22 +270,29 @@ export default function Library({
         }
 
         const requestUrl = `/api/files/list?${params.toString()}`;
-        const res = await fetch(requestUrl);
+        const res = await fetch(requestUrl, {
+          signal: controller.signal,
+          cache: 'no-store',
+        });
         if (!res.ok) throw new Error(await safeText(res));
         void cacheUsefulFolderResponse(prefix, res.url || requestUrl, res.clone());
         const data = await res.json();
+        if (requestId !== loadRequestIdRef.current) return;
         setItems(data.items || []);
         setFolders(data.folders || []);
       } catch (e: any) {
+        if (controller.signal.aborted || e?.name === 'AbortError') return;
         Sentry.captureException(e);
         trackCount('library.load.error');
         setError(e?.message || 'Σφάλμα φόρτωσης');
       } finally {
+        if (requestId !== loadRequestIdRef.current) return;
         trackDistribution('library.load.duration_ms', performance.now() - t0);
         setLoading(false);
       }
     };
     load();
+    return () => controller.abort();
   }, [prefix, hasSearchQuery, searchQuery]);
 
   useEffect(() => {
@@ -305,6 +318,11 @@ export default function Library({
     if (!isUseful || hasSearchQuery || typeof window === 'undefined') return;
     void warmUsefulMaterialPage(window.location.href);
   }, [isUseful, hasSearchQuery, prefix]);
+
+  useEffect(() => {
+    if (!isUseful || !isOnline || typeof window === 'undefined') return;
+    void import('pdfjs-dist').catch(() => {});
+  }, [isUseful, isOnline]);
 
   useEffect(() => {
     if (!isUseful || hasSearchQuery || loading || !!error || typeof window === 'undefined') {

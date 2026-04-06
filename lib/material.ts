@@ -10,6 +10,8 @@ export const MATERIAL_COURSE_SLUG_BY_FOLDER = {
   "Ψαλτική ανδρικής φωνής": "men",
 } as const;
 
+const USEFUL_ROOT = "Χρήσιμα/";
+
 export type MaterialCourseSlug = keyof typeof MATERIAL_COURSE_FOLDER_BY_SLUG;
 type MaterialTypeFolder = "podcasts" | "pdfs";
 
@@ -22,6 +24,7 @@ export function isMaterialAudioKey(key: string) {
 
 export function isMaterialPdfKey(key: string) {
   const lower = key.toLowerCase();
+  if (key.startsWith(USEFUL_ROOT)) return lower.endsWith(".pdf");
   return key.startsWith("Μαθήματα/") && lower.includes("/pdfs/") && lower.endsWith(".pdf");
 }
 

@@ -10,6 +10,7 @@ import {
   getUserSettings,
   saveUserSettings,
 } from '@/lib/userSettings';
+import { clearUsefulOfflineCaches } from '@/lib/usefulOffline';
 
 type Role = 'member' | 'admin';
 type HeaderUser = { role: Role; email?: string };
@@ -95,6 +96,7 @@ export default function Header({
       await fetch('/api/logout', { method: 'POST' });
       (window as any).google?.accounts?.id?.disableAutoSelect?.();
     } finally {
+      await clearUsefulOfflineCaches();
       window.location.href = '/login';
     }
   };

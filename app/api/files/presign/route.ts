@@ -87,12 +87,20 @@ export async function POST(req: Request) {
     let key = "";
 
     if (series === "akolouthies") {
+      if (kind !== "podcast") {
+        return NextResponse.json({ error: "Στις Ακολουθίες επιτρέπονται μόνο podcasts" }, { status: 400 });
+      }
       const year = Number(b?.year);
       const date = typeof b?.date === "string" ? b.date : "";
       if (!year || !isIsoDate(date)) {
         return NextResponse.json({ error: "Invalid year/date for Ακολουθίες" }, { status: 400 });
       }
       key = `Ακολουθίες/${year}/${date}/podcasts/${Date.now()}-${safe}`;
+    } else if (series === "useful") {
+      if (kind !== "pdf" || mime !== "application/pdf") {
+        return NextResponse.json({ error: "Στα Χρήσιμα επιτρέπονται μόνο PDF" }, { status: 400 });
+      }
+      key = `Χρήσιμα/${Date.now()}-${safe}`;
     } else {
       const course = b?.course as CourseKey | undefined;
       const year = Number(b?.year);

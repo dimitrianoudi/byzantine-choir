@@ -30,6 +30,7 @@ export default function MaterialPageContent({
   const akPrefix = `Ακολουθίες/${year}/`;
   const ak = parseAkolouthies(prefix);
   const isAkolouthies = prefix.startsWith("Ακολουθίες/");
+  const isUseful = prefix === "Χρήσιμα" || prefix.startsWith("Χρήσιμα/");
   const searchAction = isAkolouthies ? buildMaterialUrlForPrefix(prefix) : "/material";
   const clearSearchHref = buildMaterialUrlForPrefix(prefix);
   const searchQuery = query.trim();
@@ -39,6 +40,8 @@ export default function MaterialPageContent({
       ? `/upload?series=akolouthies${ak.year ? `&year=${encodeURIComponent(ak.year)}` : ""}${
           ak.date ? `&date=${encodeURIComponent(ak.date)}` : ""
         }`
+      : isUseful
+        ? "/upload?series=useful"
       : "/upload";
 
   return (

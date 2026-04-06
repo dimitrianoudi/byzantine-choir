@@ -4,6 +4,7 @@ import Header from "@/components/Header";
 import { getSession } from "@/lib/session";
 import Script from "next/script";
 import ActivityTracker from "@/components/ActivityTracker";
+import UsefulOfflineRegistration from "@/components/UsefulOfflineRegistration";
 
 const heading = EB_Garamond({
   subsets: ["greek", "latin"],
@@ -54,6 +55,7 @@ export default async function RootLayout({
           user={{ role: user.role, email: user.email }}
         />
         <ActivityTracker enabled={!!session.isLoggedIn} />
+        <UsefulOfflineRegistration enabled={!!session.isLoggedIn} />
         <main className="section section--flush-right container container--flush-right space-y-6">
           {children}
         </main>

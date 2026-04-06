@@ -8,6 +8,8 @@ import {
 import { s3, BUCKET } from "@/lib/s3";
 import { getSession } from "@/lib/session";
 
+const USEFUL_ROOT = "Χρήσιμα/";
+
 function inferType(key: string): "podcast" | "pdf" | null {
   const lower = key.toLowerCase();
 
@@ -68,9 +70,20 @@ function scoreSearchMatch(key: string, terms: string[]) {
 }
 
 function getSearchPrefixes(type: "podcast" | "pdf" | null) {
-  if (type === "pdf") return ["Μαθήματα/", "pdfs/"];
+  if (type === "pdf") return [USEFUL_ROOT, "Μαθήματα/", "pdfs/"];
   if (type === "podcast") return ["Μαθήματα/", "Ακολουθίες/", "podcasts/"];
   return [undefined];
+}
+
+function prioritizeRootFolders(folders: string[], currentPrefix: string) {
+  if (currentPrefix) return folders;
+
+  const seen = new Set<string>();
+  return [USEFUL_ROOT, ...folders].filter((folder) => {
+    if (!folder || seen.has(folder)) return false;
+    seen.add(folder);
+    return true;
+  });
 }
 
 export async function GET(req: Request) {
@@ -156,7 +169,7 @@ export async function GET(req: Request) {
       return (b.lastModified || "").localeCompare(a.lastModified || "");
     });
 
-    return NextResponse.json({ items, folders, prefix, query });
+    return NextResponse.json({ items, folders: prioritizeRootFolders(folders, prefix), prefix, query });
   } catch (err: any) {
     console.error("LIST_FILES_ERROR:", err);
     return NextResponse.json(

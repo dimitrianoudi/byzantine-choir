@@ -3,7 +3,7 @@
 import { useMemo, useState } from 'react';
 
 type CourseKey = 'kids' | 'women' | 'men';
-type Dest = 'lessons' | 'akolouthies';
+type Dest = 'lessons' | 'akolouthies' | 'useful';
 type Kind = 'podcast' | 'pdf';
 type InitialSearchParams = {
   series?: string;
@@ -49,7 +49,9 @@ function fileKindFromMime(mime: string): Kind | null {
 }
 
 function parseInitialDest(initialSearchParams?: InitialSearchParams): Dest {
-  return initialSearchParams?.series === 'akolouthies' ? 'akolouthies' : 'lessons';
+  if (initialSearchParams?.series === 'akolouthies') return 'akolouthies';
+  if (initialSearchParams?.series === 'useful') return 'useful';
+  return 'lessons';
 }
 
 function parseInitialAkYear(initialSearchParams?: InitialSearchParams): number {
@@ -80,6 +82,7 @@ export default function Uploader({ initialSearchParams }: { initialSearchParams?
 
   const accept = useMemo(() => {
     if (dest === 'akolouthies') return 'audio/mpeg,audio/mp4,audio/aac,audio/x-m4a';
+    if (dest === 'useful') return 'application/pdf';
     return kind === 'pdf'
       ? 'application/pdf'
       : 'audio/mpeg,audio/mp4,audio/aac,audio/x-m4a';
@@ -138,6 +141,8 @@ export default function Uploader({ initialSearchParams }: { initialSearchParams?
 
       if (dest === 'akolouthies') {
         if (inferred !== 'podcast') return 'Στις Ακολουθίες επιτρέπονται μόνο podcasts (ήχος).';
+      } else if (dest === 'useful') {
+        if (inferred !== 'pdf') return 'Στα Χρήσιμα επιτρέπονται μόνο PDF.';
       } else {
         if (inferred !== kind) return 'Κάποιο αρχείο δεν ταιριάζει με το επιλεγμένο είδος.';
       }
@@ -180,6 +185,9 @@ export default function Uploader({ initialSearchParams }: { initialSearchParams?
           payload.kind = 'podcast';
           payload.year = akYear;
           payload.date = akDate;
+        } else if (dest === 'useful') {
+          payload.series = 'useful';
+          payload.kind = 'pdf';
         } else {
           payload.kind = kind;
           payload.course = course;
@@ -262,6 +270,10 @@ export default function Uploader({ initialSearchParams }: { initialSearchParams?
               <input type="radio" name="dest" value="akolouthies" checked={dest === 'akolouthies'} onChange={() => setDest('akolouthies')} />
               <span>Ακολουθίες</span>
             </label>
+            <label className="inline-flex items-center gap-2 cursor-pointer">
+              <input type="radio" name="dest" value="useful" checked={dest === 'useful'} onChange={() => setDest('useful')} />
+              <span>Χρήσιμα</span>
+            </label>
           </div>
         </div>
 
@@ -328,6 +340,12 @@ export default function Uploader({ initialSearchParams }: { initialSearchParams?
               <label className="text-sm text-muted">Ημερομηνία (YYYY-MM-DD)</label>
               <input className="input mt-1" value={akDate} onChange={(e) => setAkDate(e.target.value)} />
             </div>
+          </div>
+        )}
+
+        {dest === 'useful' && (
+          <div className="rounded-lg border border-subtle bg-[rgba(0,0,0,0.02)] px-4 py-3 text-sm text-muted">
+            Στον φάκελο Χρήσιμα επιτρέπονται μόνο αρχεία PDF.
           </div>
         )}
 

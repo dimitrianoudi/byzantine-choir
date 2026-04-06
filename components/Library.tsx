@@ -7,6 +7,12 @@ import { USER_SETTINGS_EVENT, getUserSettings, type UserSettings } from '@/lib/u
 import { buildAkolouthiesAudioPathFromKey } from '@/lib/akolouthies';
 import { buildMaterialAudioPathFromKey, buildMaterialPdfPathFromKey } from '@/lib/material';
 import { buildMaterialUrlForPrefix, getMaterialPrefixFromUrl } from '@/lib/materialNavigation';
+import {
+  cacheUsefulFolderResponse,
+  isUsefulPrefix,
+  warmUsefulMaterialPage,
+  warmUsefulOfflinePdfs,
+} from '@/lib/usefulOffline';
 import * as Sentry from '@sentry/nextjs';
 
 type Role = 'member' | 'admin';
@@ -79,6 +85,7 @@ export default function Library({
   const [error, setError] = useState<string | null>(null);
 
   const isAkolouthies = useMemo(() => prefix.startsWith('Ακολουθίες/'), [prefix]);
+  const isUseful = useMemo(() => isUsefulPrefix(prefix), [prefix]);
 
   const [activeTab, setActiveTab] = useState<'podcast' | 'pdf'>('podcast');
   const [playingKey, setPlayingKey] = useState<string | null>(null);
@@ -96,6 +103,7 @@ export default function Library({
   const [rememberLastFolder, setRememberLastFolder] = useState(true);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const itemRefs = useRef<Record<string, HTMLDivElement | null>>({});
+  const warmedUsefulPdfUrlsRef = useRef<Set<string>>(new Set());
 
   useEffect(() => {
     setPrefix(initialPrefix || '');
@@ -218,8 +226,10 @@ export default function Library({
           params.set('type', 'pdf');
         }
 
-        const res = await fetch(`/api/files/list?${params.toString()}`);
+        const requestUrl = `/api/files/list?${params.toString()}`;
+        const res = await fetch(requestUrl);
         if (!res.ok) throw new Error(await safeText(res));
+        void cacheUsefulFolderResponse(prefix, res.url || requestUrl, res.clone());
         const data = await res.json();
         setItems(data.items || []);
         setFolders(data.folders || []);
@@ -253,6 +263,36 @@ export default function Library({
 
     return () => window.clearTimeout(timeoutId);
   }, [items]);
+
+  useEffect(() => {
+    if (!isUseful || hasSearchQuery || typeof window === 'undefined') return;
+    void warmUsefulMaterialPage(window.location.href);
+  }, [isUseful, hasSearchQuery, prefix]);
+
+  useEffect(() => {
+    if (
+      !isUseful ||
+      hasSearchQuery ||
+      loading ||
+      !!error ||
+      typeof window === 'undefined' ||
+      !('caches' in window) ||
+      typeof navigator === 'undefined' ||
+      !navigator.onLine
+    ) {
+      return;
+    }
+
+    const urls = pdfs
+      .map((pdf) => buildMaterialPdfPathFromKey(pdf.key))
+      .filter((url): url is string => !!url);
+    const missing = urls.filter((url) => !warmedUsefulPdfUrlsRef.current.has(url));
+    if (missing.length === 0) return;
+
+    void warmUsefulOfflinePdfs(missing).then((warmed) => {
+      warmed.forEach((url) => warmedUsefulPdfUrlsRef.current.add(url));
+    });
+  }, [isUseful, hasSearchQuery, loading, error, pdfs]);
 
   const getUrl = async (key: string) => {
     if (presigned[key]) return presigned[key];

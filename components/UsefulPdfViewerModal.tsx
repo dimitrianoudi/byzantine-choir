@@ -55,7 +55,7 @@ export default function UsefulPdfViewerModal({ open, title, pdfUrl, onClose }: P
           throw new Error('Το PDF δεν είναι διαθέσιμο offline σε αυτή τη συσκευή.');
         }
 
-        const data = await response.arrayBuffer();
+        const data = new Uint8Array(await response.arrayBuffer());
         const pdfjs: any = await import('pdfjs-dist');
         const task = pdfjs.getDocument({
           data,
@@ -115,14 +115,13 @@ export default function UsefulPdfViewerModal({ open, title, pdfUrl, onClose }: P
         const availableWidth = Math.max(280, Math.min(window.innerWidth - 48, containerRef.current?.clientWidth || 720));
         const scale = Math.max(0.75, Math.min(2.5, availableWidth / baseViewport.width));
         const viewport = page.getViewport({ scale });
-        const deviceScale = window.devicePixelRatio || 1;
 
-        canvas.width = Math.floor(viewport.width * deviceScale);
-        canvas.height = Math.floor(viewport.height * deviceScale);
-        canvas.style.width = `${Math.floor(viewport.width)}px`;
-        canvas.style.height = `${Math.floor(viewport.height)}px`;
+        canvas.width = Math.ceil(viewport.width);
+        canvas.height = Math.ceil(viewport.height);
+        canvas.style.width = `${Math.ceil(viewport.width)}px`;
+        canvas.style.height = `${Math.ceil(viewport.height)}px`;
 
-        ctx.setTransform(deviceScale, 0, 0, deviceScale, 0, 0);
+        ctx.setTransform(1, 0, 0, 1, 0, 0);
         ctx.clearRect(0, 0, canvas.width, canvas.height);
 
         await page.render({

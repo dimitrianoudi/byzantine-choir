@@ -5,7 +5,7 @@ export const USEFUL_OFFLINE_SW_URL = '/useful-offline-sw.js';
 export const USEFUL_OFFLINE_CACHE_PREFIX = 'bcp-useful-offline-';
 export const USEFUL_OFFLINE_PAGE_CACHE = `${USEFUL_OFFLINE_CACHE_PREFIX}pages-v1`;
 export const USEFUL_OFFLINE_API_CACHE = `${USEFUL_OFFLINE_CACHE_PREFIX}api-v1`;
-export const USEFUL_OFFLINE_PDF_CACHE = `${USEFUL_OFFLINE_CACHE_PREFIX}pdfs-v1`;
+export const USEFUL_OFFLINE_PDF_CACHE = `${USEFUL_OFFLINE_CACHE_PREFIX}pdfs-v2`;
 export const USEFUL_OFFLINE_ASSET_CACHE = `${USEFUL_OFFLINE_CACHE_PREFIX}assets-v1`;
 export const USEFUL_OFFLINE_CACHE_NAMES = [
   USEFUL_OFFLINE_PAGE_CACHE,
@@ -28,6 +28,15 @@ function uniqueUrls(urls: string[]) {
   return Array.from(new Set(urls.filter(Boolean)));
 }
 
+async function bufferResponse(response: Response) {
+  const blob = await response.blob();
+  return new Response(blob, {
+    status: response.status,
+    statusText: response.statusText,
+    headers: new Headers(response.headers),
+  });
+}
+
 async function cacheSuccessfulGet(cacheName: string, url: string) {
   if (!canUseCacheStorage()) return false;
 
@@ -40,6 +49,22 @@ async function cacheSuccessfulGet(cacheName: string, url: string) {
   if (!response.ok) return false;
 
   await cache.put(request, response.clone());
+  return true;
+}
+
+async function cacheUsefulPdfUrl(url: string) {
+  if (!canUseCacheStorage()) return false;
+
+  const cache = await caches.open(USEFUL_OFFLINE_PDF_CACHE);
+  const request = new Request(url, { credentials: 'same-origin' });
+  const existing = (await cache.match(request)) || (await cache.match(url));
+  if (existing) return true;
+
+  const response = await fetch(request);
+  if (!response.ok) return false;
+
+  const buffered = await bufferResponse(response);
+  await cache.put(request, buffered.clone());
   return true;
 }
 
@@ -137,8 +162,9 @@ export async function getUsefulOfflinePdfResponse(url: string) {
   const response = await fetch(request);
   if (!response.ok) return null;
 
-  await cache.put(request, response.clone());
-  return response;
+  const buffered = await bufferResponse(response);
+  await cache.put(request, buffered.clone());
+  return buffered;
 }
 
 export async function warmUsefulOfflinePdfs(
@@ -159,7 +185,7 @@ export async function warmUsefulOfflinePdfs(
       const next = queue.shift();
       if (!next) return;
       try {
-        const ok = await cacheSuccessfulGet(USEFUL_OFFLINE_PDF_CACHE, next);
+        const ok = await cacheUsefulPdfUrl(next);
         if (ok) warmed.push(next);
       } catch {}
       completed += 1;

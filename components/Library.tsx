@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import clsx from 'clsx';
 import PdfThumb from './PdfThumb';
+import UsefulPdfViewerModal from './UsefulPdfViewerModal';
 import { USER_SETTINGS_EVENT, getUserSettings, type UserSettings } from '@/lib/userSettings';
 import { buildAkolouthiesAudioPathFromKey } from '@/lib/akolouthies';
 import { buildMaterialAudioPathFromKey, buildMaterialPdfPathFromKey } from '@/lib/material';
@@ -10,7 +11,6 @@ import { buildMaterialUrlForPrefix, getMaterialPrefixFromUrl } from '@/lib/mater
 import {
   cacheUsefulFolderResponse,
   getCachedUsefulOfflinePdfs,
-  getUsefulOfflinePdfObjectUrl,
   isUsefulPrefix,
   supportsUsefulOffline,
   warmUsefulMaterialPage,
@@ -116,10 +116,10 @@ export default function Library({
     total: 0,
     cached: 0,
   });
+  const [usefulViewer, setUsefulViewer] = useState<{ title: string; url: string } | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const itemRefs = useRef<Record<string, HTMLDivElement | null>>({});
   const warmedUsefulPdfUrlsRef = useRef<Set<string>>(new Set());
-  const usefulPdfObjectUrlsRef = useRef<string[]>([]);
 
   useEffect(() => {
     setPrefix(initialPrefix || '');
@@ -144,13 +144,6 @@ export default function Library({
     return () => {
       window.removeEventListener('online', updateOnlineStatus);
       window.removeEventListener('offline', updateOnlineStatus);
-    };
-  }, []);
-
-  useEffect(() => {
-    return () => {
-      usefulPdfObjectUrlsRef.current.forEach((url) => URL.revokeObjectURL(url));
-      usefulPdfObjectUrlsRef.current = [];
     };
   }, []);
 
@@ -484,30 +477,8 @@ export default function Library({
       const cleanUrl = buildMaterialPdfPathFromKey(key);
       const isUsefulPdf = isUsefulPrefix(getParentPrefix(key));
 
-      if (cleanUrl && isUsefulPdf) {
-        const popup = window.open('', '_blank');
-        if (popup) {
-          try {
-            popup.document.title = 'Φόρτωση PDF...';
-            popup.document.body.innerHTML =
-              '<div style="font-family: sans-serif; padding: 24px; color: #444;">Φόρτωση PDF...</div>';
-          } catch {}
-        }
-
-        const objectUrl = await getUsefulOfflinePdfObjectUrl(cleanUrl);
-        const targetUrl = objectUrl || cleanUrl;
-        if (objectUrl) usefulPdfObjectUrlsRef.current.push(objectUrl);
-
-        if (popup && !popup.closed) {
-          try {
-            popup.location.replace(targetUrl);
-          } catch {
-            popup.location.href = targetUrl;
-          }
-        } else {
-          window.location.href = targetUrl;
-        }
-
+      if (cleanUrl && isUsefulPdf && !isOnline) {
+        setUsefulViewer({ title: prettyName(key), url: cleanUrl });
         trackCount('library.pdf.open');
         return;
       }
@@ -951,6 +922,13 @@ export default function Library({
           if (audioRef.current) audioRef.current.currentTime = 0;
           void onAudioEnded(endedIdx);
         }}
+      />
+
+      <UsefulPdfViewerModal
+        open={!!usefulViewer}
+        title={usefulViewer?.title || ''}
+        pdfUrl={usefulViewer?.url || ''}
+        onClose={() => setUsefulViewer(null)}
       />
 
       <style jsx>{`

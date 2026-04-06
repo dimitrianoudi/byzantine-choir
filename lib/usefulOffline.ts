@@ -141,14 +141,6 @@ export async function getUsefulOfflinePdfResponse(url: string) {
   return response;
 }
 
-export async function getUsefulOfflinePdfObjectUrl(url: string) {
-  const response = await getUsefulOfflinePdfResponse(url);
-  if (!response) return null;
-
-  const blob = await response.blob();
-  return URL.createObjectURL(blob);
-}
-
 export async function warmUsefulOfflinePdfs(
   urls: string[],
   options?: {

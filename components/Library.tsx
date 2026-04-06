@@ -8,6 +8,7 @@ import { USER_SETTINGS_EVENT, getUserSettings, type UserSettings } from '@/lib/u
 import { buildAkolouthiesAudioPathFromKey } from '@/lib/akolouthies';
 import { buildMaterialAudioPathFromKey, buildMaterialPdfPathFromKey } from '@/lib/material';
 import { buildMaterialUrlForPrefix, getMaterialPrefixFromUrl } from '@/lib/materialNavigation';
+import { warmPdfJs } from '@/lib/pdfjsClient';
 import {
   cacheUsefulFolderResponse,
   getCachedUsefulOfflinePdfs,
@@ -321,7 +322,7 @@ export default function Library({
 
   useEffect(() => {
     if (!isUseful || !isOnline || typeof window === 'undefined') return;
-    void import('pdfjs-dist').catch(() => {});
+    void warmPdfJs().catch(() => {});
   }, [isUseful, isOnline]);
 
   useEffect(() => {

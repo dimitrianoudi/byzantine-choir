@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
+import { getPdfJs } from '@/lib/pdfjsClient';
 import { getUsefulOfflinePdfResponse } from '@/lib/usefulOffline';
 
 type Props = {
@@ -60,13 +61,9 @@ export default function UsefulPdfViewerModal({ open, title, pdfUrl, onClose }: P
 
         const data = new Uint8Array(await response.arrayBuffer());
         setLoadingStep('Φόρτωση μηχανής PDF...');
-        const pdfjs: any = await import('pdfjs-dist');
+        const pdfjs = await getPdfJs();
         setLoadingStep('Ανάλυση PDF...');
-        const task = pdfjs.getDocument({
-          data,
-          disableWorker: true,
-          useWorkerFetch: false,
-        });
+        const task = pdfjs.getDocument({ data });
         const pdf = await task.promise;
 
         if (cancelled) {

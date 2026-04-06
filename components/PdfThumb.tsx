@@ -1,5 +1,6 @@
 'use client';
 import { useEffect, useMemo, useState } from 'react';
+import { getPdfJs } from '@/lib/pdfjsClient';
 
 type Props = {
   storageKey: string;                         // e.g. "pdfs/....pdf"
@@ -48,10 +49,7 @@ export default function PdfThumb({ storageKey, getUrl, width = 220 }: Props) {
 
         const url = await getUrl(storageKey);
 
-        // Dynamically import pdf.js only in the browser
-        const pdfjs: any = await import('pdfjs-dist');
-        pdfjs.GlobalWorkerOptions.workerSrc =
-          'https://cdn.jsdelivr.net/npm/pdfjs-dist@4.6.82/build/pdf.worker.min.js';
+        const pdfjs = await getPdfJs();
 
         const pdf = await pdfjs.getDocument({ url }).promise;
         const page = await pdf.getPage(1);

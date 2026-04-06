@@ -496,7 +496,7 @@ export default function Library({
       const cleanUrl = buildMaterialPdfPathFromKey(key);
       const isUsefulPdf = isUsefulPrefix(getParentPrefix(key));
 
-      if (cleanUrl && isUsefulPdf) {
+      if (cleanUrl && isUsefulPdf && !isOnline) {
         setUsefulViewer({ title: prettyName(key), url: cleanUrl });
         trackCount('library.pdf.open');
         return;

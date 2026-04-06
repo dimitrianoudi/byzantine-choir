@@ -485,13 +485,31 @@ export default function Library({
       const isUsefulPdf = isUsefulPrefix(getParentPrefix(key));
 
       if (cleanUrl && isUsefulPdf) {
-        const objectUrl = await getUsefulOfflinePdfObjectUrl(cleanUrl);
-        if (objectUrl) {
-          usefulPdfObjectUrlsRef.current.push(objectUrl);
-          window.open(objectUrl, '_blank', 'noopener,noreferrer');
-          trackCount('library.pdf.open');
-          return;
+        const popup = window.open('', '_blank');
+        if (popup) {
+          try {
+            popup.document.title = 'Φόρτωση PDF...';
+            popup.document.body.innerHTML =
+              '<div style="font-family: sans-serif; padding: 24px; color: #444;">Φόρτωση PDF...</div>';
+          } catch {}
         }
+
+        const objectUrl = await getUsefulOfflinePdfObjectUrl(cleanUrl);
+        const targetUrl = objectUrl || cleanUrl;
+        if (objectUrl) usefulPdfObjectUrlsRef.current.push(objectUrl);
+
+        if (popup && !popup.closed) {
+          try {
+            popup.location.replace(targetUrl);
+          } catch {
+            popup.location.href = targetUrl;
+          }
+        } else {
+          window.location.href = targetUrl;
+        }
+
+        trackCount('library.pdf.open');
+        return;
       }
 
       const url = cleanUrl || (await getUrl(key));

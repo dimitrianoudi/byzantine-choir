@@ -3,6 +3,7 @@ export const runtime = "nodejs";
 import { NextResponse } from "next/server";
 import { getSession } from "@/lib/session";
 import { s3, BUCKET } from "@/lib/s3";
+import { recordDeletionAudit } from "@/lib/deletionAudit";
 import { DeleteObjectCommand } from "@aws-sdk/client-s3";
 
 export async function POST(req: Request) {
@@ -30,6 +31,18 @@ export async function POST(req: Request) {
         Key: key,
       })
     );
+
+    try {
+      await recordDeletionAudit({
+        email: session.user?.email,
+        role: session.user?.role,
+        kind: "library_file",
+        itemKey: key,
+      });
+    } catch (auditErr) {
+      console.error("DELETE_FILE_AUDIT_ERROR:", auditErr);
+    }
+
     return NextResponse.json({ ok: true });
   } catch (err: any) {
     console.error("DELETE_FILE_ERROR:", err);

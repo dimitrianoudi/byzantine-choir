@@ -2,6 +2,7 @@ export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
 import { getSession } from "@/lib/session";
+import { recordDeletionAudit } from "@/lib/deletionAudit";
 
 type Body = {
   id?: string;
@@ -57,6 +58,17 @@ export async function POST(req: Request) {
   if (!res.ok) {
     const msg = json?.error?.message || json?.error || "Delete failed";
     return NextResponse.json({ error: msg }, { status: 500 });
+  }
+
+  try {
+    await recordDeletionAudit({
+      email: session.user?.email,
+      role: session.user?.role,
+      kind: resourceType === "video" ? "gallery_video" : "gallery_image",
+      itemKey: id,
+    });
+  } catch (auditErr) {
+    console.error("DELETE_GALLERY_AUDIT_ERROR:", auditErr);
   }
 
   return NextResponse.json({ ok: true, result: json });

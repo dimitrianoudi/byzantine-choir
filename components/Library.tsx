@@ -40,6 +40,13 @@ function prettyName(raw: string) {
   return base.replace(/^\d{13}[-_]/, '');
 }
 
+function confirmFileDelete(name: string) {
+  if (!window.confirm('Θέλετε να διαγράψετε αυτό το αρχείο;')) return false;
+  return window.confirm(
+    `Επιβεβαίωση διαγραφής:\n\n${name}\n\nΗ ενέργεια δεν αναιρείται. Είστε απολύτως σίγουροι;`
+  );
+}
+
 function folderLabel(prefix: string): string {
   const trimmed = prefix.replace(/\/$/, '');
   const parts = trimmed.split('/');
@@ -581,9 +588,10 @@ export default function Library({
     }
   };
 
-  const deleteKey = async (key: string) => {
+  const deleteKey = async (key: string, rawName?: string) => {
     if (role !== 'admin') return;
-    if (!confirm('Διαγραφή αρχείου;')) return;
+    const targetName = prettyName(rawName || key) || 'το επιλεγμένο αρχείο';
+    if (!confirmFileDelete(targetName)) return;
 
     setActionMsg(null);
     try {
@@ -821,7 +829,7 @@ export default function Library({
                           <button className="btn btn-outline" onClick={() => renameKey(p.key, p.name)}>
                             Μετονομασία
                           </button>
-                          <button className="btn btn-outline text-red" onClick={() => deleteKey(p.key)}>
+                          <button className="btn btn-outline text-red" onClick={() => deleteKey(p.key, p.name)}>
                             Διαγραφή
                           </button>
                         </>
@@ -909,7 +917,7 @@ export default function Library({
                           <button className="btn btn-outline" onClick={() => renameKey(pdf.key, pdf.name)}>
                             Μετονομασία
                           </button>
-                          <button className="btn btn-outline text-red" onClick={() => deleteKey(pdf.key)}>
+                          <button className="btn btn-outline text-red" onClick={() => deleteKey(pdf.key, pdf.name)}>
                             Διαγραφή
                           </button>
                         </>

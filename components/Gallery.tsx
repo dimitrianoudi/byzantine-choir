@@ -18,6 +18,19 @@ type GalleryItem = {
   duration?: number | null;
 };
 
+function galleryItemLabel(it: GalleryItem) {
+  const raw = (it.publicId || it.id || '').split('/').pop() || '';
+  if (raw) return raw;
+  return it.type === 'video' ? 'το επιλεγμένο βίντεο' : 'την επιλεγμένη εικόνα';
+}
+
+function confirmGalleryDelete(it: GalleryItem) {
+  if (!window.confirm('Θέλετε να διαγράψετε αυτό το αρχείο από το gallery;')) return false;
+  return window.confirm(
+    `Επιβεβαίωση διαγραφής:\n\n${galleryItemLabel(it)}\n\nΗ ενέργεια δεν αναιρείται. Είστε απολύτως σίγουροι;`
+  );
+}
+
 function folderLabel(path: string) {
   const parts = path.replace(/\/$/, '').split('/');
   return parts[parts.length - 1] || path;
@@ -129,7 +142,7 @@ export default function Gallery({ role }: { role: Role }) {
   const deleteItem = async (it: GalleryItem) => {
     if (role !== 'admin') return;
     if (busyDelete) return;
-    if (!confirm('Διαγραφή από το gallery;')) return;
+    if (!confirmGalleryDelete(it)) return;
 
     setBusyDelete(true);
     setErr(null);

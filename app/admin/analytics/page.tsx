@@ -2,10 +2,17 @@ import { redirect } from "next/navigation";
 import { getSession } from "@/lib/session";
 import { getLoginAnalytics } from "@/lib/loginAudit";
 import { getActivityAnalytics, type ActivityRoleFilter } from "@/lib/activityAudit";
+import { getDeletionAnalytics, type DeletionAuditKind } from "@/lib/deletionAudit";
 import Link from "next/link";
 
 function fmtDate(iso: string) {
   return new Date(iso).toLocaleString("el-GR");
+}
+
+function fmtDeletionKind(kind: DeletionAuditKind) {
+  if (kind === "gallery_image") return "Gallery εικόνα";
+  if (kind === "gallery_video") return "Gallery βίντεο";
+  return "Αρχείο υλικού";
 }
 
 export default async function AdminAnalyticsPage({
@@ -22,6 +29,7 @@ export default async function AdminAnalyticsPage({
 
   const analytics = await getLoginAnalytics(30);
   const activity = await getActivityAnalytics(30, audience);
+  const deletions = await getDeletionAnalytics(30);
 
   return (
     <div className="space-y-6">
@@ -139,6 +147,51 @@ export default async function AdminAnalyticsPage({
                     <td className="py-2 pr-4 break-all">{r.email}</td>
                     <td className="py-2 pr-4">{r.role}</td>
                     <td className="py-2">{r.status === "success" ? "Επιτυχία" : "Αποτυχία"}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </section>
+
+      <section className="card p-4 space-y-3">
+        <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
+          <h2 className="font-semibold">Πρόσφατες διαγραφές</h2>
+          <div className="text-xs text-muted">
+            {deletions.rangeDays} ημέρες • {deletions.totals.deletions} διαγραφές • {deletions.totals.uniqueUsers} χρήστες
+          </div>
+        </div>
+
+        {deletions.recent.length === 0 && (
+          <div className="text-sm text-muted">Δεν υπάρχουν καταγεγραμμένες διαγραφές.</div>
+        )}
+
+        {deletions.recent.length > 0 && (
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="text-left text-muted">
+                  <th className="py-2 pr-4">Ημ/νία</th>
+                  <th className="py-2 pr-4">Χρήστης</th>
+                  <th className="py-2 pr-4">Ρόλος</th>
+                  <th className="py-2 pr-4">Τύπος</th>
+                  <th className="py-2">Τι διαγράφηκε</th>
+                </tr>
+              </thead>
+              <tbody>
+                {deletions.recent.map((entry, idx) => (
+                  <tr key={`${entry.at}-${entry.email}-${entry.itemKey}-${idx}`} className="border-t border-subtle">
+                    <td className="py-2 pr-4 whitespace-nowrap">{fmtDate(entry.at)}</td>
+                    <td className="py-2 pr-4 break-all">{entry.email}</td>
+                    <td className="py-2 pr-4">{entry.role}</td>
+                    <td className="py-2 pr-4 whitespace-nowrap">{fmtDeletionKind(entry.kind)}</td>
+                    <td className="py-2">
+                      <div className="font-medium break-all">{entry.itemName}</div>
+                      {entry.itemKey !== entry.itemName && (
+                        <div className="text-xs text-muted break-all">{entry.itemKey}</div>
+                      )}
+                    </td>
                   </tr>
                 ))}
               </tbody>

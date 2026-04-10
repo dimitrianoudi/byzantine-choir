@@ -206,7 +206,7 @@ export default function Uploader({ initialSearchParams }: { initialSearchParams?
           throw new Error(errJson?.error || `Presign failed (${presignRes.status})`);
         }
 
-        const { url, key } = await presignRes.json();
+        const { url, key, contentType } = await presignRes.json();
         if (!url || !key) throw new Error('Άκυρη απάντηση από το presign.');
 
         await new Promise<void>((resolve, reject) => {
@@ -230,7 +230,10 @@ export default function Uploader({ initialSearchParams }: { initialSearchParams?
 
           xhr.onerror = () => reject(new Error('Network error κατά το ανέβασμα'));
 
-          xhr.setRequestHeader('Content-Type', item.file.type || 'application/octet-stream');
+          xhr.setRequestHeader(
+            'Content-Type',
+            contentType || item.file.type || 'application/octet-stream'
+          );
           xhr.send(item.file);
         });
 

@@ -1,3 +1,5 @@
+import { standardAudioContentType } from "@/lib/audioMime";
+
 export const MATERIAL_COURSE_FOLDER_BY_SLUG = {
   kids: "Ψαλτική παιδικής φωνής",
   women: "Ψαλτική γυναικείας φωνής",
@@ -34,11 +36,7 @@ export function displayMaterialFilename(key: string) {
 }
 
 export function materialAudioContentType(key: string) {
-  const lower = key.toLowerCase();
-  if (lower.endsWith(".mp3")) return "audio/mpeg";
-  if (lower.endsWith(".m4a")) return "audio/mp4";
-  if (lower.endsWith(".aac")) return "audio/aac";
-  return "application/octet-stream";
+  return standardAudioContentType(key);
 }
 
 export function materialPdfContentType() {

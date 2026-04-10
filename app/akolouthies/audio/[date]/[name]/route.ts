@@ -44,7 +44,7 @@ async function findAudioKey(date: string, name: string) {
 function buildHeaders(name: string, key: string, res: GetObjectCommandOutput) {
   const headers = new Headers();
   headers.set("Cache-Control", "no-store");
-  headers.set("Content-Type", res.ContentType || akolouthiesContentType(key));
+  headers.set("Content-Type", akolouthiesContentType(key));
   headers.set("Content-Disposition", `inline; filename*=UTF-8''${encodeURIComponent(name)}`);
   headers.set("Accept-Ranges", "bytes");
   headers.set("X-Robots-Tag", "noindex");

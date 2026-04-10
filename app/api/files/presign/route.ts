@@ -3,6 +3,7 @@ export const runtime = "nodejs";
 import { NextResponse } from "next/server";
 import { getSession } from "@/lib/session";
 import { s3, BUCKET, presignGet } from "@/lib/s3";
+import { standardAudioContentType } from "@/lib/audioMime";
 import { PutObjectCommand } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import * as Sentry from "@sentry/nextjs";
@@ -80,6 +81,7 @@ export async function POST(req: Request) {
     const safe = sanitizeFilename(filename);
     const explicitKind = (b?.kind as Kind | undefined);
     const kind: Kind = explicitKind ?? (mime === "application/pdf" ? "pdf" : "podcast");
+    const uploadMime = kind === "podcast" ? standardAudioContentType(safe, mime) : mime;
     const typeFolder = kind === "pdf" ? "pdfs" : "podcasts";
 
     const series = typeof b?.series === "string" ? b.series : undefined;
@@ -119,13 +121,13 @@ export async function POST(req: Request) {
     const cmd = new PutObjectCommand({
       Bucket: BUCKET,
       Key: key,
-      ContentType: mime,
+      ContentType: uploadMime,
     });
     const url = await getSignedUrl(s3, cmd, { expiresIn: 300 });
 
     Sentry.metrics.count("api.files_presign.upload.success", 1);
     Sentry.metrics.distribution("api.files_presign.duration_ms", Date.now() - t0);
-    return NextResponse.json({ url, key });
+    return NextResponse.json({ url, key, contentType: uploadMime });
   } catch (err: any) {
     Sentry.captureException(err);
     Sentry.metrics.count("api.files_presign.upload.error", 1);

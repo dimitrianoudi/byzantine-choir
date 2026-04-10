@@ -1,3 +1,5 @@
+import { standardAudioContentType } from "@/lib/audioMime";
+
 export function isAkolouthiesAudioKey(key: string) {
   const k = key.toLowerCase();
   const okPath = key.startsWith("Ακολουθίες/");
@@ -36,9 +38,5 @@ export function buildAkolouthiesAudioPathFromKey(key: string) {
 }
 
 export function akolouthiesContentType(key: string) {
-  const k = key.toLowerCase();
-  if (k.endsWith(".mp3")) return "audio/mpeg";
-  if (k.endsWith(".m4a")) return "audio/mp4";
-  if (k.endsWith(".aac")) return "audio/aac";
-  return "application/octet-stream";
+  return standardAudioContentType(key);
 }

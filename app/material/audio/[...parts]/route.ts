@@ -48,7 +48,7 @@ async function findAudioKey(courseSlug: string, year: string, lesson: string, na
 function buildHeaders(name: string, key: string, res: GetObjectCommandOutput) {
   const headers = new Headers();
   headers.set("Cache-Control", "no-store");
-  headers.set("Content-Type", res.ContentType || materialAudioContentType(key));
+  headers.set("Content-Type", materialAudioContentType(key));
   headers.set("Content-Disposition", `inline; filename*=UTF-8''${encodeURIComponent(name)}`);
   headers.set("Accept-Ranges", "bytes");
   headers.set("X-Robots-Tag", "noindex");

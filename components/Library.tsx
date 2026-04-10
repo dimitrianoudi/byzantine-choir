@@ -468,7 +468,7 @@ export default function Library({
         return;
       }
 
-      if (playingKey && playingKey !== key) {
+      if (currentKey && currentKey !== key && !audio.paused) {
         audio.pause();
       }
 

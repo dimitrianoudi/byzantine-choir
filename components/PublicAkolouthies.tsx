@@ -145,6 +145,10 @@ export default function PublicAkolouthies() {
         return;
       }
 
+      if (currentKey && currentKey !== key && !audio.paused) {
+        audio.pause();
+      }
+
       const url = await presign(key);
       setPlayerCurrentTime(0);
       setPlayerDuration(0);

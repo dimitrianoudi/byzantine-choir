@@ -3,6 +3,8 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import * as Sentry from "@sentry/nextjs";
+import AudioEnhancerControls from "@/components/AudioEnhancerControls";
+import { useAudioEnhancer } from "@/lib/useAudioEnhancer";
 
 type Item = {
   key: string;
@@ -31,6 +33,7 @@ export default function PublicAkolouthies() {
   const [playerDuration, setPlayerDuration] = useState(0);
   const [highlightedKey, setHighlightedKey] = useState<string | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
+  const audioEnhancer = useAudioEnhancer(audioRef);
   const itemRefs = useRef<Record<string, HTMLDivElement | null>>({});
 
   const didAutoPlay = useRef(false);
@@ -133,6 +136,9 @@ export default function PublicAkolouthies() {
       }
 
       if (isCurrentTrackLoaded && audio.paused) {
+        if (audioEnhancer.enabled) {
+          await audioEnhancer.ensureReady();
+        }
         await audio.play();
         setPlayingKey(key);
         trackCount("public_akolouthies.podcast.resume");
@@ -144,6 +150,9 @@ export default function PublicAkolouthies() {
       setPlayerDuration(0);
       audio.src = url;
       audio.load();
+      if (audioEnhancer.enabled) {
+        await audioEnhancer.ensureReady();
+      }
       await audio.play();
       setPlayingKey(key);
       setCurrentKey(key);
@@ -160,6 +169,13 @@ export default function PublicAkolouthies() {
     if (!audio || !currentKey) return;
     audio.currentTime = nextTime;
     setPlayerCurrentTime(nextTime);
+  };
+
+  const toggleAudioEnhancer = async () => {
+    if (!audioEnhancer.open) {
+      await audioEnhancer.ensureReady();
+    }
+    audioEnhancer.setOpen((prev) => !prev);
   };
 
   useEffect(() => {
@@ -316,6 +332,21 @@ export default function PublicAkolouthies() {
                     </div>
                   </div>
                 </div>
+                <AudioEnhancerControls
+                  supported={audioEnhancer.supported}
+                  open={audioEnhancer.open}
+                  enabled={audioEnhancer.enabled}
+                  presetId={audioEnhancer.presetId}
+                  settings={audioEnhancer.settings}
+                  error={audioEnhancer.error}
+                  onToggleOpen={() => {
+                    void toggleAudioEnhancer();
+                  }}
+                  onToggleEnabled={() => audioEnhancer.setEnabled(!audioEnhancer.enabled)}
+                  onApplyPreset={audioEnhancer.applyPreset}
+                  onUpdateSetting={audioEnhancer.updateSetting}
+                  onReset={audioEnhancer.reset}
+                />
               </div>
             </div>
           ))}
@@ -324,6 +355,7 @@ export default function PublicAkolouthies() {
             ref={audioRef}
             className="sr-only"
             preload="auto"
+            crossOrigin="anonymous"
             onPlay={() => {
               if (currentKey) setPlayingKey(currentKey);
             }}

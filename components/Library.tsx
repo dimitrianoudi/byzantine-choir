@@ -4,11 +4,13 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import clsx from 'clsx';
 import PdfThumb from './PdfThumb';
 import UsefulPdfViewerModal from './UsefulPdfViewerModal';
+import AudioEnhancerControls from './AudioEnhancerControls';
 import { USER_SETTINGS_EVENT, getUserSettings, type UserSettings } from '@/lib/userSettings';
 import { buildAkolouthiesAudioPathFromKey } from '@/lib/akolouthies';
 import { buildMaterialAudioPathFromKey, buildMaterialPdfPathFromKey } from '@/lib/material';
 import { buildMaterialUrlForPrefix, getMaterialPrefixFromUrl } from '@/lib/materialNavigation';
 import { warmPdfJs } from '@/lib/pdfjsClient';
+import { useAudioEnhancer } from '@/lib/useAudioEnhancer';
 import {
   cacheUsefulFolderResponse,
   getCachedUsefulOfflinePdfs,
@@ -126,6 +128,7 @@ export default function Library({
   });
   const [usefulViewer, setUsefulViewer] = useState<{ title: string; url: string } | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
+  const audioEnhancer = useAudioEnhancer(audioRef);
   const itemRefs = useRef<Record<string, HTMLDivElement | null>>({});
   const warmedUsefulPdfUrlsRef = useRef<Set<string>>(new Set());
   const loadRequestIdRef = useRef(0);
@@ -455,6 +458,9 @@ export default function Library({
           setPlayingKey(null);
           trackCount('library.podcast.pause');
         } else {
+          if (audioEnhancer.enabled) {
+            await audioEnhancer.ensureReady();
+          }
           await audio.play();
           setPlayingKey(key);
           trackCount('library.podcast.resume');
@@ -472,6 +478,9 @@ export default function Library({
       audio.src = url;
       audio.load();
       audio.playbackRate = preferredPlaybackRate;
+      if (audioEnhancer.enabled) {
+        await audioEnhancer.ensureReady();
+      }
       await audio.play();
       setPlayingKey(key);
       setCurrentKey(key);
@@ -686,6 +695,13 @@ export default function Library({
     setPlayerCurrentTime(nextTime);
   };
 
+  const toggleAudioEnhancer = async () => {
+    if (!audioEnhancer.open) {
+      await audioEnhancer.ensureReady();
+    }
+    audioEnhancer.setOpen((prev) => !prev);
+  };
+
   return (
     <div className="space-y-6">
       <div className="toolbar">
@@ -863,6 +879,21 @@ export default function Library({
                         </div>
                       </div>
                     </div>
+                    <AudioEnhancerControls
+                      supported={audioEnhancer.supported}
+                      open={audioEnhancer.open}
+                      enabled={audioEnhancer.enabled}
+                      presetId={audioEnhancer.presetId}
+                      settings={audioEnhancer.settings}
+                      error={audioEnhancer.error}
+                      onToggleOpen={() => {
+                        void toggleAudioEnhancer();
+                      }}
+                      onToggleEnabled={() => audioEnhancer.setEnabled(!audioEnhancer.enabled)}
+                      onApplyPreset={audioEnhancer.applyPreset}
+                      onUpdateSetting={audioEnhancer.updateSetting}
+                      onReset={audioEnhancer.reset}
+                    />
                   </div>
                 </div>
               ))}
@@ -935,6 +966,7 @@ export default function Library({
         ref={audioRef}
         className="sr-only"
         preload="auto"
+        crossOrigin="anonymous"
         onPlay={() => {
           if (currentKey) setPlayingKey(currentKey);
         }}

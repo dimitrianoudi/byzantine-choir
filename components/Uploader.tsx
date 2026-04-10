@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 
 type CourseKey = 'kids' | 'women' | 'men';
 type Dest = 'lessons' | 'akolouthies' | 'useful';
@@ -19,7 +19,6 @@ const COURSES: { key: CourseKey; label: string }[] = [
 ];
 
 const YEARS = [2025, 2026];
-const LESSONS = Array.from({ length: 30 }, (_, i) => i + 1);
 
 type UploadFile = {
   id: string;
@@ -117,6 +116,10 @@ function parseInitialAkDate(initialSearchParams?: InitialSearchParams): string {
   return date && /^\d{4}-\d{2}-\d{2}$/.test(date) ? date : isoToday();
 }
 
+function getLessonCountForYear(year: number) {
+  return year === 2026 ? 33 : 30;
+}
+
 export default function Uploader({ initialSearchParams }: { initialSearchParams?: InitialSearchParams }) {
   const [dest, setDest] = useState<Dest>(() => parseInitialDest(initialSearchParams));
   const [kind, setKind] = useState<Kind>('podcast');
@@ -124,6 +127,7 @@ export default function Uploader({ initialSearchParams }: { initialSearchParams?
   const [course, setCourse] = useState<CourseKey>('kids');
   const [year, setYear] = useState<number>(2025);
   const [lesson, setLesson] = useState<number>(1);
+  const [lessonDate, setLessonDate] = useState<string>('');
 
   const [akYear, setAkYear] = useState<number>(() => parseInitialAkYear(initialSearchParams));
   const [akDate, setAkDate] = useState<string>(() => parseInitialAkDate(initialSearchParams));
@@ -132,6 +136,15 @@ export default function Uploader({ initialSearchParams }: { initialSearchParams?
   const [busy, setBusy] = useState(false);
   const [status, setStatus] = useState<string | null>(null);
   const [dragOver, setDragOver] = useState(false);
+  const lessonOptions = useMemo(
+    () => Array.from({ length: getLessonCountForYear(year) }, (_, i) => i + 1),
+    [year]
+  );
+
+  useEffect(() => {
+    const maxLesson = getLessonCountForYear(year);
+    if (lesson > maxLesson) setLesson(maxLesson);
+  }, [lesson, year]);
 
   const accept = useMemo(() => {
     if (dest === 'akolouthies') return 'audio/mpeg,audio/mp4,audio/aac,audio/x-m4a';
@@ -204,6 +217,10 @@ export default function Uploader({ initialSearchParams }: { initialSearchParams?
     if (dest === 'akolouthies') {
       if (!akYear || !/^\d{4}$/.test(String(akYear))) return 'Μη έγκυρο έτος.';
       if (!/^\d{4}-\d{2}-\d{2}$/.test(akDate)) return 'Μη έγκυρη ημερομηνία (YYYY-MM-DD).';
+    }
+
+    if (dest === 'lessons' && lessonDate.trim() && !/^\d{4}-\d{2}-\d{2}$/.test(lessonDate.trim())) {
+      return 'Μη έγκυρη ημερομηνία μαθήματος (YYYY-MM-DD).';
     }
 
     return null;
@@ -322,11 +339,39 @@ export default function Uploader({ initialSearchParams }: { initialSearchParams?
       }
     }
 
-    if (successCount === 0) setStatus('Αποτυχία ανεβάσματος για όλα τα αρχεία.');
-    else if (successCount < files.length) setStatus(`Ολοκληρώθηκαν ${successCount} από τα ${files.length} αρχεία.`);
-    else {
-      setStatus('Όλα τα αρχεία ανέβηκαν επιτυχώς.');
-      setTimeout(() => (window.location.href = '/material'), 650);
+    let lessonDateMessage = '';
+    if (successCount > 0 && dest === 'lessons' && lessonDate.trim()) {
+      const courseFolder = COURSES.find((c) => c.key === course)?.label;
+      const lessonPrefix = courseFolder
+        ? `Μαθήματα/${courseFolder}/${year}/Μάθημα ${String(lesson).padStart(2, '0')}/`
+        : '';
+
+      if (lessonPrefix) {
+        try {
+          const res = await fetch('/api/lessons/date', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ prefix: lessonPrefix, date: lessonDate.trim() }),
+          });
+          const json = await res.json().catch(() => ({}));
+          if (!res.ok) throw new Error(json?.error || `HTTP ${res.status}`);
+          lessonDateMessage = ' Αποθηκεύτηκε και η ημερομηνία του μαθήματος.';
+        } catch (err: any) {
+          lessonDateMessage =
+            ' Τα αρχεία ανέβηκαν, αλλά η ημερομηνία του μαθήματος δεν αποθηκεύτηκε.';
+        }
+      }
+    }
+
+    if (successCount === 0) {
+      setStatus('Αποτυχία ανεβάσματος για όλα τα αρχεία.');
+    } else if (successCount < files.length) {
+      setStatus(`Ολοκληρώθηκαν ${successCount} από τα ${files.length} αρχεία.${lessonDateMessage}`);
+    } else {
+      setStatus(`Όλα τα αρχεία ανέβηκαν επιτυχώς.${lessonDateMessage}`);
+      if (!lessonDateMessage.includes('δεν αποθηκεύτηκε')) {
+        setTimeout(() => (window.location.href = '/material'), 650);
+      }
     }
 
     setBusy(false);
@@ -371,7 +416,7 @@ export default function Uploader({ initialSearchParams }: { initialSearchParams?
               </div>
             </div>
 
-            <div className="grid sm:grid-cols-3 gap-4">
+            <div className="grid sm:grid-cols-4 gap-4">
               <div>
                 <label className="text-sm text-muted">Κατηγορία</label>
                 <select className="input mt-1" value={course} onChange={(e) => setCourse(e.target.value as CourseKey)}>
@@ -397,12 +442,22 @@ export default function Uploader({ initialSearchParams }: { initialSearchParams?
               <div>
                 <label className="text-sm text-muted">Μάθημα #</label>
                 <select className="input mt-1" value={lesson} onChange={(e) => setLesson(Number(e.target.value))}>
-                  {LESSONS.map((n) => (
+                  {lessonOptions.map((n) => (
                     <option key={n} value={n}>
                       {n.toString().padStart(2, '0')}
                     </option>
                   ))}
                 </select>
+              </div>
+
+              <div>
+                <label className="text-sm text-muted">Ημερομηνία</label>
+                <input
+                  type="date"
+                  className="input mt-1"
+                  value={lessonDate}
+                  onChange={(e) => setLessonDate(e.target.value)}
+                />
               </div>
             </div>
           </>

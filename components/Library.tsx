@@ -31,6 +31,13 @@ type Item = {
   type: 'podcast' | 'pdf';
 };
 
+type FolderEntry = {
+  prefix: string;
+  label: string;
+  lessonDate: string | null;
+  lessonNumber: string | null;
+};
+
 type UsefulOfflineStatus = {
   phase: 'idle' | 'checking' | 'syncing' | 'ready' | 'partial' | 'offline' | 'unsupported';
   total: number;
@@ -49,10 +56,11 @@ function confirmFileDelete(name: string) {
   );
 }
 
-function folderLabel(prefix: string): string {
-  const trimmed = prefix.replace(/\/$/, '');
-  const parts = trimmed.split('/');
-  return parts[parts.length - 1] || prefix;
+function formatLessonDateDisplay(value: string | null) {
+  if (!value) return '';
+  const date = new Date(`${value}T12:00:00`);
+  if (Number.isNaN(date.getTime())) return value;
+  return date.toLocaleDateString('el-GR');
 }
 
 function getPrefixFromUrl() {
@@ -95,7 +103,7 @@ export default function Library({
   query?: string;
 }) {
   const [items, setItems] = useState<Item[]>([]);
-  const [folders, setFolders] = useState<string[]>([]);
+  const [folders, setFolders] = useState<FolderEntry[]>([]);
   const [prefix, setPrefix] = useState<string>(initialPrefix);
   const searchQuery = query.trim();
   const hasSearchQuery = searchQuery.length > 0;
@@ -695,6 +703,44 @@ export default function Library({
     setPlayerCurrentTime(nextTime);
   };
 
+  const updateLessonDate = async (folder: FolderEntry) => {
+    if (role !== 'admin' || !folder.lessonNumber) return;
+
+    const next = window.prompt(
+      'Ημερομηνία μαθήματος (YYYY-MM-DD). Αφήστε κενό για αφαίρεση:',
+      folder.lessonDate || ''
+    );
+    if (next === null) return;
+
+    const date = next.trim();
+    if (date && !/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+      setActionMsg('Μη έγκυρη ημερομηνία. Χρησιμοποιήστε μορφή YYYY-MM-DD.');
+      return;
+    }
+
+    setActionMsg(null);
+    try {
+      const res = await fetch('/api/lessons/date', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ prefix: folder.prefix, date }),
+      });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(json?.error || `HTTP ${res.status}`);
+
+      setFolders((prev) =>
+        prev.map((entry) =>
+          entry.prefix === folder.prefix ? { ...entry, lessonDate: date || null } : entry
+        )
+      );
+      setActionMsg(
+        date ? 'Η ημερομηνία μαθήματος αποθηκεύτηκε.' : 'Η ημερομηνία μαθήματος αφαιρέθηκε.'
+      );
+    } catch (err: any) {
+      setActionMsg(err?.message || 'Σφάλμα αποθήκευσης ημερομηνίας μαθήματος');
+    }
+  };
+
   const toggleAudioEnhancer = async () => {
     if (!audioEnhancer.open) {
       await audioEnhancer.ensureReady();
@@ -782,15 +828,33 @@ export default function Library({
           <div className="text-sm font-semibold text-muted">Φάκελοι</div>
           <div className="flex flex-col gap-2">
             {folders.map((f) => (
-              <button
-                key={f}
-                type="button"
-                className="btn btn-outline justify-between"
-                onClick={() => navigatePrefix(f)}
-              >
-                <span>📁 {folderLabel(f)}</span>
-                <span className="text-xs text-muted">Άνοιγμα</span>
-              </button>
+              <div key={f.prefix} className="flex gap-2">
+                <button
+                  type="button"
+                  className="btn btn-outline justify-between flex-1"
+                  onClick={() => navigatePrefix(f.prefix)}
+                >
+                  <div className="min-w-0 text-left">
+                    <span className="block truncate">📁 {f.label}</span>
+                    {f.lessonDate && (
+                      <span className="block text-xs text-muted mt-0.5">
+                        Ημερομηνία: {formatLessonDateDisplay(f.lessonDate)}
+                      </span>
+                    )}
+                  </div>
+                  <span className="text-xs text-muted shrink-0">Άνοιγμα</span>
+                </button>
+
+                {role === 'admin' && f.lessonNumber && (
+                  <button
+                    type="button"
+                    className="btn btn-sm btn-outline shrink-0"
+                    onClick={() => void updateLessonDate(f)}
+                  >
+                    Ημερομηνία
+                  </button>
+                )}
+              </div>
             ))}
           </div>
         </div>

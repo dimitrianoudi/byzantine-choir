@@ -7,8 +7,19 @@ import {
 } from "@aws-sdk/client-s3";
 import { s3, BUCKET } from "@/lib/s3";
 import { getSession } from "@/lib/session";
+import {
+  getLessonDateMapForParentPrefix,
+  parseMaterialLessonFolderPrefix,
+} from "@/lib/lessonDates";
 
 const USEFUL_ROOT = "Χρήσιμα/";
+
+type FolderEntry = {
+  prefix: string;
+  label: string;
+  lessonDate: string | null;
+  lessonNumber: string | null;
+};
 
 function inferType(key: string): "podcast" | "pdf" | null {
   const lower = key.toLowerCase();
@@ -83,6 +94,26 @@ function prioritizeRootFolders(folders: string[], currentPrefix: string) {
     if (!folder || seen.has(folder)) return false;
     seen.add(folder);
     return true;
+  });
+}
+
+function folderLabel(prefix: string) {
+  const trimmed = prefix.replace(/\/$/, "");
+  const parts = trimmed.split("/");
+  return parts[parts.length - 1] || prefix;
+}
+
+async function buildFolderEntries(folders: string[], currentPrefix: string): Promise<FolderEntry[]> {
+  const lessonDates = await getLessonDateMapForParentPrefix(currentPrefix);
+
+  return folders.map((folderPrefix) => {
+    const parsedLesson = parseMaterialLessonFolderPrefix(folderPrefix);
+    return {
+      prefix: folderPrefix,
+      label: folderLabel(folderPrefix),
+      lessonDate: parsedLesson ? lessonDates[parsedLesson.lesson] || null : null,
+      lessonNumber: parsedLesson?.lesson || null,
+    };
   });
 }
 
@@ -169,7 +200,9 @@ export async function GET(req: Request) {
       return (b.lastModified || "").localeCompare(a.lastModified || "");
     });
 
-    return NextResponse.json({ items, folders: prioritizeRootFolders(folders, prefix), prefix, query });
+    const folderEntries = await buildFolderEntries(prioritizeRootFolders(folders, prefix), prefix);
+
+    return NextResponse.json({ items, folders: folderEntries, prefix, query });
   } catch (err: any) {
     console.error("LIST_FILES_ERROR:", err);
     return NextResponse.json(

@@ -50,29 +50,30 @@ export default function MaterialPageContent({
         <h1 className="font-heading text-blue" style={{ fontWeight: 700, fontSize: 22 }}>
           Υλικό
         </h1>
+        <form action={searchAction} className="flex items-center gap-2 min-w-0">
+          {!isAkolouthies && !!prefix && <input type="hidden" name="prefix" value={prefix} />}
+          <input
+            type="search"
+            name="q"
+            defaultValue={searchQuery}
+            className="input"
+            placeholder="Αναζήτηση σε όλα τα PDF"
+            aria-label="Αναζήτηση"
+            style={{ width: 280, maxWidth: "100%" }}
+          />
+          <button type="submit" className="btn btn-outline">
+            Αναζήτηση
+          </button>
+          {searchQuery && (
+            <Link href={clearSearchHref} className="btn btn-outline">
+              Καθαρισμός
+            </Link>
+          )}
+        </form>
+
         <div className="header-spacer" />
 
         <div className="actions">
-          <form action={searchAction} className="flex flex-wrap items-center gap-2">
-            {!isAkolouthies && !!prefix && <input type="hidden" name="prefix" value={prefix} />}
-            <input
-              type="search"
-              name="q"
-              defaultValue={searchQuery}
-              className="input"
-              placeholder="Αναζήτηση σε όλα τα PDF"
-              aria-label="Αναζήτηση PDF"
-              style={{ maxWidth: 280 }}
-            />
-            <button type="submit" className="btn btn-outline">
-              Αναζήτηση PDF
-            </button>
-            {searchQuery && (
-              <Link href={clearSearchHref} className="btn btn-outline">
-                Καθαρισμός
-              </Link>
-            )}
-          </form>
 
           <Link href="/material" className="btn btn-outline">
             Όλα

@@ -24,11 +24,13 @@ type EnhancerNodes = {
   cleanGain: GainNode;
   inputTrim: GainNode;
   highPass: BiquadFilterNode;
+  humCut50: BiquadFilterNode;
+  humCut100: BiquadFilterNode;
   bass: BiquadFilterNode;
   voiceFocus: BiquadFilterNode;
   treble: BiquadFilterNode;
+  deHiss: BiquadFilterNode;
   lowPass: BiquadFilterNode;
-  notch: BiquadFilterNode;
   compressor: DynamicsCompressorNode;
   output: GainNode;
   wetGain: GainNode;
@@ -85,16 +87,20 @@ export function useAudioEnhancer(
     const now = context.currentTime;
     const { bass, treble, voiceFocus, noiseReduction, loudness } = nextState.settings;
     const enabled = nextState.enabled;
+    const noiseMix = enabled ? noiseReduction / 100 : 0;
 
     setNodeValue(nodes.cleanGain.gain, enabled ? 0 : 1, now);
     setNodeValue(nodes.wetGain.gain, enabled ? 1 : 0, now);
 
-    setNodeValue(nodes.inputTrim.gain, 0.98, now);
-    setNodeValue(nodes.highPass.frequency, enabled ? 24 + noiseReduction * 0.76 : 20, now);
+    setNodeValue(nodes.inputTrim.gain, enabled ? 0.98 - noiseMix * 0.05 : 0.98, now);
+    setNodeValue(nodes.highPass.frequency, enabled ? 28 + noiseMix * 122 : 20, now);
+    setNodeValue(nodes.humCut50.gain, enabled ? -noiseMix * 18 : 0, now);
+    setNodeValue(nodes.humCut100.gain, enabled ? -noiseMix * 12 : 0, now);
     setNodeValue(nodes.bass.gain, enabled ? bass : 0, now);
-    setNodeValue(nodes.voiceFocus.gain, enabled ? voiceFocus : 0, now);
+    setNodeValue(nodes.voiceFocus.gain, enabled ? voiceFocus + noiseMix * 2 : 0, now);
     setNodeValue(nodes.treble.gain, enabled ? treble : 0, now);
-    setNodeValue(nodes.lowPass.frequency, enabled ? 19000 - noiseReduction * 105 : 22050, now);
+    setNodeValue(nodes.deHiss.gain, enabled ? -noiseMix * 18 : 0, now);
+    setNodeValue(nodes.lowPass.frequency, enabled ? 18500 - noiseMix * 12000 : 22050, now);
     setNodeValue(nodes.output.gain, enabled ? 1 + loudness * 0.006 : 1, now);
     setNodeValue(nodes.compressor.threshold, enabled ? -24 - loudness * 0.08 : 0, now);
     setNodeValue(nodes.compressor.knee, enabled ? 18 : 0, now);
@@ -124,6 +130,18 @@ export function useAudioEnhancer(
         highPass.type = 'highpass';
         highPass.frequency.value = 20;
 
+        const humCut50 = context.createBiquadFilter();
+        humCut50.type = 'peaking';
+        humCut50.frequency.value = 50;
+        humCut50.Q.value = 1.2;
+        humCut50.gain.value = 0;
+
+        const humCut100 = context.createBiquadFilter();
+        humCut100.type = 'peaking';
+        humCut100.frequency.value = 100;
+        humCut100.Q.value = 1.4;
+        humCut100.gain.value = 0;
+
         const bass = context.createBiquadFilter();
         bass.type = 'lowshelf';
         bass.frequency.value = 140;
@@ -137,14 +155,14 @@ export function useAudioEnhancer(
         treble.type = 'highshelf';
         treble.frequency.value = 4700;
 
+        const deHiss = context.createBiquadFilter();
+        deHiss.type = 'highshelf';
+        deHiss.frequency.value = 5200;
+        deHiss.gain.value = 0;
+
         const lowPass = context.createBiquadFilter();
         lowPass.type = 'lowpass';
         lowPass.frequency.value = 22050;
-
-        const notch = context.createBiquadFilter();
-        notch.type = 'notch';
-        notch.frequency.value = 50;
-        notch.Q.value = 8;
 
         const compressor = context.createDynamicsCompressor();
         const output = context.createGain();
@@ -155,12 +173,14 @@ export function useAudioEnhancer(
 
         source.connect(inputTrim);
         inputTrim.connect(highPass);
-        highPass.connect(bass);
+        highPass.connect(humCut50);
+        humCut50.connect(humCut100);
+        humCut100.connect(bass);
         bass.connect(voiceFocus);
         voiceFocus.connect(treble);
-        treble.connect(lowPass);
-        lowPass.connect(notch);
-        notch.connect(compressor);
+        treble.connect(deHiss);
+        deHiss.connect(lowPass);
+        lowPass.connect(compressor);
         compressor.connect(output);
         output.connect(wetGain);
         wetGain.connect(context.destination);
@@ -171,11 +191,13 @@ export function useAudioEnhancer(
           cleanGain,
           inputTrim,
           highPass,
+          humCut50,
+          humCut100,
           bass,
           voiceFocus,
           treble,
+          deHiss,
           lowPass,
-          notch,
           compressor,
           output,
           wetGain,
@@ -259,6 +281,12 @@ export function useAudioEnhancer(
         nodesRef.current?.highPass.disconnect();
       } catch {}
       try {
+        nodesRef.current?.humCut50.disconnect();
+      } catch {}
+      try {
+        nodesRef.current?.humCut100.disconnect();
+      } catch {}
+      try {
         nodesRef.current?.bass.disconnect();
       } catch {}
       try {
@@ -268,10 +296,10 @@ export function useAudioEnhancer(
         nodesRef.current?.treble.disconnect();
       } catch {}
       try {
-        nodesRef.current?.lowPass.disconnect();
+        nodesRef.current?.deHiss.disconnect();
       } catch {}
       try {
-        nodesRef.current?.notch.disconnect();
+        nodesRef.current?.lowPass.disconnect();
       } catch {}
       try {
         nodesRef.current?.compressor.disconnect();

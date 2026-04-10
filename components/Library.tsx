@@ -440,16 +440,6 @@ export default function Library({
     return data.url as string;
   };
 
-  const getPlayableAudioUrl = async (key: string) => {
-    const akolouthiesUrl = buildAkolouthiesAudioPathFromKey(key);
-    if (akolouthiesUrl) return akolouthiesUrl;
-
-    const materialUrl = buildMaterialAudioPathFromKey(key);
-    if (materialUrl) return materialUrl;
-
-    return getUrl(key);
-  };
-
   const play = async (key: string, idx: number) => {
     setActionMsg(null);
     const audio = audioRef.current;
@@ -482,7 +472,7 @@ export default function Library({
         audio.pause();
       }
 
-      const url = await getPlayableAudioUrl(key);
+      const url = await getUrl(key);
       setPlayerCurrentTime(0);
       setPlayerDuration(0);
       audio.src = url;

@@ -48,6 +48,59 @@ function fileKindFromMime(mime: string): Kind | null {
   return null;
 }
 
+function isAudioUploadFile(file: File) {
+  const kind = fileKindFromMime(file.type);
+  if (kind === 'podcast') return true;
+  const lower = file.name.toLowerCase();
+  return lower.endsWith('.mp3') || lower.endsWith('.m4a') || lower.endsWith('.aac');
+}
+
+async function browserCanPlayAudioFile(file: File) {
+  if (typeof window === 'undefined') return true;
+
+  const blobUrl = URL.createObjectURL(file);
+  const audio = document.createElement('audio');
+  audio.preload = 'metadata';
+  audio.src = blobUrl;
+
+  try {
+    await new Promise<void>((resolve, reject) => {
+      const timeoutId = window.setTimeout(() => {
+        cleanup();
+        reject(new Error('timeout'));
+      }, 7000);
+
+      const onCanPlay = () => {
+        cleanup();
+        resolve();
+      };
+
+      const onError = () => {
+        cleanup();
+        reject(audio.error || new Error('unsupported'));
+      };
+
+      const cleanup = () => {
+        window.clearTimeout(timeoutId);
+        audio.removeEventListener('canplay', onCanPlay);
+        audio.removeEventListener('error', onError);
+      };
+
+      audio.addEventListener('canplay', onCanPlay, { once: true });
+      audio.addEventListener('error', onError, { once: true });
+      audio.load();
+    });
+
+    return true;
+  } catch {
+    return false;
+  } finally {
+    audio.removeAttribute('src');
+    audio.load();
+    URL.revokeObjectURL(blobUrl);
+  }
+}
+
 function parseInitialDest(initialSearchParams?: InitialSearchParams): Dest {
   if (initialSearchParams?.series === 'akolouthies') return 'akolouthies';
   if (initialSearchParams?.series === 'useful') return 'useful';
@@ -156,6 +209,17 @@ export default function Uploader({ initialSearchParams }: { initialSearchParams?
     return null;
   };
 
+  const validateAudioCompatibility = async () => {
+    const audioFiles = files.filter((item) => isAudioUploadFile(item.file));
+    for (const item of audioFiles) {
+      const supported = await browserCanPlayAudioFile(item.file);
+      if (!supported) {
+        return `Το αρχείο "${item.file.name}" δεν φαίνεται συμβατό για αναπαραγωγή στον browser. Προτείνεται μετατροπή σε MP3 ή M4A (AAC-LC), όχι σε lossless/ALAC ή άλλο μη συμβατό codec.`;
+      }
+    }
+    return null;
+  };
+
   const uploadAll = async (e: React.FormEvent) => {
     e.preventDefault();
     setStatus(null);
@@ -163,6 +227,17 @@ export default function Uploader({ initialSearchParams }: { initialSearchParams?
     const v = validate();
     if (v) {
       setStatus(v);
+      return;
+    }
+
+    const hasAudioFiles = files.some((item) => isAudioUploadFile(item.file));
+    if (hasAudioFiles) {
+      setStatus('Έλεγχος συμβατότητας ήχου…');
+    }
+
+    const audioCompatibilityError = await validateAudioCompatibility();
+    if (audioCompatibilityError) {
+      setStatus(audioCompatibilityError);
       return;
     }
 
@@ -367,6 +442,14 @@ export default function Uploader({ initialSearchParams }: { initialSearchParams?
             Επιλογή αρχείων
           </button>
         </div>
+
+        {(dest === 'akolouthies' || (dest === 'lessons' && kind === 'podcast')) && (
+          <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+            Για καλύτερη συμβατότητα προτείνεται ανέβασμα σε <strong>MP3</strong> ή
+            <strong> M4A (AAC-LC)</strong>. Αρχεία lossless/ALAC ή άλλα μη συμβατά codecs
+            μπορεί να μην παίζουν σωστά σε Chrome/Firefox.
+          </div>
+        )}
 
         {files.length > 0 && (
           <div className="space-y-3">

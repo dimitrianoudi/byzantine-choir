@@ -4,7 +4,6 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import * as Sentry from "@sentry/nextjs";
 import AudioEnhancerControls from "@/components/AudioEnhancerControls";
-import { buildAkolouthiesAudioPathFromKey } from "@/lib/akolouthies";
 import { useAudioEnhancer } from "@/lib/useAudioEnhancer";
 
 type Item = {
@@ -150,7 +149,7 @@ export default function PublicAkolouthies() {
         audio.pause();
       }
 
-      const url = buildAkolouthiesAudioPathFromKey(key) || (await presign(key));
+      const url = await presign(key);
       setPlayerCurrentTime(0);
       setPlayerDuration(0);
       audio.src = url;

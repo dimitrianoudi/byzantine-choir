@@ -97,6 +97,17 @@ function prioritizeRootFolders(folders: string[], currentPrefix: string) {
   });
 }
 
+function sortFoldersForPrefix(folders: string[], currentPrefix: string) {
+  const next = [...folders];
+
+  if (currentPrefix.startsWith("Ακολουθίες/")) {
+    next.sort((a, b) => b.localeCompare(a, "el"));
+    return next;
+  }
+
+  return next;
+}
+
 function folderLabel(prefix: string) {
   const trimmed = prefix.replace(/\/$/, "");
   const parts = trimmed.split("/");
@@ -200,7 +211,8 @@ export async function GET(req: Request) {
       return (b.lastModified || "").localeCompare(a.lastModified || "");
     });
 
-    const folderEntries = await buildFolderEntries(prioritizeRootFolders(folders, prefix), prefix);
+    const orderedFolders = sortFoldersForPrefix(prioritizeRootFolders(folders, prefix), prefix);
+    const folderEntries = await buildFolderEntries(orderedFolders, prefix);
 
     return NextResponse.json({ items, folders: folderEntries, prefix, query });
   } catch (err: any) {

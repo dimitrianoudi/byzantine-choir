@@ -125,7 +125,7 @@ export default function Uploader({ initialSearchParams }: { initialSearchParams?
   const [kind, setKind] = useState<Kind>('podcast');
 
   const [course, setCourse] = useState<CourseKey>('men');
-  const [year, setYear] = useState<number>(2025);
+  const [year, setYear] = useState<number>(YEARS[YEARS.length - 1]);
   const [lesson, setLesson] = useState<number>(1);
   const [lessonDate, setLessonDate] = useState<string>('');
 

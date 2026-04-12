@@ -152,7 +152,7 @@ export default function AudioEnhancerControls({
 
         .audio-enhancer-panel {
           margin-top: 10px;
-          border: 1px solid rgba(49, 91, 153, 0.14);
+          border: 1px solid rgba(var(--blue-rgb), 0.14);
           border-radius: 14px;
           background: rgba(255, 255, 255, 0.9);
           padding: 12px;

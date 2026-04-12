@@ -154,7 +154,8 @@ export default function GalleryUploader({ onUploaded, folder = '' }: Props) {
       </div>
 
       <div
-        className={'border-2 border-dashed rounded-lg p-4 text-center transition-colors ' + (dragOver ? 'border-blue-600 bg-[rgba(0,0,0,0.02)]' : 'border-subtle')}
+        className={'border-2 border-dashed rounded-lg p-4 text-center transition-colors ' + (dragOver ? 'border-subtle bg-[rgba(0,0,0,0.02)]' : 'border-subtle')}
+        style={dragOver ? { borderColor: 'var(--blue-600)', background: 'rgba(var(--blue-rgb), 0.06)' } : undefined}
         onDrop={onDrop}
         onDragOver={onDragOver}
         onDragLeave={onDragLeave}

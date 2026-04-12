@@ -485,8 +485,9 @@ export default function Uploader({ initialSearchParams }: { initialSearchParams?
         <div
           className={
             'mt-2 border-2 border-dashed rounded-lg p-6 text-center transition-colors ' +
-            (dragOver ? 'border-blue-600 bg-[rgba(0,0,0,0.02)]' : 'border-subtle')
+            (dragOver ? 'border-subtle bg-[rgba(0,0,0,0.02)]' : 'border-subtle')
           }
+          style={dragOver ? { borderColor: 'var(--blue-600)', background: 'rgba(var(--blue-rgb), 0.06)' } : undefined}
           onDrop={onDrop}
           onDragOver={onDragOver}
           onDragLeave={onDragLeave}

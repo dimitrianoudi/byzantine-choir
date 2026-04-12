@@ -833,9 +833,9 @@ export default function UsefulPdfViewerModal({ open, title, pdfUrl, onClose }: P
         }
 
         .sidebar-switch-btn--active {
-          border-color: #315b99;
-          background: rgba(49, 91, 153, 0.1);
-          color: #214676;
+          border-color: var(--blue-600);
+          background: rgba(var(--blue-rgb), 0.1);
+          color: var(--blue-700);
         }
 
         .sidebar-title {
@@ -860,8 +860,8 @@ export default function UsefulPdfViewerModal({ open, title, pdfUrl, onClose }: P
           min-height: 0;
           overflow: auto;
           background:
-            radial-gradient(circle at top, rgba(49, 91, 153, 0.08), transparent 45%),
-            #eef2f8;
+            radial-gradient(circle at top, rgba(var(--blue-rgb), 0.08), transparent 45%),
+            #f5f1e7;
         }
 
         .canvas-wrap {
@@ -938,8 +938,8 @@ export default function UsefulPdfViewerModal({ open, title, pdfUrl, onClose }: P
         }
 
         .search-result-item--active {
-          border-color: #315b99;
-          background: rgba(49, 91, 153, 0.08);
+          border-color: var(--blue-600);
+          background: rgba(var(--blue-rgb), 0.08);
         }
 
         @media (max-width: 900px) {
@@ -1025,12 +1025,12 @@ function OutlineTree({
         }
 
         .outline-button:hover:not(:disabled) {
-          background: rgba(49, 91, 153, 0.08);
+          background: rgba(var(--blue-rgb), 0.08);
         }
 
         .outline-button--active {
-          background: rgba(49, 91, 153, 0.12);
-          color: #214676;
+          background: rgba(var(--blue-rgb), 0.12);
+          color: var(--blue-700);
         }
 
         .outline-button:disabled {
@@ -1169,8 +1169,8 @@ function ThumbnailButton({
         }
 
         .thumbnail-item--active {
-          border-color: #315b99;
-          background: rgba(49, 91, 153, 0.1);
+          border-color: var(--blue-600);
+          background: rgba(var(--blue-rgb), 0.1);
         }
 
         .thumbnail-preview {
@@ -1179,7 +1179,7 @@ function ThumbnailButton({
           flex-shrink: 0;
           border-radius: 8px;
           overflow: hidden;
-          background: #e9eef7;
+          background: #f2ede2;
           display: flex;
           align-items: center;
           justify-content: center;

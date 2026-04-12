@@ -1057,8 +1057,8 @@ export default function Library({
       <style jsx>{`
         .shared-highlight {
           border-radius: 12px;
-          background: rgba(49, 91, 153, 0.08);
-          box-shadow: 0 0 0 2px rgba(49, 91, 153, 0.14);
+          background: rgba(var(--blue-rgb), 0.08);
+          box-shadow: 0 0 0 2px rgba(var(--blue-rgb), 0.14);
           transition: background 220ms ease, box-shadow 220ms ease;
           padding-left: 10px;
           padding-right: 10px;

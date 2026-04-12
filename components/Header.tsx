@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import clsx from 'clsx';
+import { User } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import {
   DEFAULT_USER_SETTINGS,
@@ -151,7 +152,10 @@ export default function Header({
             {user?.role === 'admin' && <NavLink href="/upload" label="Ανέβασμα" />}
 
             {!isLoggedIn && (
-              <button className="btn login-btn btn-gold" onClick={login}>Είσοδος</button>
+              <button className="btn login-btn btn-gold" onClick={login}>
+                <User size={18} strokeWidth={2.2} aria-hidden="true" />
+                <span>Σύνδεση</span>
+              </button>
             )}
           </nav>
 

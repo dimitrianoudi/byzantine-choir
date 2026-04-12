@@ -218,7 +218,7 @@ export async function GET(req: Request) {
           ? !id.includes("/") || id.startsWith(folderPrefix)
           : id.startsWith(folderPrefix);
       })
-      .map((r) => {
+      .map<GalleryItem>((r) => {
         const isVideo = r.resource_type === "video";
         return {
           id: r.public_id,

@@ -4,6 +4,7 @@ import { NextResponse } from "next/server";
 import { getSession } from "@/lib/session";
 import { s3, BUCKET } from "@/lib/s3";
 import { recordDeletionAudit } from "@/lib/deletionAudit";
+import { clearListingCache } from "@/lib/listingCache";
 import { DeleteObjectCommand } from "@aws-sdk/client-s3";
 
 export async function POST(req: Request) {
@@ -42,6 +43,8 @@ export async function POST(req: Request) {
     } catch (auditErr) {
       console.error("DELETE_FILE_AUDIT_ERROR:", auditErr);
     }
+
+    clearListingCache();
 
     return NextResponse.json({ ok: true });
   } catch (err: any) {

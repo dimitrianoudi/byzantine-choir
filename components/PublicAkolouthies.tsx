@@ -35,6 +35,7 @@ export default function PublicAkolouthies() {
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const audioEnhancer = useAudioEnhancer(audioRef);
   const itemRefs = useRef<Record<string, HTMLDivElement | null>>({});
+  const forceRefreshRef = useRef(sp.get("refresh") === "1");
 
   const didAutoPlay = useRef(false);
   const yearOptions = useMemo(() => {
@@ -79,13 +80,23 @@ export default function PublicAkolouthies() {
   };
 
   const load = async (y: string, d: string) => {
+    const refresh = forceRefreshRef.current;
+    forceRefreshRef.current = false;
     const t0 = performance.now();
     setLoading(true);
     setErr(null);
     try {
+      const params = new URLSearchParams({
+        year: y,
+        date: d,
+      });
+      if (refresh) {
+        params.set("refresh", "1");
+      }
+
       const res = await fetch(
-        `/api/public/akolouthies/list?year=${encodeURIComponent(y)}&date=${encodeURIComponent(d)}`,
-        { cache: "no-store" }
+        `/api/public/akolouthies/list?${params.toString()}`,
+        refresh ? { cache: "no-store" } : undefined
       );
       const json = await res.json();
       if (!res.ok) throw new Error(json?.error || "Load failed");
@@ -105,8 +116,21 @@ export default function PublicAkolouthies() {
 
   useEffect(() => {
     didAutoPlay.current = false;
-    load(year, date);
+    void load(year, date);
   }, [year, date]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const url = new URL(window.location.href);
+    if (!url.searchParams.has("refresh")) return;
+    url.searchParams.delete("refresh");
+    const nextSearch = url.searchParams.toString();
+    window.history.replaceState(
+      {},
+      "",
+      `${url.pathname}${nextSearch ? `?${nextSearch}` : ""}${url.hash}`
+    );
+  }, []);
 
   const presign = async (key: string) => {
     const t0 = performance.now();

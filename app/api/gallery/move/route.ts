@@ -2,6 +2,7 @@ export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
 import { getSession } from "@/lib/session";
+import { clearGalleryCache } from "@/lib/galleryCache";
 
 type Body = {
   fromPublicId?: string;
@@ -67,6 +68,8 @@ export async function POST(req: Request) {
     const msg = json?.error?.message || json?.error || "Move failed";
     return NextResponse.json({ error: msg }, { status: 500 });
   }
+
+  clearGalleryCache();
 
   return NextResponse.json({ ok: true, toPublicId, result: json });
 }

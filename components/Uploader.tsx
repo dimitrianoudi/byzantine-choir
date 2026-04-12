@@ -363,6 +363,12 @@ export default function Uploader({ initialSearchParams }: { initialSearchParams?
       }
     }
 
+    if (successCount > 0) {
+      try {
+        await fetch('/api/files/cache', { method: 'POST' });
+      } catch {}
+    }
+
     if (successCount === 0) {
       setStatus('Αποτυχία ανεβάσματος για όλα τα αρχεία.');
     } else if (successCount < files.length) {
@@ -370,7 +376,7 @@ export default function Uploader({ initialSearchParams }: { initialSearchParams?
     } else {
       setStatus(`Όλα τα αρχεία ανέβηκαν επιτυχώς.${lessonDateMessage}`);
       if (!lessonDateMessage.includes('δεν αποθηκεύτηκε')) {
-        setTimeout(() => (window.location.href = '/material'), 650);
+        setTimeout(() => (window.location.href = '/material?refresh=1'), 650);
       }
     }
 

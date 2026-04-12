@@ -4,6 +4,12 @@ import { NextResponse } from "next/server";
 import { ListObjectsV2Command, ListObjectsV2CommandOutput } from "@aws-sdk/client-s3";
 import { s3, BUCKET } from "@/lib/s3";
 import { displayAkolouthiesFilename } from "@/lib/akolouthies";
+import {
+  LISTING_CACHE_TTL_MS,
+  getPublicAkolouthiesCacheKey,
+  readListingCache,
+  writeListingCache,
+} from "@/lib/listingCache";
 
 type Item = {
   key: string;
@@ -21,37 +27,25 @@ export async function GET(req: Request) {
   const url = new URL(req.url);
   const year = url.searchParams.get("year") || String(new Date().getFullYear());
   const date = url.searchParams.get("date") || "";
+  const refresh = url.searchParams.get("refresh") === "1";
+  const cacheKey = getPublicAkolouthiesCacheKey(year, date);
+  const cacheControl = refresh
+    ? "no-store"
+    : `public, max-age=${Math.floor(LISTING_CACHE_TTL_MS / 1000)}, stale-while-revalidate=300`;
+
+  if (!refresh) {
+    const cached = readListingCache<{ year: string; date: string; items: Item[]; dates: string[] }>(cacheKey);
+    if (cached) {
+      return NextResponse.json(cached, {
+        headers: { "Cache-Control": cacheControl },
+      });
+    }
+  }
 
   const yearPrefix = `Ακολουθίες/${year}/`;
 
   try {
     let selectedDate = date;
-
-    if (!selectedDate) {
-      const cmd = new ListObjectsV2Command({
-        Bucket: BUCKET,
-        Prefix: yearPrefix,
-        Delimiter: "/",
-        MaxKeys: 1000,
-      });
-
-      const res = (await s3.send(cmd)) as ListObjectsV2CommandOutput;
-      const folders = (res.CommonPrefixes || [])
-        .map((p) => p.Prefix || "")
-        .filter(Boolean)
-        .map((p) => p.replace(yearPrefix, "").replace(/\/$/, ""))
-        .filter((d) => /^\d{4}-\d{2}-\d{2}$/.test(d));
-
-      folders.sort();
-      selectedDate = folders[folders.length - 1] || "";
-    }
-
-    if (!selectedDate) {
-      return NextResponse.json({ year, date: "", items: [], dates: [] });
-    }
-
-    const podcastsPrefix = `Ακολουθίες/${year}/${selectedDate}/podcasts/`;
-
     const listDatesCmd = new ListObjectsV2Command({
       Bucket: BUCKET,
       Prefix: yearPrefix,
@@ -66,6 +60,16 @@ export async function GET(req: Request) {
       .filter((d) => /^\d{4}-\d{2}-\d{2}$/.test(d))
       .sort()
       .reverse();
+
+    if (!selectedDate) {
+      selectedDate = dates[0] || "";
+    }
+
+    if (!selectedDate) {
+      return NextResponse.json({ year, date: "", items: [], dates: [] });
+    }
+
+    const podcastsPrefix = `Ακολουθίες/${year}/${selectedDate}/podcasts/`;
 
     const items: Item[] = [];
     let token: string | undefined;
@@ -97,13 +101,22 @@ export async function GET(req: Request) {
 
     items.sort((a, b) => (b.lastModified || "").localeCompare(a.lastModified || ""));
 
-    return NextResponse.json({
+    const body = {
       year,
       date: selectedDate,
       items,
       dates,
+    };
+
+    writeListingCache(cacheKey, body);
+
+    return NextResponse.json(body, {
+      headers: { "Cache-Control": cacheControl },
     });
   } catch (err: any) {
-    return NextResponse.json({ error: err?.message || "List failed" }, { status: 500 });
+    return NextResponse.json(
+      { error: err?.message || "List failed" },
+      { status: 500, headers: { "Cache-Control": "no-store" } }
+    );
   }
 }

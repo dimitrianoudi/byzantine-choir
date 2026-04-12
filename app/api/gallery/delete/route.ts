@@ -3,6 +3,7 @@ export const runtime = "nodejs";
 import { NextResponse } from "next/server";
 import { getSession } from "@/lib/session";
 import { recordDeletionAudit } from "@/lib/deletionAudit";
+import { clearGalleryCache } from "@/lib/galleryCache";
 
 type Body = {
   id?: string;
@@ -70,6 +71,8 @@ export async function POST(req: Request) {
   } catch (auditErr) {
     console.error("DELETE_GALLERY_AUDIT_ERROR:", auditErr);
   }
+
+  clearGalleryCache();
 
   return NextResponse.json({ ok: true, result: json });
 }

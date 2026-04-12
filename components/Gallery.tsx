@@ -1,8 +1,10 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import clsx from 'clsx';
 import GalleryUploader from '@/components/GalleryUploader';
+import { buildGalleryHref, normalizeGalleryPrefix } from '@/lib/galleryNavigation';
 
 type Role = 'member' | 'admin';
 
@@ -36,15 +38,17 @@ function folderLabel(path: string) {
   return parts[parts.length - 1] || path;
 }
 
-function normalizePrefix(p: string) {
-  if (!p) return '';
-  return p.endsWith('/') ? p : `${p}/`;
-}
-
-export default function Gallery({ role }: { role: Role }) {
+export default function Gallery({
+  role,
+  prefix: initialPrefix = '',
+}: {
+  role: Role;
+  prefix?: string;
+}) {
+  const router = useRouter();
   const [items, setItems] = useState<GalleryItem[]>([]);
   const [folders, setFolders] = useState<string[]>([]);
-  const [prefix, setPrefix] = useState<string>('');
+  const [prefix, setPrefix] = useState<string>(normalizeGalleryPrefix(initialPrefix));
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState<string | null>(null);
 
@@ -54,9 +58,25 @@ export default function Gallery({ role }: { role: Role }) {
   });
   const touchStartX = useRef<number | null>(null);
   const touchStartY = useRef<number | null>(null);
+  const forceRefreshRef = useRef(false);
 
   const [busyDelete, setBusyDelete] = useState(false);
   const [busyCreateFolder, setBusyCreateFolder] = useState(false);
+
+  useEffect(() => {
+    const normalized = normalizeGalleryPrefix(initialPrefix);
+    setPrefix((current) => (current === normalized ? current : normalized));
+  }, [initialPrefix]);
+
+  const navigatePrefix = useCallback(
+    (nextPrefix: string) => {
+      const normalized = normalizeGalleryPrefix(nextPrefix);
+      if (normalized === prefix) return;
+      setPrefix(normalized);
+      router.push(buildGalleryHref(normalized));
+    },
+    [prefix, router]
+  );
 
   const breadcrumbs = useMemo(() => {
     const segs = prefix.split('/').filter(Boolean);
@@ -70,10 +90,18 @@ export default function Gallery({ role }: { role: Role }) {
   }, [prefix]);
 
   const loadItems = useCallback(async () => {
+    const refresh = forceRefreshRef.current;
+    forceRefreshRef.current = false;
+
     setLoading(true);
     setErr(null);
     try {
-      const res = await fetch(`/api/gallery?prefix=${encodeURIComponent(prefix)}`, { cache: 'no-store' });
+      const params = new URLSearchParams();
+      if (prefix) params.set('prefix', prefix);
+      if (refresh) params.set('refresh', '1');
+
+      const query = params.toString();
+      const res = await fetch(`/api/gallery${query ? `?${query}` : ''}`, refresh ? { cache: 'no-store' } : undefined);
       const json = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(json?.error || 'Load failed');
 
@@ -87,7 +115,7 @@ export default function Gallery({ role }: { role: Role }) {
   }, [prefix]);
 
   useEffect(() => {
-    loadItems();
+    void loadItems();
   }, [loadItems]);
 
   const openAt = (i: number) => setLightbox({ open: true, index: i });
@@ -160,6 +188,7 @@ export default function Gallery({ role }: { role: Role }) {
       const wasLightboxOpen = lightbox.open;
       const removedIndex = lightbox.index;
 
+      forceRefreshRef.current = true;
       await loadItems();
 
       if (wasLightboxOpen) {
@@ -197,10 +226,10 @@ export default function Gallery({ role }: { role: Role }) {
       const json = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(json?.error || 'Create folder failed');
 
-      const nextPrefix = normalizePrefix((prefix ? `${prefix.replace(/\/$/, '')}/` : '') + name);
-      setPrefix(nextPrefix);
+      const nextPrefix = normalizeGalleryPrefix((prefix ? `${prefix.replace(/\/$/, '')}/` : '') + name);
+      forceRefreshRef.current = true;
+      navigatePrefix(nextPrefix);
       setNewFolder('');
-      await loadItems();
     } catch (e: any) {
       setErr(e?.message || 'Σφάλμα δημιουργίας φακέλου');
     } finally {
@@ -222,7 +251,7 @@ export default function Gallery({ role }: { role: Role }) {
               {idx > 0 && <span>/</span>}
               <button
                 type="button"
-                onClick={() => setPrefix(c.value)}
+                onClick={() => navigatePrefix(c.value)}
                 style={{ background: 'transparent', border: 'none', padding: 0, cursor: 'pointer' }}
                 className={clsx(c.value === prefix ? 'font-semibold text-blue' : 'hover:underline')}
               >
@@ -259,7 +288,13 @@ export default function Gallery({ role }: { role: Role }) {
             </div>
           </div>
 
-          <GalleryUploader folder={prefix} onUploaded={loadItems} />
+          <GalleryUploader
+            folder={prefix}
+            onUploaded={() => {
+              forceRefreshRef.current = true;
+              void loadItems();
+            }}
+          />
         </section>
       )}
 
@@ -278,7 +313,7 @@ export default function Gallery({ role }: { role: Role }) {
                 onClick={() => {
                   const base = prefix.replace(/\/$/, '');
                   const next = base ? `${base}/${f}` : f;
-                  setPrefix(normalizePrefix(next));
+                  navigatePrefix(next);
                 }}
               >
                 <span className="folder-title">📁 {folderLabel(f)}</span>

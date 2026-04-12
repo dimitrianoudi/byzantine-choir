@@ -140,6 +140,10 @@ export default function Library({
   const itemRefs = useRef<Record<string, HTMLDivElement | null>>({});
   const warmedUsefulPdfUrlsRef = useRef<Set<string>>(new Set());
   const loadRequestIdRef = useRef(0);
+  const forceRefreshRef = useRef(
+    typeof window !== 'undefined' &&
+      new URL(window.location.href).searchParams.get('refresh') === '1'
+  );
 
   useEffect(() => {
     setPrefix(initialPrefix || '');
@@ -210,6 +214,19 @@ export default function Library({
   }, [prefix, rememberLastFolder]);
 
   useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const url = new URL(window.location.href);
+    if (!url.searchParams.has('refresh')) return;
+    url.searchParams.delete('refresh');
+    const nextSearch = url.searchParams.toString();
+    window.history.replaceState(
+      {},
+      '',
+      `${url.pathname}${nextSearch ? `?${nextSearch}` : ''}${url.hash}`
+    );
+  }, []);
+
+  useEffect(() => {
     if (hasSearchQuery) {
       setActiveTab('pdf');
       return;
@@ -267,6 +284,8 @@ export default function Library({
     const controller = new AbortController();
 
     const load = async () => {
+      const refresh = forceRefreshRef.current;
+      forceRefreshRef.current = false;
       const t0 = performance.now();
       setLoading(true);
       setError(null);
@@ -287,14 +306,22 @@ export default function Library({
           params.set('q', searchQuery);
           params.set('type', 'pdf');
         }
+        if (refresh) {
+          params.set('refresh', '1');
+        }
 
-        const requestUrl = `/api/files/list?${params.toString()}`;
-        const res = await fetch(requestUrl, {
-          signal: controller.signal,
-          cache: 'no-store',
-        });
+        const queryString = params.toString();
+        const cacheParams = new URLSearchParams(params);
+        cacheParams.delete('refresh');
+        const cacheQueryString = cacheParams.toString();
+        const requestUrl = `/api/files/list${queryString ? `?${queryString}` : ''}`;
+        const cacheUrl = `/api/files/list${cacheQueryString ? `?${cacheQueryString}` : ''}`;
+        const res = await fetch(
+          requestUrl,
+          refresh ? { signal: controller.signal, cache: 'no-store' } : { signal: controller.signal }
+        );
         if (!res.ok) throw new Error(await safeText(res));
-        void cacheUsefulFolderResponse(prefix, res.url || requestUrl, res.clone());
+        void cacheUsefulFolderResponse(prefix, cacheUrl, res.clone());
         const data = await res.json();
         if (requestId !== loadRequestIdRef.current) return;
         setItems(data.items || []);

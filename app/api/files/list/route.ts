@@ -11,6 +11,12 @@ import {
   getLessonDateMapForParentPrefix,
   parseMaterialLessonFolderPrefix,
 } from "@/lib/lessonDates";
+import {
+  LISTING_CACHE_TTL_MS,
+  getFilesListCacheKey,
+  readListingCache,
+  writeListingCache,
+} from "@/lib/listingCache";
 
 const USEFUL_ROOT = "Χρήσιμα/";
 
@@ -141,6 +147,31 @@ export async function GET(req: Request) {
   const typeFilter = rawType === "pdf" || rawType === "podcast" ? rawType : null;
   const queryTerms = searchTermsFromQuery(query);
   const isSearch = queryTerms.length > 0;
+  const refresh = url.searchParams.get("refresh") === "1";
+  const cacheKey = getFilesListCacheKey({ prefix, query, typeFilter });
+  const cacheControl = refresh
+    ? "no-store"
+    : `private, max-age=${Math.floor(LISTING_CACHE_TTL_MS / 1000)}, stale-while-revalidate=300`;
+
+  if (!refresh) {
+    const cached = readListingCache<{
+      items: {
+        key: string;
+        name: string;
+        size?: number;
+        lastModified?: string;
+        type: "podcast" | "pdf";
+      }[];
+      folders: FolderEntry[];
+      prefix: string;
+      query: string;
+    }>(cacheKey);
+    if (cached) {
+      return NextResponse.json(cached, {
+        headers: { "Cache-Control": cacheControl },
+      });
+    }
+  }
 
   try {
     const items: {
@@ -213,13 +244,18 @@ export async function GET(req: Request) {
 
     const orderedFolders = sortFoldersForPrefix(prioritizeRootFolders(folders, prefix), prefix);
     const folderEntries = await buildFolderEntries(orderedFolders, prefix);
+    const body = { items, folders: folderEntries, prefix, query };
 
-    return NextResponse.json({ items, folders: folderEntries, prefix, query });
+    writeListingCache(cacheKey, body);
+
+    return NextResponse.json(body, {
+      headers: { "Cache-Control": cacheControl },
+    });
   } catch (err: any) {
     console.error("LIST_FILES_ERROR:", err);
     return NextResponse.json(
       { error: err?.message || "Internal error", items: [], folders: [], prefix, query },
-      { status: 500 }
+      { status: 500, headers: { "Cache-Control": "no-store" } }
     );
   }
 }

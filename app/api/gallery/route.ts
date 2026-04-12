@@ -1,7 +1,12 @@
 export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
-import { v2 as cloudinary } from "cloudinary";
+import {
+  GALLERY_CACHE_TTL_MS,
+  getGalleryCacheKey,
+  readGalleryCache,
+  writeGalleryCache,
+} from "@/lib/galleryCache";
 
 type CloudinaryResource = {
   public_id: string;
@@ -11,6 +16,24 @@ type CloudinaryResource = {
   height?: number;
   format?: string;
   duration?: number;
+};
+
+type GalleryItem = {
+  id: string;
+  publicId: string;
+  type: "image" | "video";
+  src: string;
+  thumb: string;
+  width?: number;
+  height?: number;
+  format?: string;
+  duration: number | null;
+};
+
+type GalleryResponseBody = {
+  items: GalleryItem[];
+  folders: string[];
+  _debug?: Record<string, unknown>;
 };
 
 function imageUrl(cloudName: string, publicId: string, transform: string) {
@@ -29,124 +52,58 @@ function videoPosterUrl(cloudName: string, publicId: string) {
   return `https://res.cloudinary.com/${cloudName}/video/upload/so_0,c_fill,w_600,q_auto,f_jpg/${publicId}.jpg`;
 }
 
-/** List resources by prefix using Cloudinary REST Admin API (no SDK). Tries prefix with/without slash; if 0 results, falls back to no-prefix and filters by folder. */
-async function listResourcesByPrefix(opts: {
+function mergeUniqueResources(...lists: CloudinaryResource[][]) {
+  const seenIds = new Set<string>();
+  const merged: CloudinaryResource[] = [];
+  for (const list of lists) {
+    for (const resource of list) {
+      const id = resource.public_id ?? "";
+      if (!id || seenIds.has(id)) continue;
+      seenIds.add(id);
+      merged.push(resource);
+    }
+  }
+  return merged;
+}
+
+async function listResources(opts: {
   cloudName: string;
   apiKey: string;
   apiSecret: string;
   resourceType: "image" | "video";
-  folder: string;
-  folderPrefix: string; // e.g. "gallery/" for filtering fallback
+  prefix?: string;
 }): Promise<CloudinaryResource[]> {
-  const { cloudName, apiKey, apiSecret, resourceType, folder, folderPrefix } = opts;
-  const withSlash = folder.endsWith("/") ? folder : `${folder}/`;
-  const withoutSlash = folder.replace(/\/$/, "");
-  const prefixesToTry: string[] = [withSlash];
-  if (withoutSlash !== withSlash) prefixesToTry.push(withoutSlash);
-
-  const seenIds = new Set<string>();
-  const all: CloudinaryResource[] = [];
+  const { cloudName, apiKey, apiSecret, resourceType, prefix = "" } = opts;
   const auth = Buffer.from(`${apiKey}:${apiSecret}`).toString("base64");
+  const params = new URLSearchParams({ max_results: "500" });
+  if (prefix) params.set("prefix", prefix);
 
-  const doFetch = async (prefix: string): Promise<CloudinaryResource[]> => {
-    const params = new URLSearchParams({ max_results: "500" });
-    if (prefix) params.set("prefix", prefix);
-    const url = `https://api.cloudinary.com/v1_1/${cloudName}/resources/${resourceType}/upload?${params.toString()}`;
-    const res = await fetch(url, {
-      headers: { Authorization: `Basic ${auth}` },
-      cache: "no-store",
-    });
-    const json = await res.json().catch(() => ({} as Record<string, unknown>));
-    if (!res.ok) {
-      const msg = (json as { error?: { message?: string } })?.error?.message ?? res.statusText;
-      throw new Error(msg || "Cloudinary list failed");
-    }
-    // Cloudinary may return resources in different keys
-    const raw =
-      (json as { resources?: CloudinaryResource[] }).resources ??
-      (json as { assets?: CloudinaryResource[] }).assets ??
-      (json as { result?: { resources?: CloudinaryResource[] } }).result?.resources;
-    const list = Array.isArray(raw) ? raw : [];
-    return list.map((r: Record<string, unknown>) => ({
-      public_id: (r.public_id ?? r.publicId ?? "") as string,
-      resource_type: (r.resource_type ?? r.type ?? resourceType) as string,
-      secure_url: ((r.secure_url ?? r.url) as string) || "",
-      width: r.width as number | undefined,
-      height: r.height as number | undefined,
-      format: r.format as string | undefined,
-      duration: r.duration as number | undefined,
-    }));
-  };
+  const url = `https://api.cloudinary.com/v1_1/${cloudName}/resources/${resourceType}/upload?${params.toString()}`;
+  const res = await fetch(url, {
+    headers: { Authorization: `Basic ${auth}` },
+    cache: "no-store",
+  });
 
-  for (const listPrefix of prefixesToTry) {
-    try {
-      const resources = await doFetch(listPrefix);
-      for (const r of resources) {
-        const id = r.public_id ?? "";
-        if (id && !seenIds.has(id)) {
-          seenIds.add(id);
-          all.push(r);
-        }
-      }
-    } catch (_err) {
-      if (listPrefix === withSlash) throw _err;
-    }
+  const json = await res.json().catch(() => ({} as Record<string, unknown>));
+  if (!res.ok) {
+    const msg = (json as { error?: { message?: string } })?.error?.message ?? res.statusText;
+    throw new Error(msg || "Cloudinary list failed");
   }
 
-  // If prefix-based list returned nothing, try listing everything and filter by folder (handles accounts where prefix doesn't match)
-  if (all.length === 0 && folderPrefix) {
-    try {
-      const resources = await doFetch("");
-      const folderNoSlash = folder.replace(/\/$/, "");
-      for (const r of resources) {
-        const id = r.public_id ?? "";
-        const underFolder = id === folderNoSlash || id.startsWith(folderPrefix) || id.startsWith(folderNoSlash + "/");
-        if (id && underFolder && !seenIds.has(id)) {
-          seenIds.add(id);
-          all.push(r);
-        }
-      }
-    } catch (_e) {
-      // ignore no-prefix fallback errors
-    }
-  }
-
-  // Last resort: use Cloudinary SDK (different auth/URL handling)
-  if (all.length === 0) {
-    try {
-      cloudinary.config({
-        cloud_name: cloudName,
-        api_key: apiKey,
-        api_secret: apiSecret,
-        secure: true,
-      });
-      const listPrefix = folder ? (folder.endsWith("/") ? folder : `${folder}/`) : "";
-      const opts = {
-        type: "upload" as const,
-        resource_type: resourceType,
-        prefix: listPrefix || undefined,
-        max_results: 500,
-      };
-      const result = await new Promise<{ resources?: CloudinaryResource[] }>((resolve, reject) => {
-        cloudinary.api.resources(opts, (err: unknown, res: { resources?: CloudinaryResource[] }) => {
-          if (err) reject(err);
-          else resolve(res ?? {});
-        });
-      });
-      const sdkList = result?.resources ?? [];
-      for (const r of sdkList) {
-        const id = r.public_id ?? "";
-        if (id && !seenIds.has(id)) {
-          seenIds.add(id);
-          all.push(r);
-        }
-      }
-    } catch (_sdkErr) {
-      // ignore
-    }
-  }
-
-  return all;
+  const raw =
+    (json as { resources?: CloudinaryResource[] }).resources ??
+    (json as { assets?: CloudinaryResource[] }).assets ??
+    (json as { result?: { resources?: CloudinaryResource[] } }).result?.resources;
+  const list = Array.isArray(raw) ? raw : [];
+  return list.map((r: Record<string, unknown>) => ({
+    public_id: (r.public_id ?? r.publicId ?? "") as string,
+    resource_type: (r.resource_type ?? r.type ?? resourceType) as string,
+    secure_url: ((r.secure_url ?? r.url) as string) || "",
+    width: r.width as number | undefined,
+    height: r.height as number | undefined,
+    format: r.format as string | undefined,
+    duration: r.duration as number | undefined,
+  }));
 }
 
 /** Fetch immediate subfolder names from Cloudinary folders API (includes empty folders). */
@@ -205,67 +162,62 @@ export async function GET(req: Request) {
   const folder =
     !prefixNorm ? root : prefixNorm.startsWith(root + "/") || prefixNorm === root ? prefixNorm : `${root}/${prefixNorm}`;
   const debug = searchParams.get("_debug") === "1";
+  const refresh = searchParams.get("refresh") === "1";
+  const cacheKey = getGalleryCacheKey(folder, debug);
+  const cacheControl =
+    debug || refresh
+      ? "no-store"
+      : `private, max-age=${Math.floor(GALLERY_CACHE_TTL_MS / 1000)}, stale-while-revalidate=300`;
+
+  if (!debug && !refresh) {
+    const cached = readGalleryCache<GalleryResponseBody>(cacheKey);
+    if (cached) {
+      return NextResponse.json(cached, {
+        headers: { "Cache-Control": cacheControl },
+      });
+    }
+  }
 
   try {
     const folderPrefix = folder.endsWith("/") ? folder : `${folder}/`;
-    const listPrefixes: string[] = [folderPrefix];
-    if (prefixNorm && folder !== prefixNorm) {
-      const relativePrefix = prefixNorm.endsWith("/") ? prefixNorm : `${prefixNorm}/`;
-      listPrefixes.push(relativePrefix);
-    }
-
-    const [imgsFromPrimary, vidsFromPrimary, imgsFromFallback, vidsFromFallback, apiFolderNames] = await Promise.all([
-      listResourcesByPrefix({ cloudName, apiKey, apiSecret, resourceType: "image", folder: folder.replace(/\/$/, ""), folderPrefix }),
-      listResourcesByPrefix({ cloudName, apiKey, apiSecret, resourceType: "video", folder: folder.replace(/\/$/, ""), folderPrefix }),
-      listPrefixes.length > 1
-        ? listResourcesByPrefix({ cloudName, apiKey, apiSecret, resourceType: "image", folder: listPrefixes[1]!.replace(/\/$/, ""), folderPrefix })
-        : Promise.resolve([] as CloudinaryResource[]),
-      listPrefixes.length > 1
-        ? listResourcesByPrefix({ cloudName, apiKey, apiSecret, resourceType: "video", folder: listPrefixes[1]!.replace(/\/$/, ""), folderPrefix })
-        : Promise.resolve([] as CloudinaryResource[]),
+    const [imgsFromPrimary, vidsFromPrimary, apiFolderNames] = await Promise.all([
+      listResources({ cloudName, apiKey, apiSecret, resourceType: "image", prefix: folderPrefix }),
+      listResources({ cloudName, apiKey, apiSecret, resourceType: "video", prefix: folderPrefix }),
       listSubfolderNames({ cloudName, apiKey, apiSecret, folderPath: folder }),
     ]);
 
-    let allResources: CloudinaryResource[] = [];
-    const seenIds = new Set<string>();
-    for (const r of [...imgsFromPrimary, ...vidsFromPrimary, ...imgsFromFallback, ...vidsFromFallback]) {
-      const id = r.public_id ?? "";
-      if (id && !seenIds.has(id)) {
-        seenIds.add(id);
-        allResources.push(r);
-      }
-    }
+    let allResources = mergeUniqueResources(imgsFromPrimary, vidsFromPrimary);
 
-    // Existing uploads may have public_id without folder path (folder stored separately). At root, show all.
+    // Legacy root uploads may not include the gallery folder in their public_id.
     if (allResources.length === 0 && folder === root) {
       const [rootImgs, rootVids] = await Promise.all([
-        listResourcesByPrefix({ cloudName, apiKey, apiSecret, resourceType: "image", folder: "", folderPrefix: " " }),
-        listResourcesByPrefix({ cloudName, apiKey, apiSecret, resourceType: "video", folder: "", folderPrefix: " " }),
+        listResources({ cloudName, apiKey, apiSecret, resourceType: "image" }),
+        listResources({ cloudName, apiKey, apiSecret, resourceType: "video" }),
       ]);
-      const rootSeen = new Set<string>();
-      for (const r of [...rootImgs, ...rootVids]) {
-        const id = r.public_id ?? "";
-        if (id && !rootSeen.has(id)) {
-          rootSeen.add(id);
-          allResources.push(r);
-        }
-      }
+      allResources = mergeUniqueResources(allResources, rootImgs, rootVids);
     }
 
     const subfolderSet = new Set<string>(apiFolderNames);
     for (const r of allResources) {
       const id = r.public_id ?? "";
       if (!id) continue;
-      const prefixUsed = id.startsWith(folderPrefix) ? folderPrefix : (listPrefixes[1] ?? folderPrefix);
-      if (!id.startsWith(prefixUsed)) continue;
-      const after = id.slice(prefixUsed.length);
+      const inCurrentFolder =
+        folder === root ? !id.includes("/") || id.startsWith(folderPrefix) : id.startsWith(folderPrefix);
+      if (!inCurrentFolder) continue;
+      const after = folder === root && !id.startsWith(folderPrefix) ? id : id.slice(folderPrefix.length);
       const segment = after.split("/")[0];
       if (segment && after !== segment) subfolderSet.add(segment);
     }
     const folders = Array.from(subfolderSet).sort();
 
-    // Show all resources under this folder (no direct-children filter so uploads always appear)
     const items = allResources
+      .filter((r) => {
+        const id = r.public_id ?? "";
+        if (!id) return false;
+        return folder === root
+          ? !id.includes("/") || id.startsWith(folderPrefix)
+          : id.startsWith(folderPrefix);
+      })
       .map((r) => {
         const isVideo = r.resource_type === "video";
         return {
@@ -282,19 +234,16 @@ export async function GET(req: Request) {
       })
       .sort((a, b) => (a.id < b.id ? 1 : -1));
 
-    const body: Record<string, unknown> = { items, folders };
+    const body: GalleryResponseBody = { items, folders };
     if (debug) {
-      // Diagnostic: list with no prefix to see if API returns anything at all
       let noPrefixCount = 0;
       let noPrefixSample: string[] = [];
       try {
-        const noPrefixImgs = await listResourcesByPrefix({
+        const noPrefixImgs = await listResources({
           cloudName,
           apiKey,
           apiSecret,
           resourceType: "image",
-          folder: "",
-          folderPrefix: "",
         });
         noPrefixCount = noPrefixImgs.length;
         noPrefixSample = noPrefixImgs.slice(0, 5).map((r) => r.public_id);
@@ -306,9 +255,9 @@ export async function GET(req: Request) {
         prefixNorm,
         folder,
         folderPrefix,
-        listPrefixes,
-        rawImageCount: imgsFromPrimary.length + imgsFromFallback.length,
-        rawVideoCount: vidsFromPrimary.length + vidsFromFallback.length,
+        refresh,
+        rawImageCount: imgsFromPrimary.length,
+        rawVideoCount: vidsFromPrimary.length,
         rawTotal: allResources.length,
         itemsReturned: items.length,
         samplePublicIds: allResources.slice(0, 10).map((r) => r.public_id),
@@ -316,8 +265,18 @@ export async function GET(req: Request) {
         noPrefixSample,
       };
     }
-    return NextResponse.json(body);
+
+    if (!debug) {
+      writeGalleryCache(cacheKey, body);
+    }
+
+    return NextResponse.json(body, {
+      headers: { "Cache-Control": cacheControl },
+    });
   } catch (e: any) {
-    return NextResponse.json({ error: e?.message || "Load failed" }, { status: 500 });
+    return NextResponse.json(
+      { error: e?.message || "Load failed" },
+      { status: 500, headers: { "Cache-Control": "no-store" } }
+    );
   }
 }

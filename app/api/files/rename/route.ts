@@ -3,6 +3,7 @@ export const runtime = "nodejs";
 import { NextResponse } from "next/server";
 import { getSession } from "@/lib/session";
 import { s3, BUCKET } from "@/lib/s3";
+import { clearListingCache } from "@/lib/listingCache";
 import {
   CopyObjectCommand,
   DeleteObjectCommand,
@@ -84,6 +85,8 @@ export async function POST(req: Request) {
         Key: fromKey,
       })
     );
+
+    clearListingCache();
 
     return NextResponse.json({ ok: true, toKey });
   } catch (err: any) {

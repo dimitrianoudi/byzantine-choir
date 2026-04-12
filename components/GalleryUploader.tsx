@@ -131,7 +131,6 @@ export default function GalleryUploader({ onUploaded, folder = '' }: Props) {
         });
 
         successCount += 1;
-        if (onUploaded) onUploaded();
       }
 
       if (successCount === files.length) setStatus('Το gallery ενημερώθηκε με επιτυχία.');
@@ -140,6 +139,8 @@ export default function GalleryUploader({ onUploaded, folder = '' }: Props) {
     } catch (err: any) {
       setStatus(err?.message || 'Σφάλμα ανεβάσματος');
     }
+
+    if (successCount > 0 && onUploaded) onUploaded();
 
     setBusy(false);
   };

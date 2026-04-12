@@ -7,6 +7,7 @@ import {
   parseMaterialLessonFolderPrefix,
   saveLessonDateForPrefix,
 } from "@/lib/lessonDates";
+import { clearListingCache } from "@/lib/listingCache";
 
 export async function POST(req: Request) {
   const session = await getSession();
@@ -37,6 +38,7 @@ export async function POST(req: Request) {
 
   try {
     await saveLessonDateForPrefix(prefix, date);
+    clearListingCache();
     return NextResponse.json({ ok: true, date: date || null });
   } catch (err: any) {
     return NextResponse.json(

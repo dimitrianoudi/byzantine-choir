@@ -2,6 +2,7 @@ export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
 import { getSession } from "@/lib/session";
+import { clearGalleryCache } from "@/lib/galleryCache";
 
 function authHeader(apiKey: string, apiSecret: string) {
   const token = Buffer.from(`${apiKey}:${apiSecret}`).toString("base64");
@@ -42,6 +43,8 @@ export async function POST(req: Request) {
 
   const json = await res.json().catch(() => ({}));
   if (!res.ok) return NextResponse.json({ error: json?.error?.message || "Create folder failed" }, { status: 500 });
+
+  clearGalleryCache();
 
   return NextResponse.json({ ok: true, path: full });
 }

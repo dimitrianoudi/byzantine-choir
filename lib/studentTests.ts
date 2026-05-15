@@ -68,7 +68,6 @@ export const STUDENT_TEST_GROUPS: Record<
       { id: "samios-evangelos", name: "Σάμιος Ευάγγελος" },
       { id: "malioufas-georgios", name: "Μαλιούφας Γεώργιος" },
       { id: "avramidis-dionysis", name: "Αβραμίδης Διονύσης" },
-      { id: "christodoulidis-theodoros-2", name: "Χριστοδουλίδης Θεόδωρος" },
       { id: "itsios-georgios", name: "Ίτσιος Γεώργιος" },
       { id: "koranas-vasileios", name: "Κοράνας Βασίλειος" },
     ],

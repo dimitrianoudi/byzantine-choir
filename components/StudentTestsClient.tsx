@@ -284,7 +284,7 @@ export default function StudentTestsClient({
           <div className="space-y-2">
             <img
               src={score.url}
-              alt="Παρτιτούρα δοκιμής"
+              alt="Παρτιτούρα αξιολόγησης"
               className="max-h-[520px] w-full rounded-lg border border-subtle object-contain bg-white"
             />
             <div className="text-xs text-muted">Τελευταία ενημέρωση: {dateLabel(score.lastModified)}</div>

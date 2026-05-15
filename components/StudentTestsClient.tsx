@@ -303,7 +303,7 @@ export default function StudentTestsClient({
               <tr className="border-b border-subtle bg-[rgba(0,0,0,0.02)] text-left">
                 <th className="px-4 py-3 font-semibold">Μαθητής</th>
                 <th className="px-4 py-3 font-semibold">Ηχογράφηση μαθητή</th>
-                <th className="px-4 py-3 font-semibold">Ανατροφοδότηση δασκάλου</th>
+                <th className="px-4 py-3 font-semibold">Αξιολόγηση δασκάλου</th>
                 <th className="px-4 py-3 font-semibold text-center">Ολοκληρώθηκε</th>
               </tr>
             </thead>
@@ -368,33 +368,10 @@ export default function StudentTestsClient({
                           <div className="text-[11px] text-muted">{dateLabel(student.feedback.lastModified)}</div>
                         </div>
                       ) : (
-                        <div className="text-xs text-muted">Δεν υπάρχει ανατροφοδότηση.</div>
+                        <div className="text-xs text-muted">Δεν υπάρχει αξιολόγηση.</div>
                       )}
                       {isAdmin && (
                         <div className="flex flex-wrap items-center gap-2">
-                          <label className="btn btn-outline btn-sm cursor-pointer">
-                            Ανέβασμα
-                            <input
-                              type="file"
-                              accept="audio/*"
-                              className="hidden"
-                              disabled={busyKey !== null}
-                              onChange={(event) => {
-                                const file = event.target.files?.[0];
-                                event.target.value = "";
-                                if (file) {
-                                  uploadFile({
-                                    kind: "teacher-feedback",
-                                    file,
-                                    studentId: student.id,
-                                    busyLabel: `feedback-${student.id}`,
-                                  }).catch((err: any) =>
-                                    setStatus(err?.message || "Αποτυχία ανεβάσματος ανατροφοδότησης.")
-                                  );
-                                }
-                              }}
-                            />
-                          </label>
                           <AudioRecorder
                             label="Ηχογράφηση"
                             disabled={busyKey !== null}

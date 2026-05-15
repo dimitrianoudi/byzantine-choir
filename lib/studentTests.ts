@@ -33,7 +33,7 @@ export const STUDENT_TEST_GROUPS: Record<
       { id: "vourtsela-anastasia", name: "Βουρτσέλα Αναστασία" },
       { id: "samolada-glykeria", name: "Σαμολαδά Γλυκερία" },
       { id: "tereziou-athanasia", name: "Τερεζίου Αθανασία" },
-      { id: "tsiadiou-sotiria", name: "Σωτηρία Τσιαδήμου" },
+      { id: "tsiadiou-sotiria", name: "Τσιαδήμου Σωτηρία" },
       { id: "katzouri-maria", name: "Κατζούρη Μαρία" },
       { id: "efraimidou-panagiota", name: "Εφραιμίδου Παναγιώτα" },
     ],
@@ -83,8 +83,18 @@ export function studentTestBasePrefix(group: StudentTestGroup) {
   return `${STUDENT_TEST_ROOT}/${group}`;
 }
 
+function sortStudentsBySurname(students: StudentTestStudent[]) {
+  return [...students].sort((a, b) =>
+    a.name.localeCompare(b.name, "el", { sensitivity: "base" })
+  );
+}
+
 export function getStudentTestGroup(group: StudentTestGroup) {
-  return STUDENT_TEST_GROUPS[group];
+  const config = STUDENT_TEST_GROUPS[group];
+  return {
+    ...config,
+    students: sortStudentsBySurname(config.students),
+  };
 }
 
 export function getStudentTestStudent(group: StudentTestGroup, studentId: string) {

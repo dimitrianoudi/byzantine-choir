@@ -80,10 +80,66 @@ function AudioRecorder({
   const recorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<BlobPart[]>([]);
   const streamRef = useRef<MediaStream | null>(null);
+  const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const audioContextRef = useRef<AudioContext | null>(null);
+  const animationFrameRef = useRef<number | null>(null);
 
   const cleanupStream = () => {
     streamRef.current?.getTracks().forEach((track) => track.stop());
     streamRef.current = null;
+  };
+
+  const stopWaveform = () => {
+    if (animationFrameRef.current !== null) {
+      cancelAnimationFrame(animationFrameRef.current);
+      animationFrameRef.current = null;
+    }
+    audioContextRef.current?.close().catch(() => {});
+    audioContextRef.current = null;
+  };
+
+  const startWaveform = (stream: MediaStream) => {
+    const canvas = canvasRef.current;
+    const AudioContextCtor = window.AudioContext;
+    if (!canvas || !AudioContextCtor) return;
+
+    stopWaveform();
+
+    const audioContext = new AudioContextCtor();
+    const source = audioContext.createMediaStreamSource(stream);
+    const analyser = audioContext.createAnalyser();
+    analyser.fftSize = 2048;
+    source.connect(analyser);
+    audioContextRef.current = audioContext;
+
+    const buffer = new Uint8Array(analyser.fftSize);
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+
+    const draw = () => {
+      analyser.getByteTimeDomainData(buffer);
+
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      ctx.fillStyle = "rgba(10, 27, 63, 0.04)";
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      ctx.lineWidth = 2;
+      ctx.strokeStyle = "#b58a2a";
+      ctx.beginPath();
+
+      const sliceWidth = canvas.width / buffer.length;
+      let x = 0;
+      for (let i = 0; i < buffer.length; i += 1) {
+        const y = (buffer[i] / 128) * (canvas.height / 2);
+        if (i === 0) ctx.moveTo(x, y);
+        else ctx.lineTo(x, y);
+        x += sliceWidth;
+      }
+
+      ctx.stroke();
+      animationFrameRef.current = requestAnimationFrame(draw);
+    };
+
+    draw();
   };
 
   const start = async () => {
@@ -108,6 +164,7 @@ function AudioRecorder({
       recorder.onstop = async () => {
         const type = recorder.mimeType || "audio/webm";
         const blob = new Blob(chunksRef.current, { type });
+        stopWaveform();
         cleanupStream();
         setRecording(false);
         setBusy(true);
@@ -122,7 +179,9 @@ function AudioRecorder({
 
       recorder.start();
       setRecording(true);
+      requestAnimationFrame(() => startWaveform(stream));
     } catch (err: any) {
+      stopWaveform();
       cleanupStream();
       setError(err?.message || "Δεν επιτράπηκε η χρήση μικροφώνου.");
     }
@@ -131,6 +190,13 @@ function AudioRecorder({
   const stop = () => {
     recorderRef.current?.stop();
   };
+
+  useEffect(() => {
+    return () => {
+      stopWaveform();
+      cleanupStream();
+    };
+  }, []);
 
   return (
     <div className="space-y-1">
@@ -142,6 +208,18 @@ function AudioRecorder({
       >
         {busy ? "Αποθήκευση..." : recording ? "Τέλος ηχογράφησης" : label}
       </button>
+      {recording && (
+        <div className="flex items-center gap-2 text-[11px] text-muted" aria-live="polite">
+          <canvas
+            ref={canvasRef}
+            width={240}
+            height={44}
+            className="h-11 w-48 rounded-md border border-subtle bg-white"
+            aria-label="Ζωντανή κυματομορφή ηχογράφησης"
+          />
+          <span>Ηχογραφείται...</span>
+        </div>
+      )}
       {error && <div className="text-[11px] text-red-700">{error}</div>}
     </div>
   );

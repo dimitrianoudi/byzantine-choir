@@ -17,7 +17,7 @@ export const STUDENT_TEST_GROUPS: Record<
 > = {
   kids: {
     label: "Παιδικής Φωνής",
-    courseLabel: "Α. Παιδικής Φωνής",
+    courseLabel: "Παιδικής Φωνής",
     students: [
       { id: "amprazi-nina", name: "Αμπράζη Νίνα" },
       { id: "mechteridis-loukas", name: "Μεχτερίδης Λουκάς" },
@@ -25,7 +25,7 @@ export const STUDENT_TEST_GROUPS: Record<
   },
   women: {
     label: "Γυναικείας Φωνής",
-    courseLabel: "Β. Γυναικείας Φωνής",
+    courseLabel: "Γυναικείας Φωνής",
     students: [
       { id: "karaoglou-panagiota", name: "Καράογλου Παναγιώτα" },
       { id: "karasaridou-varvara", name: "Καρασαρίδου Βαρβάρα" },
@@ -40,7 +40,7 @@ export const STUDENT_TEST_GROUPS: Record<
   },
   men: {
     label: "Ανδρικής Φωνής",
-    courseLabel: "Γ. Ανδρικής Φωνής",
+    courseLabel: "Ανδρικής Φωνής",
     students: [
       { id: "tzontas-konstantinos", name: "Τζόντας Κωνσταντίνος" },
       { id: "tzontas-athanasios", name: "Τζόντας Αθανάσιος" },

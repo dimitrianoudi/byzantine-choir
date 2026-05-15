@@ -28,7 +28,7 @@ export default async function StudentTestGroupPage({
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
             <h1 className="font-heading text-blue" style={{ fontWeight: 700, fontSize: 24 }}>
-              Δοκιμές Μαθητών
+              Αξιολόγηση Μαθητών
             </h1>
             <p className="text-sm text-muted mt-1">{config.courseLabel}</p>
           </div>

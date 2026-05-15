@@ -13,7 +13,7 @@ export default async function StudentTestsPage() {
     <main className="container section space-y-6">
       <header className="space-y-2">
         <h1 className="font-heading text-blue" style={{ fontWeight: 700, fontSize: 24 }}>
-          Δοκιμές Μαθητών
+          Αξιολόγηση Μαθητών
         </h1>
         <p className="text-sm text-muted max-w-2xl">
           Επιλέξτε τμήμα για να δείτε την παρτιτούρα, τις ηχογραφήσεις των μαθητών,

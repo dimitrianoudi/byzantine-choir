@@ -68,15 +68,22 @@ async function uploadToSignedUrl(url: string, body: Blob, contentType: string) {
 function AudioRecorder({
   label,
   disabled,
+  mode = "inline",
+  score,
+  title,
   onRecordingReady,
 }: {
   label: string;
   disabled?: boolean;
+  mode?: "inline" | "fullscreen";
+  score?: Asset | null;
+  title?: string;
   onRecordingReady: (blob: Blob, filename: string, mime: string) => Promise<void>;
 }) {
   const [recording, setRecording] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [fullscreenOpen, setFullscreenOpen] = useState(false);
   const recorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<BlobPart[]>([]);
   const streamRef = useRef<MediaStream | null>(null);
@@ -144,6 +151,7 @@ function AudioRecorder({
 
   const start = async () => {
     setError(null);
+    if (mode === "fullscreen") setFullscreenOpen(true);
     if (!navigator.mediaDevices?.getUserMedia) {
       setError("Ο browser δεν υποστηρίζει ηχογράφηση.");
       return;
@@ -174,6 +182,7 @@ function AudioRecorder({
           setError(err?.message || "Αποτυχία αποθήκευσης ηχογράφησης.");
         } finally {
           setBusy(false);
+          if (mode === "fullscreen") setFullscreenOpen(false);
         }
       };
 
@@ -191,6 +200,14 @@ function AudioRecorder({
     recorderRef.current?.stop();
   };
 
+  const closeFullscreen = () => {
+    if (recording) {
+      stop();
+      return;
+    }
+    setFullscreenOpen(false);
+  };
+
   useEffect(() => {
     return () => {
       stopWaveform();
@@ -198,17 +215,21 @@ function AudioRecorder({
     };
   }, []);
 
+  const button = (
+    <button
+      type="button"
+      className={recording ? "btn btn-gold btn-sm" : "btn btn-outline btn-sm"}
+      onClick={recording ? stop : start}
+      disabled={disabled || busy}
+    >
+      {busy ? "Αποθήκευση..." : recording ? "Τέλος ηχογράφησης" : label}
+    </button>
+  );
+
   return (
     <div className="space-y-1">
-      <button
-        type="button"
-        className={recording ? "btn btn-gold btn-sm" : "btn btn-outline btn-sm"}
-        onClick={recording ? stop : start}
-        disabled={disabled || busy}
-      >
-        {busy ? "Αποθήκευση..." : recording ? "Τέλος ηχογράφησης" : label}
-      </button>
-      {recording && (
+      {button}
+      {recording && mode === "inline" && (
         <div className="flex items-center gap-2 text-[11px] text-muted" aria-live="polite">
           <canvas
             ref={canvasRef}
@@ -218,6 +239,84 @@ function AudioRecorder({
             aria-label="Ζωντανή κυματομορφή ηχογράφησης"
           />
           <span>Ηχογραφείται...</span>
+        </div>
+      )}
+      {fullscreenOpen && mode === "fullscreen" && (
+        <div
+          className="fixed inset-0 z-[100] overflow-y-auto bg-[rgba(10,27,63,0.94)] px-4 py-5 text-white"
+          role="dialog"
+          aria-modal="true"
+        >
+          <div className="mx-auto flex min-h-full max-w-5xl flex-col gap-5">
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <div className="text-xs uppercase tracking-[0.24em] text-white/60">Ηχογράφηση μαθητή</div>
+                <h2 className="mt-1 font-heading text-2xl">{title || "Δοκιμή φωνής"}</h2>
+              </div>
+              <button type="button" className="btn btn-outline" onClick={closeFullscreen} disabled={busy}>
+                {recording ? "Τέλος" : "Κλείσιμο"}
+              </button>
+            </div>
+
+            <div className="flex-1 rounded-2xl border border-white/15 bg-white p-3 shadow-2xl">
+              {score ? (
+                <img
+                  src={score.url}
+                  alt="Παρτιτούρα αξιολόγησης"
+                  className="h-[58vh] w-full rounded-xl object-contain"
+                />
+              ) : (
+                <div className="flex h-[58vh] w-full flex-col items-center justify-center rounded-xl border-2 border-dashed border-slate-300 bg-slate-50 px-6 text-center text-slate-500">
+                  <div className="font-heading text-2xl text-slate-700">Παρτιτούρα αξιολόγησης</div>
+                  <p className="mt-2 max-w-md text-sm">
+                    Δεν έχει ανέβει ακόμη εικόνα. Μπορείτε να κάνετε ηχογράφηση τώρα και η παρτιτούρα
+                    θα εμφανιστεί εδώ όταν την ανεβάσει ο δάσκαλος.
+                  </p>
+                </div>
+              )}
+            </div>
+
+            <div className="flex flex-col items-center gap-3 pb-4">
+              <button
+                type="button"
+                onClick={recording ? stop : start}
+                disabled={busy}
+                className="relative flex h-56 w-56 items-center justify-center overflow-hidden rounded-full border-4 border-[rgba(181,138,42,0.7)] bg-white text-blue shadow-[0_0_50px_rgba(181,138,42,0.45)]"
+                aria-label={recording ? "Τέλος ηχογράφησης" : "Έναρξη ηχογράφησης"}
+              >
+                <span className="absolute inset-4 rounded-full bg-gold/10" />
+                <svg
+                  viewBox="0 0 24 24"
+                  className="absolute top-8 h-10 w-10 text-blue"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  aria-hidden="true"
+                >
+                  <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z" />
+                  <path d="M19 10v2a7 7 0 0 1-14 0v-2" />
+                  <path d="M12 19v3" />
+                </svg>
+                <canvas
+                  ref={canvasRef}
+                  width={320}
+                  height={120}
+                  className="relative z-10 mt-10 h-24 w-44"
+                  aria-label="Ζωντανή κυματομορφή ηχογράφησης"
+                />
+              </button>
+              <div className="text-center">
+                <div className="font-heading text-xl">
+                  {busy ? "Αποθήκευση ηχογράφησης..." : recording ? "Ηχογραφείται..." : "Έτοιμο για ηχογράφηση"}
+                </div>
+                <div className="text-sm text-white/70">
+                  {recording ? "Πατήστε τον κύκλο όταν ολοκληρώσετε." : "Αν ζητηθεί άδεια μικροφώνου, επιλέξτε αποδοχή."}
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
       )}
       {error && <div className="text-[11px] text-red-700">{error}</div>}
@@ -426,6 +525,9 @@ export default function StudentTestsClient({
                         <AudioRecorder
                           label="Ηχογράφηση"
                           disabled={busyKey !== null}
+                          mode="fullscreen"
+                          score={score}
+                          title={student.name}
                           onRecordingReady={(blob, filename, mime) =>
                             uploadFile({
                               kind: "student-recording",

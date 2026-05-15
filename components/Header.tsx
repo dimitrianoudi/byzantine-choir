@@ -147,6 +147,7 @@ export default function Header({
             <NavLink href="/material" label="Υλικό" />
             <NavLink href="/akolouthies" label="Ακολουθίες" />
             <NavLink href="/calendar" label="Ημερολόγιο" />
+            {isLoggedIn && <NavLink href="/students" label="Δοκιμές" />}
             <NavLink href="/gallery" label="Στιγμιότυπα" />
 
             {user?.role === 'admin' && <NavLink href="/upload" label="Ανέβασμα" />}

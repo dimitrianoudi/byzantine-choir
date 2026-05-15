@@ -395,7 +395,7 @@ export default function StudentTestsClient({
                       checked={student.completed}
                       disabled={!isAdmin}
                       onChange={(event) => toggleCompleted(student.id, event.target.checked)}
-                      aria-label={`Ολοκλήρωση δοκιμής για ${student.name}`}
+                      aria-label={`Ολοκλήρωση αξιολόγησης για ${student.name}`}
                     />
                   </td>
                 </tr>

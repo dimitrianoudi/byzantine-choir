@@ -254,7 +254,7 @@ export default function StudentTestsClient({
       <section className="card p-5 space-y-4">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
-            <h2 className="font-heading text-lg text-blue">Παρτιτούρα δοκιμής</h2>
+            <h2 className="font-heading text-lg text-blue">Παρτιτούρα αξιολόγησης</h2>
             <p className="text-sm text-muted">{groupLabel}</p>
           </div>
 

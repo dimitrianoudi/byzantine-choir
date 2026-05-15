@@ -260,30 +260,30 @@ function AudioRecorder({
       )}
       {fullscreenOpen && mode === "fullscreen" && (
         <div
-          className="fixed inset-0 z-[100] overflow-y-auto bg-[rgba(10,27,63,0.94)] px-4 py-3 text-white"
+          className="fixed inset-0 z-[3000] h-[100dvh] overflow-hidden bg-[rgba(10,27,63,0.88)] px-3 py-2 text-white backdrop-blur-md"
           role="dialog"
           aria-modal="true"
         >
-          <div className="mx-auto flex min-h-full max-w-5xl flex-col gap-3">
-            <div className="flex items-center justify-between gap-3">
+          <div className="mx-auto flex h-full max-w-5xl flex-col gap-2">
+            <div className="flex shrink-0 items-center justify-between gap-3">
               <div>
                 <div className="text-[11px] uppercase tracking-[0.24em] text-white/60">Ηχογράφηση μαθητή</div>
-                <h2 className="mt-0.5 font-heading text-xl">{title || "Δοκιμή φωνής"}</h2>
+                <h2 className="font-heading text-lg leading-tight">{title || "Δοκιμή φωνής"}</h2>
               </div>
               <button type="button" className="btn btn-outline" onClick={closeFullscreen} disabled={busy}>
                 {recording ? "Τέλος" : "Κλείσιμο"}
               </button>
             </div>
 
-            <div className="flex-1 rounded-2xl border border-white/15 bg-white p-2 shadow-2xl">
+            <div className="min-h-0 flex-1 rounded-2xl border border-white/15 bg-white p-2 shadow-2xl">
               {score ? (
                 <img
                   src={score.url}
                   alt="Παρτιτούρα αξιολόγησης"
-                  className="h-[46vh] w-full rounded-xl object-contain"
+                  className="h-full w-full rounded-xl object-contain"
                 />
               ) : (
-                <div className="flex h-[46vh] w-full flex-col items-center justify-center rounded-xl border-2 border-dashed border-slate-300 bg-slate-50 px-6 text-center text-slate-500">
+                <div className="flex h-full w-full flex-col items-center justify-center rounded-xl border-2 border-dashed border-slate-300 bg-slate-50 px-6 text-center text-slate-500">
                   <div className="font-heading text-xl text-slate-700">Παρτιτούρα αξιολόγησης</div>
                   <p className="mt-2 max-w-md text-sm">
                     Δεν έχει ανέβει ακόμη εικόνα. Μπορείτε να κάνετε ηχογράφηση τώρα και η παρτιτούρα
@@ -293,18 +293,18 @@ function AudioRecorder({
               )}
             </div>
 
-            <div className="flex flex-col items-center gap-2 pb-2">
+            <div className="flex shrink-0 flex-col items-center gap-1 pb-1">
               <button
                 type="button"
                 onClick={recording ? stop : start}
                 disabled={busy}
-                className="relative flex h-40 w-40 items-center justify-center overflow-hidden rounded-full border-4 border-[rgba(181,138,42,0.7)] bg-white text-blue shadow-[0_0_40px_rgba(181,138,42,0.38)]"
+                className="relative flex h-32 w-32 items-center justify-center overflow-hidden rounded-full border-4 border-[rgba(181,138,42,0.7)] bg-white text-blue shadow-[0_0_32px_rgba(181,138,42,0.34)]"
                 aria-label={recording ? "Τέλος ηχογράφησης" : "Έναρξη ηχογράφησης"}
               >
                 <span className="absolute inset-4 rounded-full bg-gold/10" />
                 <svg
                   viewBox="0 0 24 24"
-                  className="absolute top-5 h-8 w-8 text-blue"
+                  className="absolute top-4 h-7 w-7 text-blue"
                   fill="none"
                   stroke="currentColor"
                   strokeWidth="2"
@@ -320,15 +320,15 @@ function AudioRecorder({
                   ref={canvasRef}
                   width={320}
                   height={120}
-                  className="relative z-10 mt-8 h-16 w-32"
+                  className="relative z-10 mt-7 h-12 w-24"
                   aria-label="Ζωντανή κυματομορφή ηχογράφησης"
                 />
               </button>
               <div className="text-center">
-                <div className="font-heading text-lg">
+                <div className="font-heading text-base leading-tight">
                   {busy ? "Αποθήκευση ηχογράφησης..." : recording ? "Ηχογραφείται..." : "Έτοιμο για ηχογράφηση"}
                 </div>
-                <div className="text-sm text-white/70">
+                <div className="text-xs text-white/70">
                   {recording
                     ? "Πατήστε τον κύκλο όταν ολοκληρώσετε. Μέγιστη διάρκεια: 10 λεπτά."
                     : "Αν ζητηθεί άδεια μικροφώνου, επιλέξτε αποδοχή."}

@@ -31,6 +31,7 @@ type Props = {
 type UploadKind = "score" | "student-recording" | "teacher-feedback";
 
 const GROUP_ORDER: StudentTestGroup[] = ["kids", "women", "men"];
+const MAX_RECORDING_MS = 10 * 60 * 1000;
 
 function dateLabel(value: string | null) {
   if (!value) return "";
@@ -90,10 +91,18 @@ function AudioRecorder({
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const audioContextRef = useRef<AudioContext | null>(null);
   const animationFrameRef = useRef<number | null>(null);
+  const recordingTimeoutRef = useRef<number | null>(null);
 
   const cleanupStream = () => {
     streamRef.current?.getTracks().forEach((track) => track.stop());
     streamRef.current = null;
+  };
+
+  const clearRecordingTimeout = () => {
+    if (recordingTimeoutRef.current !== null) {
+      window.clearTimeout(recordingTimeoutRef.current);
+      recordingTimeoutRef.current = null;
+    }
   };
 
   const stopWaveform = () => {
@@ -172,6 +181,7 @@ function AudioRecorder({
       recorder.onstop = async () => {
         const type = recorder.mimeType || "audio/webm";
         const blob = new Blob(chunksRef.current, { type });
+        clearRecordingTimeout();
         stopWaveform();
         cleanupStream();
         setRecording(false);
@@ -188,6 +198,12 @@ function AudioRecorder({
 
       recorder.start();
       setRecording(true);
+      recordingTimeoutRef.current = window.setTimeout(() => {
+        if (recorder.state === "recording") {
+          setError("Η ηχογράφηση σταμάτησε αυτόματα στο όριο των 10 λεπτών.");
+          recorder.stop();
+        }
+      }, MAX_RECORDING_MS);
       requestAnimationFrame(() => startWaveform(stream));
     } catch (err: any) {
       stopWaveform();
@@ -210,6 +226,7 @@ function AudioRecorder({
 
   useEffect(() => {
     return () => {
+      clearRecordingTimeout();
       stopWaveform();
       cleanupStream();
     };
@@ -238,36 +255,36 @@ function AudioRecorder({
             className="h-11 w-48 rounded-md border border-subtle bg-white"
             aria-label="Ζωντανή κυματομορφή ηχογράφησης"
           />
-          <span>Ηχογραφείται...</span>
+          <span>Ηχογραφείται... Μέγιστο 10 λεπτά.</span>
         </div>
       )}
       {fullscreenOpen && mode === "fullscreen" && (
         <div
-          className="fixed inset-0 z-[100] overflow-y-auto bg-[rgba(10,27,63,0.94)] px-4 py-5 text-white"
+          className="fixed inset-0 z-[100] overflow-y-auto bg-[rgba(10,27,63,0.94)] px-4 py-3 text-white"
           role="dialog"
           aria-modal="true"
         >
-          <div className="mx-auto flex min-h-full max-w-5xl flex-col gap-5">
+          <div className="mx-auto flex min-h-full max-w-5xl flex-col gap-3">
             <div className="flex items-center justify-between gap-3">
               <div>
-                <div className="text-xs uppercase tracking-[0.24em] text-white/60">Ηχογράφηση μαθητή</div>
-                <h2 className="mt-1 font-heading text-2xl">{title || "Δοκιμή φωνής"}</h2>
+                <div className="text-[11px] uppercase tracking-[0.24em] text-white/60">Ηχογράφηση μαθητή</div>
+                <h2 className="mt-0.5 font-heading text-xl">{title || "Δοκιμή φωνής"}</h2>
               </div>
               <button type="button" className="btn btn-outline" onClick={closeFullscreen} disabled={busy}>
                 {recording ? "Τέλος" : "Κλείσιμο"}
               </button>
             </div>
 
-            <div className="flex-1 rounded-2xl border border-white/15 bg-white p-3 shadow-2xl">
+            <div className="flex-1 rounded-2xl border border-white/15 bg-white p-2 shadow-2xl">
               {score ? (
                 <img
                   src={score.url}
                   alt="Παρτιτούρα αξιολόγησης"
-                  className="h-[58vh] w-full rounded-xl object-contain"
+                  className="h-[46vh] w-full rounded-xl object-contain"
                 />
               ) : (
-                <div className="flex h-[58vh] w-full flex-col items-center justify-center rounded-xl border-2 border-dashed border-slate-300 bg-slate-50 px-6 text-center text-slate-500">
-                  <div className="font-heading text-2xl text-slate-700">Παρτιτούρα αξιολόγησης</div>
+                <div className="flex h-[46vh] w-full flex-col items-center justify-center rounded-xl border-2 border-dashed border-slate-300 bg-slate-50 px-6 text-center text-slate-500">
+                  <div className="font-heading text-xl text-slate-700">Παρτιτούρα αξιολόγησης</div>
                   <p className="mt-2 max-w-md text-sm">
                     Δεν έχει ανέβει ακόμη εικόνα. Μπορείτε να κάνετε ηχογράφηση τώρα και η παρτιτούρα
                     θα εμφανιστεί εδώ όταν την ανεβάσει ο δάσκαλος.
@@ -276,18 +293,18 @@ function AudioRecorder({
               )}
             </div>
 
-            <div className="flex flex-col items-center gap-3 pb-4">
+            <div className="flex flex-col items-center gap-2 pb-2">
               <button
                 type="button"
                 onClick={recording ? stop : start}
                 disabled={busy}
-                className="relative flex h-56 w-56 items-center justify-center overflow-hidden rounded-full border-4 border-[rgba(181,138,42,0.7)] bg-white text-blue shadow-[0_0_50px_rgba(181,138,42,0.45)]"
+                className="relative flex h-40 w-40 items-center justify-center overflow-hidden rounded-full border-4 border-[rgba(181,138,42,0.7)] bg-white text-blue shadow-[0_0_40px_rgba(181,138,42,0.38)]"
                 aria-label={recording ? "Τέλος ηχογράφησης" : "Έναρξη ηχογράφησης"}
               >
                 <span className="absolute inset-4 rounded-full bg-gold/10" />
                 <svg
                   viewBox="0 0 24 24"
-                  className="absolute top-8 h-10 w-10 text-blue"
+                  className="absolute top-5 h-8 w-8 text-blue"
                   fill="none"
                   stroke="currentColor"
                   strokeWidth="2"
@@ -303,16 +320,18 @@ function AudioRecorder({
                   ref={canvasRef}
                   width={320}
                   height={120}
-                  className="relative z-10 mt-10 h-24 w-44"
+                  className="relative z-10 mt-8 h-16 w-32"
                   aria-label="Ζωντανή κυματομορφή ηχογράφησης"
                 />
               </button>
               <div className="text-center">
-                <div className="font-heading text-xl">
+                <div className="font-heading text-lg">
                   {busy ? "Αποθήκευση ηχογράφησης..." : recording ? "Ηχογραφείται..." : "Έτοιμο για ηχογράφηση"}
                 </div>
                 <div className="text-sm text-white/70">
-                  {recording ? "Πατήστε τον κύκλο όταν ολοκληρώσετε." : "Αν ζητηθεί άδεια μικροφώνου, επιλέξτε αποδοχή."}
+                  {recording
+                    ? "Πατήστε τον κύκλο όταν ολοκληρώσετε. Μέγιστη διάρκεια: 10 λεπτά."
+                    : "Αν ζητηθεί άδεια μικροφώνου, επιλέξτε αποδοχή."}
                 </div>
               </div>
             </div>
@@ -499,29 +518,6 @@ export default function StudentTestsClient({
                         <div className="text-xs text-muted">Δεν υπάρχει ηχογράφηση.</div>
                       )}
                       <div className="flex flex-wrap items-center gap-2">
-                        <label className="btn btn-outline btn-sm cursor-pointer">
-                          Ανέβασμα
-                          <input
-                            type="file"
-                            accept="audio/*"
-                            className="hidden"
-                            disabled={busyKey !== null}
-                            onChange={(event) => {
-                              const file = event.target.files?.[0];
-                              event.target.value = "";
-                              if (file) {
-                                uploadFile({
-                                  kind: "student-recording",
-                                  file,
-                                  studentId: student.id,
-                                  busyLabel: `sample-${student.id}`,
-                                }).catch((err: any) =>
-                                  setStatus(err?.message || "Αποτυχία ανεβάσματος ηχογράφησης.")
-                                );
-                              }
-                            }}
-                          />
-                        </label>
                         <AudioRecorder
                           label="Ηχογράφηση"
                           disabled={busyKey !== null}

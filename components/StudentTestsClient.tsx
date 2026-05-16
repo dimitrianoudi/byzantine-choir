@@ -610,6 +610,7 @@ function VocalRangeDetector({
   const [range, setRange] = useState<VocalRangeName | null>(currentResult?.range ?? null);
   const [error, setError] = useState<string | null>(null);
   const requestIdRef = useRef(0);
+  const closeTimeoutRef = useRef<number | null>(null);
 
   useEffect(() => {
     if (open) return;
@@ -619,6 +620,14 @@ function VocalRangeDetector({
     setPhase("idle");
     setError(null);
   }, [currentResult, open]);
+
+  useEffect(() => {
+    return () => {
+      if (closeTimeoutRef.current !== null) {
+        window.clearTimeout(closeTimeoutRef.current);
+      }
+    };
+  }, []);
 
   const measurePitch = async (kind: "low" | "high") => {
     setError(null);
@@ -698,6 +707,12 @@ function VocalRangeDetector({
       setHighHz(normalizedHigh);
       setRange(nextRange);
       setPhase("done");
+      if (closeTimeoutRef.current !== null) {
+        window.clearTimeout(closeTimeoutRef.current);
+      }
+      closeTimeoutRef.current = window.setTimeout(() => {
+        setOpen(false);
+      }, 2200);
     } catch (err: any) {
       setError(err?.message || "Αποτυχία αποθήκευσης φωνητικής έκτασης.");
       setPhase("idle");
@@ -706,6 +721,10 @@ function VocalRangeDetector({
 
   const close = () => {
     requestIdRef.current += 1;
+    if (closeTimeoutRef.current !== null) {
+      window.clearTimeout(closeTimeoutRef.current);
+      closeTimeoutRef.current = null;
+    }
     setOpen(false);
   };
 
@@ -725,7 +744,7 @@ function VocalRangeDetector({
             <div className="w-full max-w-xl rounded-[2rem] bg-white p-6 text-slate-950 shadow-2xl">
               <div className="mb-5 flex items-start justify-between gap-4">
                 <div>
-                  <h2 className="font-heading text-2xl font-bold">Vocal Range</h2>
+                  <h2 className="font-heading text-2xl font-bold">Φωνητική Έκταση</h2>
                   <p className="mt-1 text-sm text-slate-500">
                     Τραγουδήστε “Ah” στη χαμηλότερη και στην υψηλότερη νότα σας.
                   </p>
@@ -756,6 +775,16 @@ function VocalRangeDetector({
 
               {error && <div className="mt-4 rounded-xl bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div>}
 
+              {phase === "done" && range && (
+                <div className="mt-4 rounded-2xl border border-green-200 bg-green-50 px-5 py-4 text-center">
+                  <div className="text-sm font-semibold text-green-700">Η φωνητική έκταση αποθηκεύτηκε.</div>
+                  <div className="mt-1 font-heading text-3xl font-bold text-green-800">
+                    Είστε {range}
+                  </div>
+                  <div className="mt-1 text-xs text-green-700">Το παράθυρο θα κλείσει αυτόματα.</div>
+                </div>
+              )}
+
               <div className="mt-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <div className="text-sm text-slate-500">
                   {range ? `Αποτέλεσμα: ${range}` : currentResult ? `Τρέχον αποτέλεσμα: ${currentResult.range}` : "Δεν υπάρχει ακόμη αποτέλεσμα."}
@@ -764,9 +793,9 @@ function VocalRangeDetector({
                   type="button"
                   className="btn btn-gold"
                   disabled={!lowHz || !highHz || phase === "saving" || phase === "low" || phase === "high"}
-                  onClick={saveResult}
+                  onClick={phase === "done" ? close : saveResult}
                 >
-                  {phase === "saving" ? "Αποθήκευση..." : "Αποθήκευση αποτελέσματος"}
+                  {phase === "saving" ? "Αποθήκευση..." : phase === "done" ? "Κλείσιμο" : "Αποθήκευση αποτελέσματος"}
                 </button>
               </div>
             </div>

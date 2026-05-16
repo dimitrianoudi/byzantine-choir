@@ -59,6 +59,28 @@ const VOCAL_RANGE_DEFS: { range: VocalRangeName; lowMidi: number; highMidi: numb
   { range: "Mezzo", lowMidi: 57, highMidi: 81 },
   { range: "Soprano", lowMidi: 60, highMidi: 84 },
 ];
+const VOCAL_RANGES_BY_GROUP: Record<Exclude<StudentTestGroup, "kids">, VocalRangeName[]> = {
+  men: ["Bass", "Baritone", "Tenor"],
+  women: ["Contralto", "Mezzo", "Soprano"],
+};
+const VOCAL_RANGE_LABELS: Record<Exclude<StudentTestGroup, "kids">, Record<VocalRangeName, string>> = {
+  men: {
+    Bass: "Βαθύφωνος",
+    Baritone: "Βαρύτονος",
+    Tenor: "Υψίφωνος",
+    Contralto: "Contralto",
+    Mezzo: "Mezzo",
+    Soprano: "Soprano",
+  },
+  women: {
+    Bass: "Bass",
+    Baritone: "Baritone",
+    Tenor: "Tenor",
+    Contralto: "Βαθύφωνη",
+    Mezzo: "Μεσόφωνο",
+    Soprano: "Υψίφωνη",
+  },
+};
 
 function frequencyToMidi(frequency: number) {
   return 69 + 12 * Math.log2(frequency / 440);
@@ -69,12 +91,20 @@ function formatHz(value: number | null) {
   return `${Math.round(value)} Hz`;
 }
 
-function classifyVocalRange(lowHz: number, highHz: number): VocalRangeName {
+function formatVocalRange(range: VocalRangeName, group: StudentTestGroup) {
+  if (group === "kids") return range;
+  return VOCAL_RANGE_LABELS[group][range] || range;
+}
+
+function classifyVocalRange(lowHz: number, highHz: number, group: StudentTestGroup): VocalRangeName {
   const lowMidi = frequencyToMidi(lowHz);
   const highMidi = frequencyToMidi(highHz);
   const centerMidi = (lowMidi + highMidi) / 2;
+  const allowedRanges = group === "kids" ? VOCAL_RANGE_DEFS : VOCAL_RANGE_DEFS.filter((definition) =>
+    VOCAL_RANGES_BY_GROUP[group].includes(definition.range)
+  );
 
-  return VOCAL_RANGE_DEFS.map((definition) => {
+  return allowedRanges.map((definition) => {
     const overlap = Math.max(
       0,
       Math.min(highMidi, definition.highMidi) - Math.max(lowMidi, definition.lowMidi)
@@ -596,10 +626,12 @@ function AudioRecorder({
 
 function VocalRangeDetector({
   disabled,
+  group,
   currentResult,
   onResult,
 }: {
   disabled?: boolean;
+  group: StudentTestGroup;
   currentResult: VocalRangeResult | null;
   onResult: (result: VocalRangeResult) => Promise<void>;
 }) {
@@ -692,7 +724,7 @@ function VocalRangeDetector({
 
     const normalizedLow = Math.min(lowHz, highHz);
     const normalizedHigh = Math.max(lowHz, highHz);
-    const nextRange = classifyVocalRange(normalizedLow, normalizedHigh);
+    const nextRange = classifyVocalRange(normalizedLow, normalizedHigh, group);
 
     setPhase("saving");
     setError(null);
@@ -779,7 +811,7 @@ function VocalRangeDetector({
                 <div className="mt-4 rounded-2xl border border-green-200 bg-green-50 px-5 py-4 text-center">
                   <div className="text-sm font-semibold text-green-700">Η φωνητική έκταση αποθηκεύτηκε.</div>
                   <div className="mt-1 font-heading text-3xl font-bold text-green-800">
-                    Είστε {range}
+                    Είστε {formatVocalRange(range, group)}
                   </div>
                   <div className="mt-1 text-xs text-green-700">Το παράθυρο θα κλείσει αυτόματα.</div>
                 </div>
@@ -787,7 +819,11 @@ function VocalRangeDetector({
 
               <div className="mt-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <div className="text-sm text-slate-500">
-                  {range ? `Αποτέλεσμα: ${range}` : currentResult ? `Τρέχον αποτέλεσμα: ${currentResult.range}` : "Δεν υπάρχει ακόμη αποτέλεσμα."}
+                  {range
+                    ? `Αποτέλεσμα: ${formatVocalRange(range, group)}`
+                    : currentResult
+                      ? `Τρέχον αποτέλεσμα: ${formatVocalRange(currentResult.range, group)}`
+                      : "Δεν υπάρχει ακόμη αποτέλεσμα."}
                 </div>
                 <button
                   type="button"
@@ -1002,14 +1038,17 @@ export default function StudentTestsClient({
                       <div>
                         {student.name}
                         {student.vocalRange && (
-                          <span className="text-muted"> ({student.vocalRange.range})</span>
+                          <span className="text-muted"> ({formatVocalRange(student.vocalRange.range, group)})</span>
                         )}
                       </div>
-                      <VocalRangeDetector
-                        disabled={busyKey !== null}
-                        currentResult={student.vocalRange}
-                        onResult={(result) => saveVocalRange(student.id, result)}
-                      />
+                      {group !== "kids" && (
+                        <VocalRangeDetector
+                          disabled={busyKey !== null}
+                          group={group}
+                          currentResult={student.vocalRange}
+                          onResult={(result) => saveVocalRange(student.id, result)}
+                        />
+                      )}
                     </div>
                   </td>
                   <td className="px-4 py-4">
@@ -1095,7 +1134,7 @@ export default function StudentTestsClient({
                 <h2 className="font-heading text-lg text-blue">
                   {student.name}
                   {student.vocalRange && (
-                    <span className="text-muted"> ({student.vocalRange.range})</span>
+                    <span className="text-muted"> ({formatVocalRange(student.vocalRange.range, group)})</span>
                   )}
                 </h2>
               </div>
@@ -1112,11 +1151,14 @@ export default function StudentTestsClient({
               </label>
             </div>
 
-            <VocalRangeDetector
-              disabled={busyKey !== null}
-              currentResult={student.vocalRange}
-              onResult={(result) => saveVocalRange(student.id, result)}
-            />
+            {group !== "kids" && (
+              <VocalRangeDetector
+                disabled={busyKey !== null}
+                group={group}
+                currentResult={student.vocalRange}
+                onResult={(result) => saveVocalRange(student.id, result)}
+              />
+            )}
 
             <div className="rounded-lg border border-subtle p-3 space-y-2">
               <div className="text-sm font-semibold">Ηχογράφηση μαθητή</div>

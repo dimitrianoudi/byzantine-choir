@@ -57,7 +57,7 @@ export const STUDENT_TEST_GROUPS: Record<
       { id: "apostolou-georgios", name: "Αποστόλου Γεώργιος" },
       { id: "christodoulidis-theodoros-1", name: "Χριστοδουλίδης Θεόδωρος" },
       { id: "konstantinou-panagiotis", name: "Κωνσταντίνου Παναγιώτης" },
-      { id: "amprazis-asterios", name: "Αμπραζης Αστέριος" },
+      { id: "amprazis-asterios", name: "Αμπράζης Αστέριος" },
       { id: "saravakos-georgios", name: "Σαραβάκος Γεώργιος" },
       { id: "anoudis-dimitrios", name: "Ανούδης Δημήτριος" },
       { id: "moschos-fistas", name: "Μόσχος Φίστας" },

@@ -19,6 +19,7 @@ type Asset = {
 type StudentRow = StudentTestStudent & {
   sample: Asset | null;
   feedback: Asset | null;
+  vocalRange: VocalRangeResult | null;
   completed: boolean;
 };
 
@@ -30,6 +31,13 @@ type Props = {
 };
 
 type UploadKind = "score" | "student-recording" | "teacher-feedback";
+type VocalRangeName = "Bass" | "Baritone" | "Tenor" | "Contralto" | "Mezzo" | "Soprano";
+type VocalRangeResult = {
+  range: VocalRangeName;
+  lowHz: number | null;
+  highHz: number | null;
+  detectedAt?: string | null;
+};
 
 const GROUP_ORDER: StudentTestGroup[] = ["kids", "women", "men"];
 const MAX_RECORDING_MS = 10 * 60 * 1000;
@@ -43,6 +51,70 @@ const MARTYRIA_NOTES = [
   { label: "Ζω", frequency: 493.88 },
   { label: "Νη", frequency: 523.25 },
 ];
+const VOCAL_RANGE_DEFS: { range: VocalRangeName; lowMidi: number; highMidi: number }[] = [
+  { range: "Bass", lowMidi: 40, highMidi: 64 },
+  { range: "Baritone", lowMidi: 45, highMidi: 69 },
+  { range: "Tenor", lowMidi: 48, highMidi: 72 },
+  { range: "Contralto", lowMidi: 53, highMidi: 77 },
+  { range: "Mezzo", lowMidi: 57, highMidi: 81 },
+  { range: "Soprano", lowMidi: 60, highMidi: 84 },
+];
+
+function frequencyToMidi(frequency: number) {
+  return 69 + 12 * Math.log2(frequency / 440);
+}
+
+function formatHz(value: number | null) {
+  if (!value || !Number.isFinite(value)) return "";
+  return `${Math.round(value)} Hz`;
+}
+
+function classifyVocalRange(lowHz: number, highHz: number): VocalRangeName {
+  const lowMidi = frequencyToMidi(lowHz);
+  const highMidi = frequencyToMidi(highHz);
+  const centerMidi = (lowMidi + highMidi) / 2;
+
+  return VOCAL_RANGE_DEFS.map((definition) => {
+    const overlap = Math.max(
+      0,
+      Math.min(highMidi, definition.highMidi) - Math.max(lowMidi, definition.lowMidi)
+    );
+    const rangeCenter = (definition.lowMidi + definition.highMidi) / 2;
+    return {
+      range: definition.range,
+      overlap,
+      distance: Math.abs(centerMidi - rangeCenter),
+    };
+  }).sort((a, b) => b.overlap - a.overlap || a.distance - b.distance)[0].range;
+}
+
+function detectPitch(buffer: Float32Array, sampleRate: number) {
+  let rms = 0;
+  for (let i = 0; i < buffer.length; i += 1) rms += buffer[i] * buffer[i];
+  rms = Math.sqrt(rms / buffer.length);
+  if (rms < 0.015) return null;
+
+  let bestOffset = -1;
+  let bestCorrelation = 0;
+  const minOffset = Math.floor(sampleRate / 900);
+  const maxOffset = Math.min(Math.floor(sampleRate / 70), Math.floor(buffer.length / 2));
+
+  for (let offset = minOffset; offset <= maxOffset; offset += 1) {
+    let correlation = 0;
+    for (let i = 0; i < buffer.length - offset; i += 1) {
+      correlation += 1 - Math.abs(buffer[i] - buffer[i + offset]);
+    }
+    correlation /= buffer.length - offset;
+
+    if (correlation > bestCorrelation) {
+      bestCorrelation = correlation;
+      bestOffset = offset;
+    }
+  }
+
+  if (bestCorrelation < 0.9 || bestOffset <= 0) return null;
+  return sampleRate / bestOffset;
+}
 
 function dateLabel(value: string | null) {
   if (!value) return "";
@@ -522,6 +594,189 @@ function AudioRecorder({
   );
 }
 
+function VocalRangeDetector({
+  disabled,
+  currentResult,
+  onResult,
+}: {
+  disabled?: boolean;
+  currentResult: VocalRangeResult | null;
+  onResult: (result: VocalRangeResult) => Promise<void>;
+}) {
+  const [open, setOpen] = useState(false);
+  const [phase, setPhase] = useState<"idle" | "low" | "high" | "saving" | "done">("idle");
+  const [lowHz, setLowHz] = useState<number | null>(currentResult?.lowHz ?? null);
+  const [highHz, setHighHz] = useState<number | null>(currentResult?.highHz ?? null);
+  const [range, setRange] = useState<VocalRangeName | null>(currentResult?.range ?? null);
+  const [error, setError] = useState<string | null>(null);
+  const requestIdRef = useRef(0);
+
+  useEffect(() => {
+    if (open) return;
+    setLowHz(currentResult?.lowHz ?? null);
+    setHighHz(currentResult?.highHz ?? null);
+    setRange(currentResult?.range ?? null);
+    setPhase("idle");
+    setError(null);
+  }, [currentResult, open]);
+
+  const measurePitch = async (kind: "low" | "high") => {
+    setError(null);
+    setPhase(kind);
+    const requestId = ++requestIdRef.current;
+
+    if (!navigator.mediaDevices?.getUserMedia || typeof window.AudioContext === "undefined") {
+      setError("Ο browser δεν υποστηρίζει ανίχνευση φωνής.");
+      setPhase("idle");
+      return;
+    }
+
+    let stream: MediaStream | null = null;
+    let audioContext: AudioContext | null = null;
+
+    try {
+      stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      audioContext = new AudioContext();
+      const source = audioContext.createMediaStreamSource(stream);
+      const analyser = audioContext.createAnalyser();
+      analyser.fftSize = 4096;
+      source.connect(analyser);
+
+      const buffer = new Float32Array(analyser.fftSize);
+      const samples: number[] = [];
+      const startedAt = performance.now();
+
+      while (performance.now() - startedAt < 2800) {
+        if (requestId !== requestIdRef.current) return;
+        analyser.getFloatTimeDomainData(buffer);
+        const pitch = detectPitch(buffer, audioContext.sampleRate);
+        if (pitch && pitch >= 70 && pitch <= 1200) samples.push(pitch);
+        await new Promise((resolve) => window.setTimeout(resolve, 80));
+      }
+
+      if (samples.length < 4) {
+        setError("Δεν ανιχνεύτηκε καθαρή νότα. Δοκιμάστε ξανά πιο κοντά στο μικρόφωνο.");
+        setPhase("idle");
+        return;
+      }
+
+      samples.sort((a, b) => a - b);
+      const detected = kind === "low"
+        ? samples[Math.floor(samples.length * 0.18)]
+        : samples[Math.floor(samples.length * 0.82)];
+
+      if (kind === "low") setLowHz(detected);
+      else setHighHz(detected);
+
+      setPhase("idle");
+    } catch (err: any) {
+      setError(err?.message || "Δεν επιτράπηκε η χρήση μικροφώνου.");
+      setPhase("idle");
+    } finally {
+      stream?.getTracks().forEach((track) => track.stop());
+      audioContext?.close().catch(() => {});
+    }
+  };
+
+  const saveResult = async () => {
+    if (!lowHz || !highHz) return;
+
+    const normalizedLow = Math.min(lowHz, highHz);
+    const normalizedHigh = Math.max(lowHz, highHz);
+    const nextRange = classifyVocalRange(normalizedLow, normalizedHigh);
+
+    setPhase("saving");
+    setError(null);
+    try {
+      await onResult({
+        range: nextRange,
+        lowHz: normalizedLow,
+        highHz: normalizedHigh,
+        detectedAt: new Date().toISOString(),
+      });
+      setLowHz(normalizedLow);
+      setHighHz(normalizedHigh);
+      setRange(nextRange);
+      setPhase("done");
+    } catch (err: any) {
+      setError(err?.message || "Αποτυχία αποθήκευσης φωνητικής έκτασης.");
+      setPhase("idle");
+    }
+  };
+
+  const close = () => {
+    requestIdRef.current += 1;
+    setOpen(false);
+  };
+
+  return (
+    <>
+      <button type="button" className="btn btn-outline btn-sm" disabled={disabled} onClick={() => setOpen(true)}>
+        Εύρεση φωνητικής έκτασης
+      </button>
+      {open &&
+        typeof document !== "undefined" &&
+        createPortal(
+          <div
+            className="fixed inset-0 z-[3000] flex items-center justify-center bg-black/35 px-4 py-6 backdrop-blur-sm"
+            role="dialog"
+            aria-modal="true"
+          >
+            <div className="w-full max-w-xl rounded-[2rem] bg-white p-6 text-slate-950 shadow-2xl">
+              <div className="mb-5 flex items-start justify-between gap-4">
+                <div>
+                  <h2 className="font-heading text-2xl font-bold">Vocal Range</h2>
+                  <p className="mt-1 text-sm text-slate-500">
+                    Τραγουδήστε “Ah” στη χαμηλότερη και στην υψηλότερη νότα σας.
+                  </p>
+                </div>
+                <button type="button" className="text-3xl font-bold leading-none" onClick={close} aria-label="Κλείσιμο">
+                  ×
+                </button>
+              </div>
+
+              <div className="space-y-3">
+                <button
+                  type="button"
+                  className="w-full rounded-2xl bg-slate-100 px-5 py-4 text-left font-semibold"
+                  disabled={phase !== "idle" && phase !== "done"}
+                  onClick={() => measurePitch("low")}
+                >
+                  {phase === "low" ? "Ακούω τη χαμηλότερη νότα..." : `1. Χαμηλότερη νότα${lowHz ? ` (${formatHz(lowHz)})` : ""}`}
+                </button>
+                <button
+                  type="button"
+                  className="w-full rounded-2xl bg-slate-100 px-5 py-4 text-left font-semibold"
+                  disabled={!lowHz || (phase !== "idle" && phase !== "done")}
+                  onClick={() => measurePitch("high")}
+                >
+                  {phase === "high" ? "Ακούω την υψηλότερη νότα..." : `2. Υψηλότερη νότα${highHz ? ` (${formatHz(highHz)})` : ""}`}
+                </button>
+              </div>
+
+              {error && <div className="mt-4 rounded-xl bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div>}
+
+              <div className="mt-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <div className="text-sm text-slate-500">
+                  {range ? `Αποτέλεσμα: ${range}` : currentResult ? `Τρέχον αποτέλεσμα: ${currentResult.range}` : "Δεν υπάρχει ακόμη αποτέλεσμα."}
+                </div>
+                <button
+                  type="button"
+                  className="btn btn-gold"
+                  disabled={!lowHz || !highHz || phase === "saving" || phase === "low" || phase === "high"}
+                  onClick={saveResult}
+                >
+                  {phase === "saving" ? "Αποθήκευση..." : "Αποθήκευση αποτελέσματος"}
+                </button>
+              </div>
+            </div>
+          </div>,
+          document.body
+        )}
+    </>
+  );
+}
+
 export default function StudentTestsClient({
   group,
   groupLabel,
@@ -535,6 +790,7 @@ export default function StudentTestsClient({
       ...student,
       sample: null,
       feedback: null,
+      vocalRange: null,
       completed: false,
     }))
   );
@@ -611,6 +867,34 @@ export default function StudentTestsClient({
     }
   };
 
+  const saveVocalRange = async (studentId: string, result: VocalRangeResult) => {
+    const previous = students;
+    setStudents((current) =>
+      current.map((student) => (student.id === studentId ? { ...student, vocalRange: result } : student))
+    );
+    setStatus(null);
+
+    try {
+      const res = await fetch("/api/student-tests/range", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          group,
+          studentId,
+          range: result.range,
+          lowHz: result.lowHz,
+          highHz: result.highHz,
+        }),
+      });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(json?.error || "Αποτυχία αποθήκευσης φωνητικής έκτασης.");
+    } catch (err: any) {
+      setStudents(previous);
+      setStatus(err?.message || "Αποτυχία αποθήκευσης φωνητικής έκτασης.");
+      throw err;
+    }
+  };
+
   return (
     <div className="space-y-5">
       <nav className="flex flex-wrap gap-2">
@@ -684,7 +968,21 @@ export default function StudentTestsClient({
             <tbody>
               {students.map((student) => (
                 <tr key={student.id} className="border-b border-subtle align-top last:border-b-0">
-                  <td className="px-4 py-4 font-medium">{student.name}</td>
+                  <td className="px-4 py-4 font-medium">
+                    <div className="space-y-2">
+                      <div>
+                        {student.name}
+                        {student.vocalRange && (
+                          <span className="text-muted"> ({student.vocalRange.range})</span>
+                        )}
+                      </div>
+                      <VocalRangeDetector
+                        disabled={busyKey !== null}
+                        currentResult={student.vocalRange}
+                        onResult={(result) => saveVocalRange(student.id, result)}
+                      />
+                    </div>
+                  </td>
                   <td className="px-4 py-4">
                     <div className="space-y-2">
                       {student.sample ? (
@@ -765,7 +1063,12 @@ export default function StudentTestsClient({
             <div className="flex items-start justify-between gap-3">
               <div>
                 <div className="text-xs text-muted">Μαθητής</div>
-                <h2 className="font-heading text-lg text-blue">{student.name}</h2>
+                <h2 className="font-heading text-lg text-blue">
+                  {student.name}
+                  {student.vocalRange && (
+                    <span className="text-muted"> ({student.vocalRange.range})</span>
+                  )}
+                </h2>
               </div>
               <label className="flex items-center gap-2 text-xs text-muted">
                 <input
@@ -779,6 +1082,12 @@ export default function StudentTestsClient({
                 Ολοκληρώθηκε
               </label>
             </div>
+
+            <VocalRangeDetector
+              disabled={busyKey !== null}
+              currentResult={student.vocalRange}
+              onResult={(result) => saveVocalRange(student.id, result)}
+            />
 
             <div className="rounded-lg border border-subtle p-3 space-y-2">
               <div className="text-sm font-semibold">Ηχογράφηση μαθητή</div>

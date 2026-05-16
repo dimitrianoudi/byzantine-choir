@@ -232,6 +232,22 @@ function AudioRecorder({
     };
   }, []);
 
+  useEffect(() => {
+    if (mode !== "fullscreen" || !fullscreenOpen) return;
+
+    const header = document.querySelector<HTMLElement>(".header");
+    const previousHeaderDisplay = header?.style.display ?? "";
+    const previousBodyOverflow = document.body.style.overflow;
+
+    if (header) header.style.display = "none";
+    document.body.style.overflow = "hidden";
+
+    return () => {
+      if (header) header.style.display = previousHeaderDisplay;
+      document.body.style.overflow = previousBodyOverflow;
+    };
+  }, [fullscreenOpen, mode]);
+
   const button = (
     <button
       type="button"
@@ -492,7 +508,7 @@ export default function StudentTestsClient({
         )}
       </section>
 
-      <section className="card overflow-hidden">
+      <section className="card hidden overflow-hidden md:block">
         <div className="overflow-x-auto">
           <table className="w-full min-w-[900px] text-sm">
             <thead>
@@ -579,6 +595,83 @@ export default function StudentTestsClient({
             </tbody>
           </table>
         </div>
+      </section>
+
+      <section className="space-y-4 md:hidden">
+        {students.map((student) => (
+          <article key={student.id} className="card p-4 space-y-4">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <div className="text-xs text-muted">Μαθητής</div>
+                <h2 className="font-heading text-lg text-blue">{student.name}</h2>
+              </div>
+              <label className="flex items-center gap-2 text-xs text-muted">
+                <input
+                  type="checkbox"
+                  className="h-5 w-5"
+                  checked={student.completed}
+                  disabled={!isAdmin}
+                  onChange={(event) => toggleCompleted(student.id, event.target.checked)}
+                  aria-label={`Ολοκλήρωση αξιολόγησης για ${student.name}`}
+                />
+                Ολοκληρώθηκε
+              </label>
+            </div>
+
+            <div className="rounded-lg border border-subtle p-3 space-y-2">
+              <div className="text-sm font-semibold">Ηχογράφηση μαθητή</div>
+              {student.sample ? (
+                <div className="space-y-1">
+                  <audio controls src={student.sample.url} className="w-full" />
+                  <div className="text-[11px] text-muted">{dateLabel(student.sample.lastModified)}</div>
+                </div>
+              ) : (
+                <div className="text-xs text-muted">Δεν υπάρχει ηχογράφηση.</div>
+              )}
+              <AudioRecorder
+                label="Ηχογράφηση"
+                disabled={busyKey !== null}
+                mode="fullscreen"
+                score={score}
+                title={student.name}
+                onRecordingReady={(blob, filename, mime) =>
+                  uploadFile({
+                    kind: "student-recording",
+                    file: Object.assign(blob, { name: filename }),
+                    studentId: student.id,
+                    busyLabel: `sample-${student.id}`,
+                  })
+                }
+              />
+            </div>
+
+            <div className="rounded-lg border border-subtle p-3 space-y-2">
+              <div className="text-sm font-semibold">Αξιολόγηση δασκάλου</div>
+              {student.feedback ? (
+                <div className="space-y-1">
+                  <audio controls src={student.feedback.url} className="w-full" />
+                  <div className="text-[11px] text-muted">{dateLabel(student.feedback.lastModified)}</div>
+                </div>
+              ) : (
+                <div className="text-xs text-muted">Δεν υπάρχει αξιολόγηση.</div>
+              )}
+              {isAdmin && (
+                <AudioRecorder
+                  label="Ηχογράφηση"
+                  disabled={busyKey !== null}
+                  onRecordingReady={(blob, filename, mime) =>
+                    uploadFile({
+                      kind: "teacher-feedback",
+                      file: Object.assign(blob, { name: filename }),
+                      studentId: student.id,
+                      busyLabel: `feedback-${student.id}`,
+                    })
+                  }
+                />
+              )}
+            </div>
+          </article>
+        ))}
       </section>
 
       {status && <div className="text-sm text-muted">{status}</div>}

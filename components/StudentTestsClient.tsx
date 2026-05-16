@@ -237,14 +237,11 @@ function AudioRecorder({
 
     const header = document.querySelector<HTMLElement>(".header");
     const previousHeaderDisplay = header?.style.display ?? "";
-    const previousBodyOverflow = document.body.style.overflow;
 
     if (header) header.style.display = "none";
-    document.body.style.overflow = "hidden";
 
     return () => {
       if (header) header.style.display = previousHeaderDisplay;
-      document.body.style.overflow = previousBodyOverflow;
     };
   }, [fullscreenOpen, mode]);
 

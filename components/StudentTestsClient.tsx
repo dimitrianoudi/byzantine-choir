@@ -86,6 +86,7 @@ function AudioRecorder({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [fullscreenOpen, setFullscreenOpen] = useState(false);
+  const [countdown, setCountdown] = useState<number | null>(null);
   const recorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<BlobPart[]>([]);
   const streamRef = useRef<MediaStream | null>(null);
@@ -93,6 +94,8 @@ function AudioRecorder({
   const audioContextRef = useRef<AudioContext | null>(null);
   const animationFrameRef = useRef<number | null>(null);
   const recordingTimeoutRef = useRef<number | null>(null);
+  const countdownTimeoutsRef = useRef<number[]>([]);
+  const startRequestIdRef = useRef(0);
 
   const cleanupStream = () => {
     streamRef.current?.getTracks().forEach((track) => track.stop());
@@ -104,6 +107,12 @@ function AudioRecorder({
       window.clearTimeout(recordingTimeoutRef.current);
       recordingTimeoutRef.current = null;
     }
+  };
+
+  const clearCountdown = () => {
+    countdownTimeoutsRef.current.forEach((timeoutId) => window.clearTimeout(timeoutId));
+    countdownTimeoutsRef.current = [];
+    setCountdown(null);
   };
 
   const stopWaveform = () => {
@@ -159,8 +168,37 @@ function AudioRecorder({
     draw();
   };
 
+  const startRecorder = (recorder: MediaRecorder, stream: MediaStream) => {
+    recorder.start();
+    setRecording(true);
+    recordingTimeoutRef.current = window.setTimeout(() => {
+      if (recorder.state === "recording") {
+        setError("Η ηχογράφηση σταμάτησε αυτόματα στο όριο των 10 λεπτών.");
+        recorder.stop();
+      }
+    }, MAX_RECORDING_MS);
+    requestAnimationFrame(() => startWaveform(stream));
+  };
+
+  const startCountdown = (recorder: MediaRecorder, stream: MediaStream) => {
+    clearCountdown();
+    setCountdown(3);
+    countdownTimeoutsRef.current = [
+      window.setTimeout(() => setCountdown(2), 1000),
+      window.setTimeout(() => setCountdown(1), 2000),
+      window.setTimeout(() => {
+        setCountdown(null);
+        countdownTimeoutsRef.current = [];
+        if (recorder.state === "inactive") {
+          startRecorder(recorder, stream);
+        }
+      }, 3000),
+    ];
+  };
+
   const start = async () => {
     setError(null);
+    const requestId = ++startRequestIdRef.current;
     if (mode === "fullscreen") setFullscreenOpen(true);
     if (!navigator.mediaDevices?.getUserMedia) {
       setError("Ο browser δεν υποστηρίζει ηχογράφηση.");
@@ -169,6 +207,11 @@ function AudioRecorder({
 
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      if (requestId !== startRequestIdRef.current) {
+        stream.getTracks().forEach((track) => track.stop());
+        return;
+      }
+
       streamRef.current = stream;
       chunksRef.current = [];
       const mime = preferredAudioMime();
@@ -182,6 +225,7 @@ function AudioRecorder({
       recorder.onstop = async () => {
         const type = recorder.mimeType || "audio/webm";
         const blob = new Blob(chunksRef.current, { type });
+        clearCountdown();
         clearRecordingTimeout();
         stopWaveform();
         cleanupStream();
@@ -197,16 +241,10 @@ function AudioRecorder({
         }
       };
 
-      recorder.start();
-      setRecording(true);
-      recordingTimeoutRef.current = window.setTimeout(() => {
-        if (recorder.state === "recording") {
-          setError("Η ηχογράφηση σταμάτησε αυτόματα στο όριο των 10 λεπτών.");
-          recorder.stop();
-        }
-      }, MAX_RECORDING_MS);
-      requestAnimationFrame(() => startWaveform(stream));
+      if (mode === "fullscreen") startCountdown(recorder, stream);
+      else startRecorder(recorder, stream);
     } catch (err: any) {
+      clearCountdown();
       stopWaveform();
       cleanupStream();
       setError(err?.message || "Δεν επιτράπηκε η χρήση μικροφώνου.");
@@ -218,15 +256,21 @@ function AudioRecorder({
   };
 
   const closeFullscreen = () => {
+    startRequestIdRef.current += 1;
+    clearCountdown();
     if (recording) {
       stop();
       return;
     }
+    cleanupStream();
+    recorderRef.current = null;
     setFullscreenOpen(false);
   };
 
   useEffect(() => {
     return () => {
+      startRequestIdRef.current += 1;
+      clearCountdown();
       clearRecordingTimeout();
       stopWaveform();
       cleanupStream();
@@ -288,7 +332,7 @@ function AudioRecorder({
                   <h2 className="font-heading text-lg leading-tight">{title || "Δοκιμή φωνής"}</h2>
                 </div>
                 <button type="button" className="btn btn-outline" onClick={closeFullscreen} disabled={busy}>
-                  {recording ? "Τέλος" : "Κλείσιμο"}
+                  {countdown !== null ? "Ακύρωση" : recording ? "Τέλος" : "Κλείσιμο"}
                 </button>
               </div>
 
@@ -314,7 +358,7 @@ function AudioRecorder({
                 <button
                   type="button"
                   onClick={recording ? stop : start}
-                  disabled={busy}
+                  disabled={busy || countdown !== null}
                   className="relative flex h-32 w-32 items-center justify-center overflow-hidden rounded-full border-4 border-[rgba(181,138,42,0.7)] bg-white text-blue shadow-[0_0_32px_rgba(181,138,42,0.34)]"
                   aria-label={recording ? "Τέλος ηχογράφησης" : "Έναρξη ηχογράφησης"}
                 >
@@ -343,16 +387,35 @@ function AudioRecorder({
                 </button>
                 <div className="text-center">
                   <div className="font-heading text-base leading-tight">
-                    {busy ? "Αποθήκευση ηχογράφησης..." : recording ? "Ηχογραφείται..." : "Έτοιμο για ηχογράφηση"}
+                    {busy
+                      ? "Αποθήκευση ηχογράφησης..."
+                      : countdown !== null
+                        ? `Ξεκινάει σε ${countdown}...`
+                        : recording
+                          ? "Ηχογραφείται..."
+                          : "Έτοιμο για ηχογράφηση"}
                   </div>
                   <div className="text-xs text-white/70">
-                    {recording
+                    {countdown !== null
+                      ? "Προετοιμαστείτε. Η ηχογράφηση δεν έχει ξεκινήσει ακόμη."
+                      : recording
                       ? "Πατήστε τον κύκλο όταν ολοκληρώσετε. Μέγιστη διάρκεια: 10 λεπτά."
                       : "Αν ζητηθεί άδεια μικροφώνου, επιλέξτε αποδοχή."}
                   </div>
                 </div>
               </div>
             </div>
+            {countdown !== null && (
+              <div className="pointer-events-none absolute inset-0 z-20 flex items-center justify-center bg-[rgba(10,27,63,0.52)]">
+                <div key={countdown} className="relative flex h-56 w-56 items-center justify-center">
+                  <span className="absolute inline-flex h-44 w-44 animate-ping rounded-full bg-[rgba(181,138,42,0.32)]" />
+                  <span className="absolute inline-flex h-56 w-56 animate-pulse rounded-full border-4 border-white/35" />
+                  <span className="relative font-heading text-[9rem] font-black leading-none text-white drop-shadow-[0_12px_32px_rgba(0,0,0,0.45)]">
+                    {countdown}
+                  </span>
+                </div>
+              </div>
+            )}
           </div>,
           document.body
         )}

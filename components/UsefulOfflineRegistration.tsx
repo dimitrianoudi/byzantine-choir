@@ -1,11 +1,14 @@
 'use client';
 
 import { useEffect } from 'react';
-import { registerUsefulOfflineSupport } from '@/lib/usefulOffline';
+import {
+  getUsefulOfflineEnabledPreference,
+  registerUsefulOfflineSupport,
+} from '@/lib/usefulOffline';
 
 export default function UsefulOfflineRegistration({ enabled }: { enabled: boolean }) {
   useEffect(() => {
-    void registerUsefulOfflineSupport(enabled);
+    void registerUsefulOfflineSupport(enabled && getUsefulOfflineEnabledPreference());
   }, [enabled]);
 
   return null;

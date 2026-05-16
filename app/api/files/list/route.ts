@@ -49,7 +49,7 @@ function inferType(key: string): "podcast" | "pdf" | null {
 function isHiddenSystemPrefix(fullPrefix: string, currentPrefix: string) {
   const relative = fullPrefix.slice((currentPrefix || "").length);
   const firstSegment = relative.split("/").filter(Boolean)[0] || "";
-  return firstSegment.startsWith("_");
+  return firstSegment.startsWith("_") || firstSegment === "student-tests";
 }
 
 function normalizeSearchText(value: string) {
@@ -211,6 +211,7 @@ export async function GET(req: Request) {
         for (const obj of res.Contents ?? []) {
           if (!obj.Key) continue;
           if (obj.Key.endsWith("/")) continue;
+          if (isHiddenSystemPrefix(obj.Key, prefix)) continue;
 
           const type = inferType(obj.Key);
           if (!type) continue;

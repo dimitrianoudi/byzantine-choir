@@ -14,7 +14,10 @@ import { useAudioEnhancer } from '@/lib/useAudioEnhancer';
 import {
   cacheUsefulFolderResponse,
   getCachedUsefulOfflinePdfs,
+  getUsefulOfflineEnabledPreference,
   isUsefulPrefix,
+  registerUsefulOfflineSupport,
+  setUsefulOfflineEnabledPreference,
   supportsUsefulOffline,
   warmUsefulMaterialPage,
   warmUsefulOfflinePdfs,
@@ -39,7 +42,7 @@ type FolderEntry = {
 };
 
 type UsefulOfflineStatus = {
-  phase: 'idle' | 'checking' | 'syncing' | 'ready' | 'partial' | 'offline' | 'unsupported';
+  phase: 'idle' | 'disabled' | 'checking' | 'syncing' | 'ready' | 'partial' | 'offline' | 'unsupported';
   total: number;
   cached: number;
 };
@@ -129,6 +132,7 @@ export default function Library({
   const [preferredDefaultTab, setPreferredDefaultTab] = useState<'podcast' | 'pdf'>('podcast');
   const [rememberLastFolder, setRememberLastFolder] = useState(true);
   const [isOnline, setIsOnline] = useState(true);
+  const [usefulOfflineEnabled, setUsefulOfflineEnabled] = useState(false);
   const [usefulOfflineStatus, setUsefulOfflineStatus] = useState<UsefulOfflineStatus>({
     phase: 'idle',
     total: 0,
@@ -162,6 +166,7 @@ export default function Library({
 
     const updateOnlineStatus = () => setIsOnline(navigator.onLine);
     updateOnlineStatus();
+    setUsefulOfflineEnabled(getUsefulOfflineEnabledPreference());
 
     window.addEventListener('online', updateOnlineStatus);
     window.addEventListener('offline', updateOnlineStatus);
@@ -321,7 +326,9 @@ export default function Library({
           refresh ? { signal: controller.signal, cache: 'no-store' } : { signal: controller.signal }
         );
         if (!res.ok) throw new Error(await safeText(res));
-        void cacheUsefulFolderResponse(prefix, cacheUrl, res.clone());
+        if (usefulOfflineEnabled) {
+          void cacheUsefulFolderResponse(prefix, cacheUrl, res.clone());
+        }
         const data = await res.json();
         if (requestId !== loadRequestIdRef.current) return;
         setItems(data.items || []);
@@ -339,7 +346,7 @@ export default function Library({
     };
     load();
     return () => controller.abort();
-  }, [prefix, hasSearchQuery, searchQuery]);
+  }, [prefix, hasSearchQuery, searchQuery, usefulOfflineEnabled]);
 
   useEffect(() => {
     const sharedKey = getSelectedKeyFromUrl();
@@ -361,9 +368,9 @@ export default function Library({
   }, [items]);
 
   useEffect(() => {
-    if (!isUseful || hasSearchQuery || typeof window === 'undefined') return;
+    if (!isUseful || !usefulOfflineEnabled || hasSearchQuery || typeof window === 'undefined') return;
     void warmUsefulMaterialPage(window.location.href);
-  }, [isUseful, hasSearchQuery, prefix]);
+  }, [isUseful, usefulOfflineEnabled, hasSearchQuery, prefix]);
 
   useEffect(() => {
     if (!isUseful || !isOnline || typeof window === 'undefined') return;
@@ -373,6 +380,11 @@ export default function Library({
   useEffect(() => {
     if (!isUseful || hasSearchQuery || loading || !!error || typeof window === 'undefined') {
       setUsefulOfflineStatus({ phase: 'idle', total: 0, cached: 0 });
+      return;
+    }
+
+    if (!usefulOfflineEnabled) {
+      setUsefulOfflineStatus({ phase: 'disabled', total: usefulPdfUrls.length, cached: 0 });
       return;
     }
 
@@ -442,7 +454,7 @@ export default function Library({
     return () => {
       cancelled = true;
     };
-  }, [isUseful, hasSearchQuery, loading, error, usefulPdfUrls, isOnline]);
+  }, [isUseful, hasSearchQuery, loading, error, usefulPdfUrls, isOnline, usefulOfflineEnabled]);
 
   const getUrl = async (key: string) => {
     if (presigned[key]) return presigned[key];
@@ -775,6 +787,24 @@ export default function Library({
     audioEnhancer.setOpen((prev) => !prev);
   };
 
+  const toggleUsefulOffline = async () => {
+    if (!supportsUsefulOffline()) {
+      setUsefulOfflineStatus({ phase: 'unsupported', total: usefulPdfUrls.length, cached: 0 });
+      return;
+    }
+
+    const next = !usefulOfflineEnabled;
+    setUsefulOfflineEnabled(next);
+    setUsefulOfflineEnabledPreference(next);
+    warmedUsefulPdfUrlsRef.current.clear();
+    setUsefulOfflineStatus({
+      phase: next ? 'checking' : 'disabled',
+      total: usefulPdfUrls.length,
+      cached: 0,
+    });
+    await registerUsefulOfflineSupport(next);
+  };
+
   return (
     <div className="space-y-6">
       <div className="toolbar">
@@ -828,11 +858,22 @@ export default function Library({
       {error && <div className="card p-6 text-red-400">{error}</div>}
       {actionMsg && <div className="card p-4 text-amber-600 text-sm">{actionMsg}</div>}
       {usefulOfflineNotice && !loading && !error && (
-        <div className="card p-4">
-          <div className={clsx('text-sm font-medium', usefulOfflineNotice.toneClass)}>
-            {usefulOfflineNotice.title}
+        <div className="card p-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <div className={clsx('text-sm font-medium', usefulOfflineNotice.toneClass)}>
+              {usefulOfflineNotice.title}
+            </div>
+            <div className="text-xs text-muted mt-1">{usefulOfflineNotice.detail}</div>
           </div>
-          <div className="text-xs text-muted mt-1">{usefulOfflineNotice.detail}</div>
+          {isUseful && !hasSearchQuery && usefulOfflineStatus.phase !== 'unsupported' && (
+            <button
+              type="button"
+              className={clsx('btn btn-sm', usefulOfflineEnabled ? 'btn-outline' : 'btn-gold')}
+              onClick={toggleUsefulOffline}
+            >
+              {usefulOfflineEnabled ? 'Απενεργοποίηση offline' : 'Ενεργοποίηση offline'}
+            </button>
+          )}
         </div>
       )}
 
@@ -1078,6 +1119,7 @@ export default function Library({
         open={!!usefulViewer}
         title={usefulViewer?.title || ''}
         pdfUrl={usefulViewer?.url || ''}
+        offlineEnabled={usefulOfflineEnabled}
         onClose={() => setUsefulViewer(null)}
       />
 
@@ -1204,10 +1246,21 @@ function getUsefulOfflineNotice(
     };
   }
 
+  if (status.phase === 'disabled') {
+    return {
+      title: 'Η offline αποθήκευση είναι ανενεργή.',
+      detail:
+        status.total > 0
+          ? `Τα ${status.total} PDF του φακέλου Χρήσιμα δεν θα αποθηκευτούν αυτόματα σε αυτή τη συσκευή.`
+          : 'Μπορείτε να ενεργοποιήσετε την offline αποθήκευση όταν υπάρχουν PDF.',
+      toneClass: 'text-muted',
+    };
+  }
+
   if (status.total === 0) {
     return {
       title: 'Δεν υπάρχουν ακόμη PDF για offline αποθήκευση.',
-      detail: 'Όταν προστεθούν αρχεία στον φάκελο Χρήσιμα, θα αποθηκεύονται αυτόματα σε αυτή τη συσκευή.',
+      detail: 'Όταν προστεθούν αρχεία στον φάκελο Χρήσιμα, μπορείτε να επιλέξετε αν θα αποθηκευτούν offline.',
       toneClass: 'text-muted',
     };
   }
@@ -1234,7 +1287,7 @@ function getUsefulOfflineNotice(
       detail:
         status.total > 0
           ? `Όλα τα PDF του φακέλου Χρήσιμα είναι αποθηκευμένα σε αυτή τη συσκευή (${status.cached}/${status.total}).`
-          : 'Τα νέα PDF θα αποθηκεύονται αυτόματα όταν προστεθούν.',
+          : 'Τα νέα PDF θα αποθηκεύονται όταν η offline αποθήκευση είναι ενεργή.',
       toneClass: 'text-green-600',
     };
   }

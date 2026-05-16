@@ -9,6 +9,7 @@ type Props = {
   open: boolean;
   title: string;
   pdfUrl: string;
+  offlineEnabled?: boolean;
   onClose: () => void;
 };
 
@@ -37,7 +38,7 @@ const SCALE_STEP = 0.2;
 const THUMBNAIL_WIDTH = 92;
 const VIEWER_PAGE_KEY_PREFIX = 'bcp:useful-viewer:last-page:';
 
-export default function UsefulPdfViewerModal({ open, title, pdfUrl, onClose }: Props) {
+export default function UsefulPdfViewerModal({ open, title, pdfUrl, offlineEnabled = true, onClose }: Props) {
   const [mounted, setMounted] = useState(false);
   const [loading, setLoading] = useState(false);
   const [loadingStep, setLoadingStep] = useState('Φόρτωση PDF...');
@@ -143,7 +144,7 @@ export default function UsefulPdfViewerModal({ open, title, pdfUrl, onClose }: P
       setSidebarTab('thumbnails');
 
       try {
-        const response = await getUsefulOfflinePdfResponse(pdfUrl);
+        const response = await getUsefulOfflinePdfResponse(pdfUrl, offlineEnabled);
         if (!response) {
           throw new Error('Το PDF δεν είναι διαθέσιμο σε αυτή τη συσκευή.');
         }
@@ -186,7 +187,7 @@ export default function UsefulPdfViewerModal({ open, title, pdfUrl, onClose }: P
     return () => {
       cancelled = true;
     };
-  }, [open, pdfUrl]);
+  }, [open, pdfUrl, offlineEnabled]);
 
   useEffect(() => {
     if (!open || loading || !!error || !pdfDocRef.current) return;

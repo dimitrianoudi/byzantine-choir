@@ -7,6 +7,7 @@ export const USEFUL_OFFLINE_PAGE_CACHE = `${USEFUL_OFFLINE_CACHE_PREFIX}pages-v1
 export const USEFUL_OFFLINE_API_CACHE = `${USEFUL_OFFLINE_CACHE_PREFIX}api-v1`;
 export const USEFUL_OFFLINE_PDF_CACHE = `${USEFUL_OFFLINE_CACHE_PREFIX}pdfs-v3`;
 export const USEFUL_OFFLINE_ASSET_CACHE = `${USEFUL_OFFLINE_CACHE_PREFIX}assets-v1`;
+export const USEFUL_OFFLINE_ENABLED_KEY = 'bcp:useful-offline:enabled';
 export const USEFUL_OFFLINE_CACHE_NAMES = [
   USEFUL_OFFLINE_PAGE_CACHE,
   USEFUL_OFFLINE_API_CACHE,
@@ -96,6 +97,17 @@ export function supportsUsefulOffline() {
   );
 }
 
+export function getUsefulOfflineEnabledPreference() {
+  if (typeof window === 'undefined') return false;
+  return window.localStorage.getItem(USEFUL_OFFLINE_ENABLED_KEY) === '1';
+}
+
+export function setUsefulOfflineEnabledPreference(enabled: boolean) {
+  if (typeof window === 'undefined') return;
+  if (enabled) window.localStorage.setItem(USEFUL_OFFLINE_ENABLED_KEY, '1');
+  else window.localStorage.removeItem(USEFUL_OFFLINE_ENABLED_KEY);
+}
+
 export async function registerUsefulOfflineSupport(enabled: boolean) {
   if (typeof window === 'undefined' || !('serviceWorker' in navigator)) return;
 
@@ -152,7 +164,12 @@ export async function getCachedUsefulOfflinePdfs(urls: string[]) {
   return matches.filter((value): value is string => !!value);
 }
 
-export async function getUsefulOfflinePdfResponse(url: string) {
+export async function getUsefulOfflinePdfResponse(url: string, offlineEnabled = true) {
+  if (!offlineEnabled) {
+    const response = await fetch(new Request(url, { credentials: 'same-origin' }));
+    return response.ok ? response : null;
+  }
+
   if (!canUseCacheStorage()) return null;
 
   const cache = await caches.open(USEFUL_OFFLINE_PDF_CACHE);

@@ -33,6 +33,16 @@ type UploadKind = "score" | "student-recording" | "teacher-feedback";
 
 const GROUP_ORDER: StudentTestGroup[] = ["kids", "women", "men"];
 const MAX_RECORDING_MS = 10 * 60 * 1000;
+const MARTYRIA_TONE_MS = 4500;
+const MARTYRIA_NOTES = [
+  { label: "Πα", frequency: 293.66 },
+  { label: "Βου", frequency: 329.63 },
+  { label: "Γα", frequency: 349.23 },
+  { label: "Δι", frequency: 392 },
+  { label: "Κε", frequency: 440 },
+  { label: "Ζω", frequency: 493.88 },
+  { label: "Νη", frequency: 523.25 },
+];
 
 function dateLabel(value: string | null) {
   if (!value) return "";
@@ -87,6 +97,7 @@ function AudioRecorder({
   const [error, setError] = useState<string | null>(null);
   const [fullscreenOpen, setFullscreenOpen] = useState(false);
   const [countdown, setCountdown] = useState<number | null>(null);
+  const [selectedMartyria, setSelectedMartyria] = useState("");
   const recorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<BlobPart[]>([]);
   const streamRef = useRef<MediaStream | null>(null);
@@ -96,6 +107,9 @@ function AudioRecorder({
   const recordingTimeoutRef = useRef<number | null>(null);
   const countdownTimeoutsRef = useRef<number[]>([]);
   const startRequestIdRef = useRef(0);
+  const toneAudioContextRef = useRef<AudioContext | null>(null);
+  const toneOscillatorRef = useRef<OscillatorNode | null>(null);
+  const toneTimeoutRef = useRef<number | null>(null);
 
   const cleanupStream = () => {
     streamRef.current?.getTracks().forEach((track) => track.stop());
@@ -113,6 +127,53 @@ function AudioRecorder({
     countdownTimeoutsRef.current.forEach((timeoutId) => window.clearTimeout(timeoutId));
     countdownTimeoutsRef.current = [];
     setCountdown(null);
+  };
+
+  const stopMartyriaTone = () => {
+    if (toneTimeoutRef.current !== null) {
+      window.clearTimeout(toneTimeoutRef.current);
+      toneTimeoutRef.current = null;
+    }
+
+    try {
+      toneOscillatorRef.current?.stop();
+    } catch {}
+    toneOscillatorRef.current = null;
+
+    toneAudioContextRef.current?.close().catch(() => {});
+    toneAudioContextRef.current = null;
+  };
+
+  const playMartyriaTone = (frequency: number) => {
+    const AudioContextCtor = window.AudioContext;
+    if (!AudioContextCtor) {
+      setError("Ο browser δεν υποστηρίζει αναπαραγωγή τόνου.");
+      return;
+    }
+
+    stopMartyriaTone();
+    const audioContext = new AudioContextCtor();
+    const oscillator = audioContext.createOscillator();
+    const gain = audioContext.createGain();
+    const now = audioContext.currentTime;
+    const durationSeconds = MARTYRIA_TONE_MS / 1000;
+
+    oscillator.type = "sine";
+    oscillator.frequency.setValueAtTime(frequency, now);
+    gain.gain.setValueAtTime(0.0001, now);
+    gain.gain.linearRampToValueAtTime(0.16, now + 0.08);
+    gain.gain.setValueAtTime(0.16, now + Math.max(0.1, durationSeconds - 0.35));
+    gain.gain.linearRampToValueAtTime(0.0001, now + durationSeconds);
+
+    oscillator.connect(gain);
+    gain.connect(audioContext.destination);
+    oscillator.start();
+    oscillator.stop(now + durationSeconds);
+
+    toneAudioContextRef.current = audioContext;
+    toneOscillatorRef.current = oscillator;
+    toneTimeoutRef.current = window.setTimeout(stopMartyriaTone, MARTYRIA_TONE_MS + 250);
+    audioContext.resume().catch(() => {});
   };
 
   const stopWaveform = () => {
@@ -198,8 +259,8 @@ function AudioRecorder({
 
   const start = async () => {
     setError(null);
+    stopMartyriaTone();
     const requestId = ++startRequestIdRef.current;
-    if (mode === "fullscreen") setFullscreenOpen(true);
     if (!navigator.mediaDevices?.getUserMedia) {
       setError("Ο browser δεν υποστηρίζει ηχογράφηση.");
       return;
@@ -258,6 +319,7 @@ function AudioRecorder({
   const closeFullscreen = () => {
     startRequestIdRef.current += 1;
     clearCountdown();
+    stopMartyriaTone();
     if (recording) {
       stop();
       return;
@@ -271,6 +333,7 @@ function AudioRecorder({
     return () => {
       startRequestIdRef.current += 1;
       clearCountdown();
+      stopMartyriaTone();
       clearRecordingTimeout();
       stopWaveform();
       cleanupStream();
@@ -294,7 +357,7 @@ function AudioRecorder({
     <button
       type="button"
       className={recording ? "btn btn-gold btn-sm" : "btn btn-outline btn-sm"}
-      onClick={recording ? stop : start}
+      onClick={recording ? stop : mode === "fullscreen" ? () => setFullscreenOpen(true) : start}
       disabled={disabled || busy}
     >
       {busy ? "Αποθήκευση..." : recording ? "Τέλος ηχογράφησης" : label}
@@ -333,6 +396,41 @@ function AudioRecorder({
                 </div>
                 <button type="button" className="btn btn-outline" onClick={closeFullscreen} disabled={busy}>
                   {countdown !== null ? "Ακύρωση" : recording ? "Τέλος" : "Κλείσιμο"}
+                </button>
+              </div>
+
+              <div className="flex shrink-0 flex-col gap-2 rounded-xl border border-white/15 bg-white/10 p-3 sm:flex-row sm:items-end sm:justify-between">
+                <label className="block min-w-0 flex-1">
+                  <span className="mb-1 block text-xs font-semibold text-white/80">Επιλέξτε Μαρτυρία</span>
+                  <select
+                    className="input w-full text-slate-900"
+                    value={selectedMartyria}
+                    disabled={busy || recording || countdown !== null}
+                    onChange={(event) => {
+                      const next = event.target.value;
+                      setSelectedMartyria(next);
+                      const note = MARTYRIA_NOTES.find((item) => item.label === next);
+                      if (note) playMartyriaTone(note.frequency);
+                    }}
+                  >
+                    <option value="">Επιλέξτε νότα...</option>
+                    {MARTYRIA_NOTES.map((note) => (
+                      <option key={note.label} value={note.label}>
+                        {note.label}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <button
+                  type="button"
+                  className="btn btn-outline btn-sm"
+                  disabled={!selectedMartyria || busy || recording || countdown !== null}
+                  onClick={() => {
+                    const note = MARTYRIA_NOTES.find((item) => item.label === selectedMartyria);
+                    if (note) playMartyriaTone(note.frequency);
+                  }}
+                >
+                  Άκουσμα τόνου
                 </button>
               </div>
 
@@ -393,14 +491,14 @@ function AudioRecorder({
                         ? `Ξεκινάει σε ${countdown}...`
                         : recording
                           ? "Ηχογραφείται..."
-                          : "Έτοιμο για ηχογράφηση"}
+                          : "Πατήστε τον κύκλο για έναρξη"}
                   </div>
                   <div className="text-xs text-white/70">
                     {countdown !== null
                       ? "Προετοιμαστείτε. Η ηχογράφηση δεν έχει ξεκινήσει ακόμη."
                       : recording
                       ? "Πατήστε τον κύκλο όταν ολοκληρώσετε. Μέγιστη διάρκεια: 10 λεπτά."
-                      : "Αν ζητηθεί άδεια μικροφώνου, επιλέξτε αποδοχή."}
+                      : "Μπορείτε πρώτα να ακούσετε τη μαρτυρία που θέλετε."}
                   </div>
                 </div>
               </div>
@@ -487,7 +585,6 @@ export default function StudentTestsClient({
 
       await uploadToSignedUrl(presignJson.url, file, presignJson.contentType || mime);
       await refresh();
-      setStatus("Η αποθήκευση ολοκληρώθηκε.");
     } finally {
       setBusyKey(null);
     }

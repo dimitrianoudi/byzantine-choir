@@ -778,7 +778,7 @@ function VocalRangeDetector({
                 <div>
                   <h2 className="font-heading text-2xl font-bold">Φωνητική Έκταση</h2>
                   <p className="mt-1 text-sm text-slate-500">
-                    Τραγουδήστε “Ah” στη χαμηλότερη και στην υψηλότερη νότα σας.
+                    Τραγουδήστε “Ααααααα” στη χαμηλότερη και στην υψηλότερη νότα σας.
                   </p>
                 </div>
                 <button type="button" className="text-3xl font-bold leading-none" onClick={close} aria-label="Κλείσιμο">
@@ -793,7 +793,7 @@ function VocalRangeDetector({
                   disabled={phase !== "idle" && phase !== "done"}
                   onClick={() => measurePitch("low")}
                 >
-                  {phase === "low" ? "Ακούω τη χαμηλότερη νότα..." : `1. Χαμηλότερη νότα${lowHz ? ` (${formatHz(lowHz)})` : ""}`}
+                  {phase === "low" ? "Καταγράφω την χαμηλότερη νότα..." : `1. Χαμηλότερη νότα${lowHz ? ` (${formatHz(lowHz)})` : ""}`}
                 </button>
                 <button
                   type="button"
@@ -801,7 +801,7 @@ function VocalRangeDetector({
                   disabled={!lowHz || (phase !== "idle" && phase !== "done")}
                   onClick={() => measurePitch("high")}
                 >
-                  {phase === "high" ? "Ακούω την υψηλότερη νότα..." : `2. Υψηλότερη νότα${highHz ? ` (${formatHz(highHz)})` : ""}`}
+                  {phase === "high" ? "Καταγράφω την υψηλότερη νότα..." : `2. Υψηλότερη νότα${highHz ? ` (${formatHz(highHz)})` : ""}`}
                 </button>
               </div>
 

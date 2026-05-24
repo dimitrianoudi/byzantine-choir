@@ -5,9 +5,12 @@ import { GetObjectCommand, ListObjectsV2Command, type _Object } from "@aws-sdk/c
 import { BUCKET, presignGet, s3 } from "@/lib/s3";
 import { getSession } from "@/lib/session";
 import {
+  canAccessStudentTest,
   getStudentTestGroup,
   isStudentTestGroup,
+  isStudentTestsAdmin,
   studentTestBasePrefix,
+  studentMatchesEmail,
   type StudentTestGroup,
 } from "@/lib/studentTests";
 
@@ -22,6 +25,12 @@ type StudentVocalRange = {
   lowHz: number | null;
   highHz: number | null;
   detectedAt: string | null;
+};
+
+type StudentTeacherNote = {
+  text: string;
+  updatedAt: string | null;
+  updatedBy: string | null;
 };
 
 type ListedObject = {
@@ -110,8 +119,26 @@ async function readVocalRange(key: string): Promise<StudentVocalRange | null> {
   }
 }
 
+async function readTeacherNote(key: string): Promise<StudentTeacherNote | null> {
+  try {
+    const res = await s3.send(new GetObjectCommand({ Bucket: BUCKET, Key: key }));
+    const text = await streamToString(res.Body);
+    const json = JSON.parse(text) as Record<string, unknown>;
+    const noteText = typeof json.text === "string" ? json.text : "";
+    if (!noteText.trim()) return null;
+
+    return {
+      text: noteText,
+      updatedAt: typeof json.updatedAt === "string" ? json.updatedAt : null,
+      updatedBy: typeof json.updatedBy === "string" ? json.updatedBy : null,
+    };
+  } catch {
+    return null;
+  }
+}
+
 export async function GET(
-  _req: Request,
+  req: Request,
   { params }: { params: Promise<{ group: string }> }
 ) {
   const session = await getSession();
@@ -126,6 +153,23 @@ export async function GET(
 
   const group = rawGroup as StudentTestGroup;
   const config = getStudentTestGroup(group);
+  const role = session.user?.role ?? "member";
+  const isAdmin = isStudentTestsAdmin(role, session.user?.email);
+  const requestedStudentId = new URL(req.url).searchParams.get("studentId") || "";
+  const visibleStudents = config.students.filter((student) => {
+    if (requestedStudentId && student.id !== requestedStudentId) return false;
+    if (isAdmin) return true;
+    return studentMatchesEmail(student, session.user?.email);
+  });
+
+  if (requestedStudentId && !canAccessStudentTest(role, session.user?.email, group, requestedStudentId)) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
+  }
+
+  if (!isAdmin && visibleStudents.length === 0) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
+  }
+
   const base = studentTestBasePrefix(group);
   const objects = await listAllObjects(`${base}/`);
   const completedKeys = new Set(
@@ -138,19 +182,28 @@ export async function GET(
       .filter((obj) => obj.key.startsWith(`${base}/ranges/`) && obj.key.endsWith(".json"))
       .map((obj) => obj.key)
   );
+  const noteKeys = new Set(
+    objects
+      .filter((obj) => obj.key.startsWith(`${base}/notes/`) && obj.key.endsWith(".json"))
+      .map((obj) => obj.key)
+  );
 
   const score = await toSignedAsset(latestUnder(objects, `${base}/score/`));
   const students = await Promise.all(
-    config.students.map(async (student) => {
+    visibleStudents.map(async (student) => {
       const sample = await toSignedAsset(latestUnder(objects, `${base}/students/${student.id}/sample/`));
       const feedback = await toSignedAsset(latestUnder(objects, `${base}/students/${student.id}/feedback/`));
       const rangeKey = `${base}/ranges/${student.id}.json`;
       const vocalRange = rangeKeys.has(rangeKey) ? await readVocalRange(rangeKey) : null;
+      const noteKey = `${base}/notes/${student.id}.json`;
+      const teacherNote = noteKeys.has(noteKey) ? await readTeacherNote(noteKey) : null;
 
       return {
-        ...student,
+        id: student.id,
+        name: student.name,
         sample,
         feedback,
+        teacherNote,
         vocalRange,
         completed: completedKeys.has(`${base}/completed/${student.id}.json`),
       };
@@ -161,7 +214,7 @@ export async function GET(
     group,
     label: config.label,
     courseLabel: config.courseLabel,
-    role: session.user?.role ?? "member",
+    role: isAdmin ? "admin" : "member",
     score,
     students,
   });

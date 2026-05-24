@@ -4,6 +4,7 @@ import { NextResponse } from "next/server";
 import { BUCKET, s3, uploadBuffer } from "@/lib/s3";
 import { getSession } from "@/lib/session";
 import {
+  canAccessStudentTest,
   getStudentTestStudent,
   isStudentTestGroup,
   studentTestBasePrefix,
@@ -35,6 +36,10 @@ export async function POST(req: Request) {
 
   if (!group || !getStudentTestStudent(group as StudentTestGroup, studentId)) {
     return NextResponse.json({ error: "Invalid student" }, { status: 400 });
+  }
+
+  if (!canAccessStudentTest(session.user?.role, session.user?.email, group as StudentTestGroup, studentId)) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
   }
 
   const key = `${studentTestBasePrefix(group as StudentTestGroup)}/ranges/${studentId}.json`;

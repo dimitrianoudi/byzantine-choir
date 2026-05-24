@@ -3,8 +3,9 @@ import { notFound, redirect } from "next/navigation";
 import StudentTestsClient from "@/components/StudentTestsClient";
 import { getSession } from "@/lib/session";
 import {
-  getStudentTestAccessForEmail,
+  canAccessStudentTest,
   getStudentTestGroup,
+  getStudentTestStudent,
   isStudentTestGroup,
   isStudentTestsAdmin,
   type StudentTestGroup,
@@ -12,28 +13,28 @@ import {
 
 export const dynamic = "force-dynamic";
 
-export default async function StudentTestGroupPage({
+export default async function PrivateStudentTestPage({
   params,
 }: {
-  params: Promise<{ group: string }>;
+  params: Promise<{ group: string; studentId: string }>;
 }) {
   const session = await getSession();
   if (!session.isLoggedIn) redirect("/login");
 
-  const { group: rawGroup } = await params;
+  const { group: rawGroup, studentId } = await params;
   if (!isStudentTestGroup(rawGroup)) notFound();
 
   const group = rawGroup as StudentTestGroup;
-  const config = getStudentTestGroup(group);
-  const role = session.user?.role ?? "member";
-  const isAdmin = isStudentTestsAdmin(role, session.user?.email);
+  const student = getStudentTestStudent(group, studentId);
+  if (!student) notFound();
 
-  if (!isAdmin) {
-    const access = getStudentTestAccessForEmail(session.user?.email);
-    const firstInGroup = access.find((entry) => entry.group === group);
-    if (firstInGroup) redirect(`/students/${group}/${firstInGroup.student.id}`);
+  const role = session.user?.role ?? "member";
+  if (!canAccessStudentTest(role, session.user?.email, group, studentId)) {
     redirect("/students");
   }
+
+  const config = getStudentTestGroup(group);
+  const isAdmin = isStudentTestsAdmin(role, session.user?.email);
 
   return (
     <main className="container section space-y-6">
@@ -41,21 +42,26 @@ export default async function StudentTestGroupPage({
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
             <h1 className="font-heading text-blue" style={{ fontWeight: 700, fontSize: 24 }}>
-              Αξιολόγηση Μαθητών
+              Προσωπική Αξιολόγηση
             </h1>
-            <p className="text-sm text-muted mt-1">{config.courseLabel}</p>
+            <p className="text-sm text-muted mt-1">
+              {student.name} · {config.courseLabel}
+            </p>
           </div>
-          <Link href="/students" className="btn btn-outline">
-            Όλα τα τμήματα
-          </Link>
+          {isAdmin && (
+            <Link href={`/students/${group}`} className="btn btn-outline">
+              Όλο το τμήμα
+            </Link>
+          )}
         </div>
       </header>
 
       <StudentTestsClient
         group={group}
         groupLabel={config.courseLabel}
-        initialStudents={config.students.map(({ id, name }) => ({ id, name }))}
+        initialStudents={[{ id: student.id, name: student.name }]}
         role={isAdmin ? "admin" : "member"}
+        studentId={student.id}
       />
     </main>
   );

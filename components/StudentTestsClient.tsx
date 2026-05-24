@@ -4,11 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import Link from "next/link";
 import type { Role } from "@/lib/session";
-import {
-  STUDENT_TEST_GROUPS,
-  type StudentTestGroup,
-  type StudentTestStudent,
-} from "@/lib/studentTests";
+import type { StudentTestGroup, StudentTestStudent } from "@/lib/studentTests";
 
 type Asset = {
   key: string;
@@ -16,9 +12,16 @@ type Asset = {
   lastModified: string | null;
 };
 
+type TeacherNote = {
+  text: string;
+  updatedAt: string | null;
+  updatedBy?: string | null;
+};
+
 type StudentRow = StudentTestStudent & {
   sample: Asset | null;
   feedback: Asset | null;
+  teacherNote: TeacherNote | null;
   vocalRange: VocalRangeResult | null;
   completed: boolean;
 };
@@ -28,6 +31,7 @@ type Props = {
   groupLabel: string;
   initialStudents: StudentTestStudent[];
   role: Role;
+  studentId?: string;
 };
 
 type UploadKind = "score" | "student-recording" | "teacher-feedback";
@@ -40,6 +44,11 @@ type VocalRangeResult = {
 };
 
 const GROUP_ORDER: StudentTestGroup[] = ["kids", "women", "men"];
+const GROUP_LABELS: Record<StudentTestGroup, string> = {
+  kids: "Παιδικής Φωνής",
+  women: "Γυναικείας Φωνής",
+  men: "Ανδρικής Φωνής",
+};
 const MAX_RECORDING_MS = 10 * 60 * 1000;
 const MARTYRIA_TONE_MS = 4500;
 const MARTYRIA_NOTES = [
@@ -842,11 +851,68 @@ function VocalRangeDetector({
   );
 }
 
+function TeacherNoteBox({
+  note,
+  isAdmin,
+  disabled,
+  onSave,
+}: {
+  note: TeacherNote | null;
+  isAdmin: boolean;
+  disabled: boolean;
+  onSave: (text: string) => Promise<void>;
+}) {
+  const [text, setText] = useState(note?.text ?? "");
+  const savedText = note?.text ?? "";
+  const isDirty = text !== savedText;
+
+  useEffect(() => {
+    setText(note?.text ?? "");
+  }, [note?.text]);
+
+  if (!isAdmin) {
+    return note?.text ? (
+      <div className="rounded-lg border border-subtle bg-white/60 p-3 text-sm whitespace-pre-wrap">
+        {note.text}
+      </div>
+    ) : (
+      <div className="text-xs text-muted">Δεν υπάρχουν γραπτές σημειώσεις.</div>
+    );
+  }
+
+  return (
+    <div className="space-y-2">
+      <textarea
+        className="w-full min-h-24 rounded-lg border border-subtle bg-white px-3 py-2 text-sm outline-none focus:border-gold"
+        value={text}
+        maxLength={4000}
+        disabled={disabled}
+        placeholder="Γράψτε σημειώσεις για την αξιολόγηση του μαθητή..."
+        onChange={(event) => setText(event.target.value)}
+      />
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div className="text-[11px] text-muted">
+          {note?.updatedAt ? `Τελευταία ενημέρωση: ${dateLabel(note.updatedAt)}` : "Δεν έχει αποθηκευτεί σημείωμα."}
+        </div>
+        <button
+          type="button"
+          className="btn btn-outline btn-sm"
+          disabled={disabled || !isDirty}
+          onClick={() => onSave(text)}
+        >
+          Αποθήκευση σημειώσεων
+        </button>
+      </div>
+    </div>
+  );
+}
+
 export default function StudentTestsClient({
   group,
   groupLabel,
   initialStudents,
   role,
+  studentId,
 }: Props) {
   const isAdmin = role === "admin";
   const [score, setScore] = useState<Asset | null>(null);
@@ -855,6 +921,7 @@ export default function StudentTestsClient({
       ...student,
       sample: null,
       feedback: null,
+      teacherNote: null,
       vocalRange: null,
       completed: false,
     }))
@@ -863,12 +930,15 @@ export default function StudentTestsClient({
   const [status, setStatus] = useState<string | null>(null);
 
   const refresh = useCallback(async () => {
-    const res = await fetch(`/api/student-tests/${group}`, { cache: "no-store" });
+    const params = new URLSearchParams();
+    if (studentId) params.set("studentId", studentId);
+    const query = params.toString();
+    const res = await fetch(`/api/student-tests/${group}${query ? `?${query}` : ""}`, { cache: "no-store" });
     const json = await res.json().catch(() => ({}));
     if (!res.ok) throw new Error(json?.error || "Αποτυχία φόρτωσης δοκιμών.");
     setScore(json.score ?? null);
     setStudents(json.students ?? []);
-  }, [group]);
+  }, [group, studentId]);
 
   useEffect(() => {
     refresh().catch((err: any) => setStatus(err?.message || "Αποτυχία φόρτωσης δοκιμών."));
@@ -905,6 +975,19 @@ export default function StudentTestsClient({
       if (!presignRes.ok) throw new Error(presignJson?.error || "Αποτυχία υπογραφής upload.");
 
       await uploadToSignedUrl(presignJson.url, file, presignJson.contentType || mime);
+      if (kind === "student-recording" && studentId) {
+        fetch("/api/student-tests/notify", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            group,
+            studentId,
+            key: presignJson.key,
+          }),
+        }).catch((err) => {
+          console.warn("Student recording notification failed", err);
+        });
+      }
       await refresh();
     } finally {
       setBusyKey(null);
@@ -960,19 +1043,49 @@ export default function StudentTestsClient({
     }
   };
 
+  const saveTeacherNote = async (studentId: string, text: string) => {
+    const previous = students;
+    setBusyKey(`note-${studentId}`);
+    setStatus(null);
+
+    try {
+      const res = await fetch("/api/student-tests/notes", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ group, studentId, text }),
+      });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(json?.error || "Αποτυχία αποθήκευσης σημειώσεων.");
+
+      setStudents((current) =>
+        current.map((student) =>
+          student.id === studentId ? { ...student, teacherNote: json.teacherNote ?? null } : student
+        )
+      );
+      setStatus("Οι σημειώσεις αποθηκεύτηκαν.");
+    } catch (err: any) {
+      setStudents(previous);
+      setStatus(err?.message || "Αποτυχία αποθήκευσης σημειώσεων.");
+    } finally {
+      setBusyKey(null);
+    }
+  };
+
   return (
     <div className="space-y-5">
-      <nav className="flex flex-wrap gap-2">
-        {GROUP_ORDER.map((item) => (
-          <Link
-            key={item}
-            href={`/students/${item}`}
-            className={`btn btn-outline btn-sm ${item === group ? "btn--selected" : ""}`}
-          >
-            {STUDENT_TEST_GROUPS[item].label}
-          </Link>
-        ))}
-      </nav>
+      {isAdmin && (
+        <nav className="flex flex-wrap gap-2">
+          {GROUP_ORDER.map((item) => (
+            <Link
+              key={item}
+              href={`/students/${item}`}
+              className={`btn btn-outline btn-sm ${item === group ? "btn--selected" : ""}`}
+            >
+              {GROUP_LABELS[item]}
+            </Link>
+          ))}
+        </nav>
+      )}
 
       <section className="card p-5 space-y-4">
         <div className="flex flex-wrap items-center justify-between gap-3">
@@ -1106,6 +1219,15 @@ export default function StudentTestsClient({
                           />
                         </div>
                       )}
+                      <div className="space-y-2 pt-2">
+                        <div className="text-xs font-semibold text-muted">Γραπτές σημειώσεις</div>
+                        <TeacherNoteBox
+                          note={student.teacherNote}
+                          isAdmin={isAdmin}
+                          disabled={busyKey !== null}
+                          onSave={(text) => saveTeacherNote(student.id, text)}
+                        />
+                      </div>
                     </div>
                   </td>
                   <td className="px-4 py-4 text-center">
@@ -1211,6 +1333,15 @@ export default function StudentTestsClient({
                   }
                 />
               )}
+              <div className="space-y-2 pt-2">
+                <div className="text-xs font-semibold text-muted">Γραπτές σημειώσεις</div>
+                <TeacherNoteBox
+                  note={student.teacherNote}
+                  isAdmin={isAdmin}
+                  disabled={busyKey !== null}
+                  onSave={(text) => saveTeacherNote(student.id, text)}
+                />
+              </div>
             </div>
           </article>
         ))}

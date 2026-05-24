@@ -11,7 +11,7 @@ import {
   type StudentTestGroup,
 } from "@/lib/studentTests";
 
-const TEACHER_NOTIFICATION_EMAIL = "dimitrianoudi@gmail.com";
+const TEACHER_NOTIFICATION_EMAIL = "stathisnikolaos@gmail.com";
 
 function escapeHtml(value: string) {
   return value

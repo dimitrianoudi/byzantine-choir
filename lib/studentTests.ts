@@ -129,17 +129,16 @@ export function canAccessStudentTest(
   return !!student && studentMatchesEmail(student, email);
 }
 
-export function isStudentTestsAdmin(role: "member" | "admin" | undefined, email?: string | null) {
-  if (role !== "admin") return false;
+const STUDENT_TEST_ADMIN_EMAILS = [
+  "stathisnikolaos@gmail.com",
+  "dimitrianoudi@gmail.com",
+];
 
+export function isStudentTestsAdmin(_role: "member" | "admin" | undefined, email?: string | null) {
   const normalized = normalizeStudentEmail(email);
   if (!normalized) return false;
 
-  return (process.env.ADMIN_GOOGLE_EMAILS || "")
-    .split(",")
-    .map((adminEmail) => normalizeStudentEmail(adminEmail))
-    .filter(Boolean)
-    .includes(normalized);
+  return STUDENT_TEST_ADMIN_EMAILS.includes(normalized);
 }
 
 export function getStudentTestAccessForEmail(email?: string | null): StudentTestAccess[] {

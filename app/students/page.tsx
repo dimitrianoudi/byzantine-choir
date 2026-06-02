@@ -16,8 +16,9 @@ export default async function StudentTestsPage() {
   if (!session.isLoggedIn) redirect("/login");
 
   const role = session.user?.role ?? "member";
-  const isAdmin = isStudentTestsAdmin(role, session.user?.email);
-  const access = getStudentTestAccessForEmail(session.user?.email);
+  const email = session.user?.email ?? "";
+  const isAdmin = isStudentTestsAdmin(role, email);
+  const access = getStudentTestAccessForEmail(email);
 
   if (!isAdmin && access.length === 1) {
     redirect(`/students/${access[0].group}/${access[0].student.id}`);
@@ -68,8 +69,9 @@ export default async function StudentTestsPage() {
           })}
         </div>
       ) : (
-        <div className="card p-6 text-muted">
-          Δεν βρέθηκε προσωπική αξιολόγηση συνδεδεμένη με το email σας.
+        <div className="card p-6 text-muted space-y-2">
+          <div>Δεν βρέθηκε προσωπική αξιολόγηση συνδεδεμένη με το email σας.</div>
+          {email && <div className="text-xs">Συνδεδεμένο email: {email}</div>}
         </div>
       )}
     </main>

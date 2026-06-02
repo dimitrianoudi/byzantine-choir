@@ -109,7 +109,17 @@ export function getStudentTestStudent(group: StudentTestGroup, studentId: string
 }
 
 export function normalizeStudentEmail(email?: string | null) {
-  return (email || "").trim().toLowerCase();
+  const normalized = (email || "").trim().toLowerCase();
+  const [localPart, domain] = normalized.split("@");
+
+  if (!localPart || !domain) return normalized;
+
+  if (domain === "gmail.com" || domain === "googlemail.com") {
+    const canonicalLocal = localPart.split("+")[0].replace(/\./g, "");
+    return `${canonicalLocal}@gmail.com`;
+  }
+
+  return normalized;
 }
 
 export function studentMatchesEmail(student: StudentTestStudent, email?: string | null) {

@@ -71,7 +71,7 @@ export const STUDENT_TEST_GROUPS: Record<
       { id: "klitsinikos-dionysios", name: "Κλιτσινίκος Διονύσιος", emails: ["dionysisklitsinikos@gmail.com"] },
       { id: "giagkou-athanasios", name: "Γιάγκου Αθανάσιος", emails: ["thanosgiagkou@gmail.com"] },
       { id: "angistalis-georgios", name: "Αγγιστάλης Γεώργιος", emails: ["georgios.angistalis@gmail.com"] },
-      { id: "samios-evangelos", name: "Σάμιος Ευάγγελος", emails: ["samiosco@yahoo.gr"] },
+      { id: "samios-evangelos", name: "Σάμιος Ευάγγελος", emails: ["evansamios58@gmail.com"] },
       { id: "malioufas-georgios", name: "Μαλιούφας Γεώργιος", emails: ["gmalioufas@yahoo.gr"] },
       { id: "avramidis-dionysis", name: "Αβραμίδης Διονύσης", emails: ["abramidi@yahoo.gr"] },
       { id: "itsios-georgios", name: "Ίτσιος Γεώργιος", emails: ["giorgositsios2@gmail.com"] },

@@ -33,7 +33,7 @@ export default function PublicAkolouthies() {
   const [playerDuration, setPlayerDuration] = useState(0);
   const [highlightedKey, setHighlightedKey] = useState<string | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
-  const audioEnhancer = useAudioEnhancer(audioRef);
+  const audioEnhancer = useAudioEnhancer(audioRef, { preferNativePlayback: true });
   const itemRefs = useRef<Record<string, HTMLDivElement | null>>({});
   const forceRefreshRef = useRef(sp.get("refresh") === "1");
 
@@ -42,6 +42,10 @@ export default function PublicAkolouthies() {
     const current = new Date().getFullYear();
     return Array.from({ length: 12 }, (_, i) => String(current - i));
   }, []);
+  const currentItem = useMemo(
+    () => items.find((item) => item.key === currentKey) || null,
+    [currentKey, items]
+  );
 
   const getPublicBaseUrl = () => {
     if (typeof window !== "undefined" && window.location.origin) {
@@ -197,6 +201,7 @@ export default function PublicAkolouthies() {
     if (!audio || !currentKey) return;
     audio.currentTime = nextTime;
     setPlayerCurrentTime(nextTime);
+    updateMediaSessionPosition(audio);
   };
 
   const toggleAudioEnhancer = async () => {
@@ -224,6 +229,75 @@ export default function PublicAkolouthies() {
       setHighlightedKey((prev) => (prev === found.key ? null : prev));
     }, 3000);
   }, [items, initialKey]);
+
+  useEffect(() => {
+    if (typeof navigator === "undefined" || !("mediaSession" in navigator)) return;
+    const mediaSession = navigator.mediaSession;
+    const audio = audioRef.current;
+
+    if (!currentItem || !audio) {
+      mediaSession.playbackState = "none";
+      return;
+    }
+
+    if (typeof window.MediaMetadata !== "undefined") {
+      mediaSession.metadata = new window.MediaMetadata({
+        title: currentItem.name,
+        artist: "Φροντιστήριο Ψαλτικής",
+        album: "Ακολουθίες",
+        artwork: [
+          {
+            src: "/logo_frontistirio_psaltikis.png",
+            sizes: "512x512",
+            type: "image/png",
+          },
+        ],
+      });
+    }
+
+    const setActionHandler = (
+      action: MediaSessionAction,
+      handler: MediaSessionActionHandler | null
+    ) => {
+      try {
+        mediaSession.setActionHandler(action, handler);
+      } catch {
+        // Some mobile browsers expose only part of the Media Session API.
+      }
+    };
+
+    setActionHandler("play", () => {
+      void audio.play();
+    });
+    setActionHandler("pause", () => {
+      audio.pause();
+    });
+    setActionHandler("seekbackward", (details) => {
+      audio.currentTime = Math.max(0, audio.currentTime - (details.seekOffset || 10));
+      updateMediaSessionPosition(audio);
+    });
+    setActionHandler("seekforward", (details) => {
+      const duration = Number.isFinite(audio.duration) ? audio.duration : Number.POSITIVE_INFINITY;
+      audio.currentTime = Math.min(duration, audio.currentTime + (details.seekOffset || 10));
+      updateMediaSessionPosition(audio);
+    });
+    setActionHandler("seekto", (details) => {
+      if (typeof details.seekTime !== "number") return;
+      audio.currentTime = details.seekTime;
+      updateMediaSessionPosition(audio);
+    });
+
+    updateMediaSessionPosition(audio);
+    mediaSession.playbackState = audio.paused ? "paused" : "playing";
+
+    return () => {
+      setActionHandler("play", null);
+      setActionHandler("pause", null);
+      setActionHandler("seekbackward", null);
+      setActionHandler("seekforward", null);
+      setActionHandler("seekto", null);
+    };
+  }, [currentItem]);
 
   return (
     <div className="space-y-6">
@@ -360,21 +434,23 @@ export default function PublicAkolouthies() {
                     </div>
                   </div>
                 </div>
-                <AudioEnhancerControls
-                  supported={audioEnhancer.supported}
-                  open={audioEnhancer.open}
-                  enabled={audioEnhancer.enabled}
-                  presetId={audioEnhancer.presetId}
-                  settings={audioEnhancer.settings}
-                  error={audioEnhancer.error}
-                  onToggleOpen={() => {
-                    void toggleAudioEnhancer();
-                  }}
-                  onToggleEnabled={() => audioEnhancer.setEnabled(!audioEnhancer.enabled)}
-                  onApplyPreset={audioEnhancer.applyPreset}
-                  onUpdateSetting={audioEnhancer.updateSetting}
-                  onReset={audioEnhancer.reset}
-                />
+                {!audioEnhancer.nativePlaybackOnly && (
+                  <AudioEnhancerControls
+                    supported={audioEnhancer.supported}
+                    open={audioEnhancer.open}
+                    enabled={audioEnhancer.enabled}
+                    presetId={audioEnhancer.presetId}
+                    settings={audioEnhancer.settings}
+                    error={audioEnhancer.error}
+                    onToggleOpen={() => {
+                      void toggleAudioEnhancer();
+                    }}
+                    onToggleEnabled={() => audioEnhancer.setEnabled(!audioEnhancer.enabled)}
+                    onApplyPreset={audioEnhancer.applyPreset}
+                    onUpdateSetting={audioEnhancer.updateSetting}
+                    onReset={audioEnhancer.reset}
+                  />
+                )}
               </div>
             </div>
           ))}
@@ -383,18 +459,33 @@ export default function PublicAkolouthies() {
             ref={audioRef}
             className="sr-only"
             preload="auto"
+            playsInline
             crossOrigin="anonymous"
             onPlay={() => {
               if (currentKey) setPlayingKey(currentKey);
+              if ("mediaSession" in navigator) navigator.mediaSession.playbackState = "playing";
             }}
-            onPause={() => setPlayingKey(null)}
-            onLoadedMetadata={(e) => setPlayerDuration(e.currentTarget.duration || 0)}
-            onDurationChange={(e) => setPlayerDuration(e.currentTarget.duration || 0)}
-            onTimeUpdate={(e) => setPlayerCurrentTime(e.currentTarget.currentTime || 0)}
+            onPause={() => {
+              setPlayingKey(null);
+              if ("mediaSession" in navigator) navigator.mediaSession.playbackState = "paused";
+            }}
+            onLoadedMetadata={(e) => {
+              setPlayerDuration(e.currentTarget.duration || 0);
+              updateMediaSessionPosition(e.currentTarget);
+            }}
+            onDurationChange={(e) => {
+              setPlayerDuration(e.currentTarget.duration || 0);
+              updateMediaSessionPosition(e.currentTarget);
+            }}
+            onTimeUpdate={(e) => {
+              setPlayerCurrentTime(e.currentTarget.currentTime || 0);
+              updateMediaSessionPosition(e.currentTarget);
+            }}
             onEnded={() => {
               if (audioRef.current) audioRef.current.currentTime = 0;
               setPlayingKey(null);
               setPlayerCurrentTime(0);
+              if ("mediaSession" in navigator) navigator.mediaSession.playbackState = "paused";
             }}
           />
         </div>
@@ -506,6 +597,24 @@ function formatTime(seconds: number) {
   const mins = Math.floor(total / 60);
   const secs = total % 60;
   return `${mins}:${String(secs).padStart(2, "0")}`;
+}
+
+function updateMediaSessionPosition(audio: HTMLAudioElement) {
+  if (typeof navigator === "undefined" || !("mediaSession" in navigator)) return;
+  if (typeof navigator.mediaSession.setPositionState !== "function") return;
+
+  const duration = Number.isFinite(audio.duration) && audio.duration > 0 ? audio.duration : 0;
+  if (!duration) return;
+
+  try {
+    navigator.mediaSession.setPositionState({
+      duration,
+      playbackRate: audio.playbackRate || 1,
+      position: Math.min(audio.currentTime || 0, duration),
+    });
+  } catch {
+    // Ignore browsers with incomplete position-state support.
+  }
 }
 
 function trackCount(name: string) {

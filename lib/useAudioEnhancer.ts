@@ -38,6 +38,7 @@ type EnhancerNodes = {
 
 export type UseAudioEnhancerResult = {
   supported: boolean;
+  nativePlaybackOnly: boolean;
   open: boolean;
   enabled: boolean;
   presetId: AudioEnhancerPresetId;
@@ -49,6 +50,10 @@ export type UseAudioEnhancerResult = {
   applyPreset: (presetId: Exclude<AudioEnhancerPresetId, 'custom'>) => void;
   updateSetting: (key: keyof AudioEnhancerSettings, value: number) => void;
   reset: () => void;
+};
+
+type UseAudioEnhancerOptions = {
+  preferNativePlayback?: boolean;
 };
 
 function getAudioContextCtor() {
@@ -63,13 +68,15 @@ function setNodeValue(param: AudioParam, value: number, now: number) {
 }
 
 export function useAudioEnhancer(
-  audioRef: React.RefObject<HTMLAudioElement | null>
+  audioRef: React.RefObject<HTMLAudioElement | null>,
+  options: UseAudioEnhancerOptions = {}
 ): UseAudioEnhancerResult {
   const [state, setState] = useState<AudioEnhancerState>(DEFAULT_AUDIO_ENHANCER_STATE);
   const [open, setOpen] = useState(false);
   const [supported, setSupported] = useState(false);
   const [hydrated, setHydrated] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [nativePlaybackOnly, setNativePlaybackOnly] = useState(false);
 
   const stateRef = useRef(state);
   const contextRef = useRef<AudioContext | null>(null);
@@ -112,6 +119,12 @@ export function useAudioEnhancer(
   const ensureReady = useCallback(async () => {
     const audio = audioRef.current;
     if (!audio) return false;
+
+    if (nativePlaybackOnly) {
+      setSupported(false);
+      setError('Στο κινητό χρησιμοποιείται η εγγενής αναπαραγωγή για να συνεχίζει με κλειστή οθόνη.');
+      return false;
+    }
 
     const AudioContextCtor = getAudioContextCtor();
     if (!AudioContextCtor) {
@@ -217,9 +230,23 @@ export function useAudioEnhancer(
       setError(err?.message || 'Αδυναμία ενεργοποίησης του equalizer.');
       return false;
     }
-  }, [applyStateToGraph, audioRef]);
+  }, [applyStateToGraph, audioRef, nativePlaybackOnly]);
 
   useEffect(() => {
+    const useNativePlayback =
+      options.preferNativePlayback === true &&
+      typeof navigator !== 'undefined' &&
+      (/Android|iPhone|iPad|iPod/i.test(navigator.userAgent) || navigator.maxTouchPoints > 1);
+
+    if (useNativePlayback) {
+      setNativePlaybackOnly(true);
+      setSupported(false);
+      setState(DEFAULT_AUDIO_ENHANCER_STATE);
+      setHydrated(true);
+      return;
+    }
+
+    setNativePlaybackOnly(false);
     setSupported(!!getAudioContextCtor());
     try {
       const raw = window.localStorage.getItem(AUDIO_ENHANCER_STORAGE_KEY);
@@ -232,7 +259,7 @@ export function useAudioEnhancer(
     } finally {
       setHydrated(true);
     }
-  }, []);
+  }, [options.preferNativePlayback]);
 
   useEffect(() => {
     if (!hydrated) return;
@@ -248,6 +275,7 @@ export function useAudioEnhancer(
   }, [applyStateToGraph, state]);
 
   useEffect(() => {
+    if (nativePlaybackOnly) return;
     const audio = audioRef.current;
     if (!audio) return;
 
@@ -259,12 +287,13 @@ export function useAudioEnhancer(
 
     audio.addEventListener('play', onPlay);
     return () => audio.removeEventListener('play', onPlay);
-  }, [audioRef, ensureReady]);
+  }, [audioRef, ensureReady, nativePlaybackOnly]);
 
   useEffect(() => {
+    if (nativePlaybackOnly) return;
     if (!state.enabled) return;
     void ensureReady();
-  }, [ensureReady, state.enabled]);
+  }, [ensureReady, nativePlaybackOnly, state.enabled]);
 
   useEffect(() => {
     return () => {
@@ -321,13 +350,15 @@ export function useAudioEnhancer(
   }, []);
 
   const setEnabled = useCallback((value: boolean) => {
+    if (nativePlaybackOnly) return;
     setState((prev) => ({ ...prev, enabled: value }));
     if (value) {
       void ensureReady();
     }
-  }, [ensureReady]);
+  }, [ensureReady, nativePlaybackOnly]);
 
   const applyPreset = useCallback((presetId: Exclude<AudioEnhancerPresetId, 'custom'>) => {
+    if (nativePlaybackOnly) return;
     const preset = getAudioEnhancerPreset(presetId);
     setState({
       enabled: presetId !== 'flat',
@@ -337,9 +368,10 @@ export function useAudioEnhancer(
     if (presetId !== 'flat') {
       void ensureReady();
     }
-  }, [ensureReady]);
+  }, [ensureReady, nativePlaybackOnly]);
 
   const updateSetting = useCallback((key: keyof AudioEnhancerSettings, value: number) => {
+    if (nativePlaybackOnly) return;
     setState((prev) => ({
       enabled: true,
       presetId: 'custom',
@@ -352,7 +384,7 @@ export function useAudioEnhancer(
       },
     }));
     void ensureReady();
-  }, [ensureReady]);
+  }, [ensureReady, nativePlaybackOnly]);
 
   const reset = useCallback(() => {
     setState(DEFAULT_AUDIO_ENHANCER_STATE);
@@ -360,6 +392,7 @@ export function useAudioEnhancer(
 
   return {
     supported,
+    nativePlaybackOnly,
     open,
     enabled: state.enabled,
     presetId: state.presetId,

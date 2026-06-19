@@ -1,4 +1,4 @@
-import SocialRegisterButton from "@/components/SocialRegisterButton";
+import Link from "next/link";
 import SectionDivider from "@/components/SectionDivider";
 
 export default function HomePage() {
@@ -21,11 +21,9 @@ export default function HomePage() {
         {/* Buttons */}
         <section className="stack">
           <div className="actions justify-center gap-4 sm:gap-6 block-gap">
-            <SocialRegisterButton
-              label="Ἐγγραφή για φυσική παρουσία στο Φροντιστήριο"
-              className="btn btn-gold"
-              redirectTo="/material"
-            />
+            <Link href="/register" className="btn btn-gold">
+              Εγγραφή για φυσική παρουσία στο Φροντιστήριο
+            </Link>
             <a href="/calendar" className="btn btn-outline">Πρόγραμμα</a>
           </div>
         </section>

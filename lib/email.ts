@@ -3,11 +3,12 @@ type SendEmailInput = {
   subject: string;
   text: string;
   html?: string;
+  replyTo?: string;
 };
 
-export async function sendEmail({ to, subject, text, html }: SendEmailInput) {
+export async function sendEmail({ to, subject, text, html, replyTo }: SendEmailInput) {
   const apiKey = process.env.RESEND_API_KEY;
-  const from = process.env.RESEND_FROM_EMAIL || "Ψαλτική Παιδεία <onboarding@resend.dev>";
+  const from = process.env.RESEND_FROM_EMAIL || "Ψαλτική Παιδεία <noreply@frontistiriopsaltikis.gr>";
 
   if (!apiKey) {
     return { ok: false, skipped: true, reason: "missing_resend_api_key" };
@@ -25,6 +26,7 @@ export async function sendEmail({ to, subject, text, html }: SendEmailInput) {
       subject,
       text,
       html,
+      ...(replyTo ? { reply_to: replyTo } : {}),
     }),
   });
 

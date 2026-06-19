@@ -8,10 +8,32 @@ const REGISTRATION_EMAIL = process.env.REGISTRATION_EMAIL || 'stathisnikolaos@gm
 
 const gradeOptions = ["Α'", "Β'", "Γ'", "Δ'", "Ε'", "ΣΤ'"] as const;
 const yesNoOptions = ['Όχι', 'Ναι'] as const;
-const genderOptions = ['Αγόρι', 'Κορίτσι'] as const;
-const guardianRelationOptions = ['Πατέρας', 'Μητέρα', 'Κηδεμόνας'] as const;
-const preferredDayOptions = ['Δευτέρα', 'Τετάρτη', 'Χωρίς προτίμηση'] as const;
-const preferredTimeOptions = ['16:30 - 17:15', '17:30 - 18:15', 'Χωρίς προτίμηση'] as const;
+const preferredDayOptions = [
+  'Δευτέρα',
+  'Τετάρτη',
+  'Χωρίς προτίμηση',
+  'Μπορούμε και τις δύο ημέρες',
+  'Δεν γνωρίζουμε ακόμη',
+] as const;
+const preferredTimeOptions = [
+  '16:30 - 17:15',
+  '17:30 - 18:15',
+  'Χωρίς προτίμηση',
+  'Μπορούμε και στις δύο ώρες',
+  'Δεν γνωρίζουμε ακόμη',
+] as const;
+const childChantingExperienceOptions = [
+  'Όχι',
+  'Ναι, λίγη επαφή',
+  'Ναι, συμμετέχει ήδη σε αναλόγιο ή χορωδία',
+] as const;
+const campParticipationOptions = ['Ναι', 'Όχι', 'Δεν γνωρίζω ακόμη'] as const;
+const notificationPreferenceOptions = [
+  'Ναι, μέσω τηλεφώνου',
+  'Ναι, μέσω email',
+  'Ναι, μέσω Viber / WhatsApp',
+  'Όχι',
+] as const;
 const chantingExperienceOptions = [
   'Καμία εμπειρία',
   'Λίγη εμπειρία',
@@ -42,19 +64,18 @@ const kidsSchema = baseSchema.extend({
   kind: z.literal('kids'),
   childName: requiredText,
   childBirthDate: requiredText,
-  school: requiredText,
+  childAge: requiredText,
+  school: optionalShortText,
   grade: z.enum(gradeOptions),
-  childGender: z.enum(genderOptions),
   guardianName: requiredText,
-  guardianRelation: z.enum(guardianRelationOptions),
-  address: requiredText,
   area: requiredText,
-  postalCode: optionalShortText,
-  hasExperience: z.enum(yesNoOptions),
-  knowsNeumes: z.enum(yesNoOptions),
-  attendsLessons: z.enum(yesNoOptions),
-  playsInstrument: z.enum(yesNoOptions),
-  instrumentDetails: optionalShortText,
+  chantingExperience: z.enum(childChantingExperienceOptions),
+  chantingExperienceDetails: optionalText,
+  campParticipation: z.enum(campParticipationOptions),
+  notificationPreference: z.enum(notificationPreferenceOptions),
+  consentAccuracy: z.literal('on'),
+  consentDataUse: z.literal('on'),
+  consentInterestOnly: z.literal('on'),
 });
 
 const adultsSchema = baseSchema.extend({
@@ -107,20 +128,19 @@ function rowsForSubmission(data: RegistrationData): EmailRow[] {
       ['Τύπος δήλωσης', 'Παιδικό Φροντιστήριο Ψαλτικής'],
       ['Ονοματεπώνυμο παιδιού', data.childName],
       ['Ημερομηνία γέννησης', data.childBirthDate],
-      ['Σχολείο', data.school],
+      ['Ηλικία', data.childAge],
       ['Τάξη Δημοτικού 2026-2027', data.grade],
-      ['Φύλο', data.childGender],
+      ['Σχολείο', data.school],
       ['Ονοματεπώνυμο γονέα / κηδεμόνα', data.guardianName],
-      ['Ιδιότητα', data.guardianRelation],
-      ['Διεύθυνση', data.address],
-      ['Περιοχή', data.area],
-      ['Τ.Κ.', data.postalCode],
+      ['Περιοχή κατοικίας', data.area],
       ...commonRows,
-      ['Έχει ξαναέρθει σε επαφή με ψαλτική;', data.hasExperience],
-      ['Έχει γνωρίσει νεύματα;', data.knowsNeumes],
-      ['Παρακολουθεί ήδη μαθήματα μουσικής;', data.attendsLessons],
-      ['Παίζει κάποιο μουσικό όργανο;', data.playsInstrument],
-      ['Μουσικό όργανο', data.instrumentDetails],
+      ['Προηγούμενη επαφή με ψαλτική / αναλόγιο / χορωδία', data.chantingExperience],
+      ['Λεπτομέρειες προηγούμενης επαφής', data.chantingExperienceDetails],
+      ['Συμμετοχή στην κατασκήνωση «Άξιον Εστί»', data.campParticipation],
+      ['Προτίμηση ενημέρωσης', data.notificationPreference],
+      ['Συγκατάθεση: ακριβή στοιχεία', 'Ναι'],
+      ['Συγκατάθεση: χρήση στοιχείων για οργάνωση/ενημέρωση', 'Ναι'],
+      ['Συγκατάθεση: δήλωση ενδιαφέροντος, όχι οριστική εγγραφή', 'Ναι'],
     ];
   }
 

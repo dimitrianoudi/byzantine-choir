@@ -8,6 +8,8 @@ type SubmitStatus = { type: 'idle' | 'success' | 'error'; message: string };
 
 const preferredDays = ['Δευτέρα', 'Τετάρτη', 'Χωρίς προτίμηση'];
 const preferredTimes = ['16:30 - 17:15', '17:30 - 18:15', 'Χωρίς προτίμηση'];
+const kidsPreferredDays = ['Δευτέρα', 'Τετάρτη', 'Μπορούμε και τις δύο ημέρες', 'Δεν γνωρίζουμε ακόμη'];
+const kidsPreferredTimes = ['16:30 - 17:15', '17:30 - 18:15', 'Μπορούμε και στις δύο ώρες', 'Δεν γνωρίζουμε ακόμη'];
 
 export default function RegistrationForm({ kind }: { kind: RegistrationKind }) {
   const [busy, setBusy] = useState(false);
@@ -149,37 +151,80 @@ function KidsFields() {
       <SectionCard title="1. Στοιχεία παιδιού">
         <TextField name="childName" label="Ονοματεπώνυμο παιδιού" autoComplete="name" />
         <TextField name="childBirthDate" label="Ημερομηνία γέννησης" type="date" />
-        <TextField name="school" label="Σχολείο" />
+        <TextField name="childAge" label="Ηλικία" inputMode="numeric" />
         <SelectField
           name="grade"
-          label="Τάξη Δημοτικού για το 2026-2027"
+          label="Τάξη που θα φοιτά το παιδί το σχολικό έτος 2026-2027"
           options={["Α'", "Β'", "Γ'", "Δ'", "Ε'", "ΣΤ'"]}
         />
-        <RadioGroup name="childGender" label="Φύλο" options={['Αγόρι', 'Κορίτσι']} />
+        <TextField name="school" label="Σχολείο" required={false} />
       </SectionCard>
 
       <SectionCard title="2. Στοιχεία γονέα / κηδεμόνα">
-        <TextField name="guardianName" label="Ονοματεπώνυμο" autoComplete="name" />
-        <RadioGroup name="guardianRelation" label="Ιδιότητα" options={['Πατέρας', 'Μητέρα', 'Κηδεμόνας']} />
-        <TextField name="address" label="Διεύθυνση" autoComplete="street-address" />
-        <TextField name="area" label="Περιοχή" autoComplete="address-level2" />
-        <TextField name="postalCode" label="Τ.Κ." autoComplete="postal-code" required={false} />
+        <TextField name="guardianName" label="Ονοματεπώνυμο γονέα / κηδεμόνα" autoComplete="name" />
         <TextField name="contactPhone" label="Τηλέφωνο επικοινωνίας" type="tel" autoComplete="tel" />
-        <TextField name="contactEmail" label="E-mail" type="email" autoComplete="email" />
+        <TextField name="contactEmail" label="Email επικοινωνίας" type="email" autoComplete="email" />
+        <TextField name="area" label="Περιοχή κατοικίας" autoComplete="address-level2" />
       </SectionCard>
 
-      <SectionCard title="3. Επιπλέον πληροφορίες">
-        <RadioGroup name="hasExperience" label="Έχει ξαναέρθει σε επαφή με ψαλτική;" options={['Όχι', 'Ναι']} />
-        <RadioGroup name="knowsNeumes" label="Έχει γνωρίσει νεύματα;" options={['Όχι', 'Ναι']} />
-        <RadioGroup name="attendsLessons" label="Παρακολουθεί ήδη μαθήματα μουσικής;" options={['Όχι', 'Ναι']} />
-        <RadioGroup name="playsInstrument" label="Παίζει κάποιο μουσικό όργανο;" options={['Όχι', 'Ναι']} />
-        <TextField name="instrumentDetails" label="Αν ναι, ποιο;" required={false} />
-        <TextArea name="notes" label="Ιδιαίτερες πληροφορίες που θα θέλατε να γνωρίζουμε" required={false} />
+      <SectionCard title="3. Επιθυμητή ημέρα συμμετοχής">
+        <SectionNote>
+          Επιλέξτε ποια ημέρα θα σας εξυπηρετούσε καλύτερα. Το παιδί θα συμμετέχει σε ένα μάθημα την εβδομάδα. Η επιλογή ημέρας δεν είναι οριστική εγγραφή, αλλά βοηθά στην οργάνωση των τμημάτων.
+        </SectionNote>
+        <RadioGroup name="preferredDay" label="Επιθυμητή ημέρα" options={kidsPreferredDays} />
       </SectionCard>
 
-      <SectionCard title="4. Προτιμήσεις">
-        <SelectField name="preferredDay" label="Προτιμώμενη ημέρα" options={preferredDays} />
-        <SelectField name="preferredTime" label="Προτιμώμενη ώρα" options={preferredTimes} />
+      <SectionCard title="4. Επιθυμητή ώρα">
+        <RadioGroup name="preferredTime" label="Επιθυμητή ώρα" options={kidsPreferredTimes} />
+      </SectionCard>
+
+      <SectionCard title="5. Προηγούμενη επαφή με την ψαλτική">
+        <SectionNote>
+          Έχει το παιδί προηγούμενη επαφή με ψαλτική, αναλόγιο ή χορωδία;
+        </SectionNote>
+        <RadioGroup
+          name="chantingExperience"
+          label="Προηγούμενη επαφή"
+          options={['Όχι', 'Ναι, λίγη επαφή', 'Ναι, συμμετέχει ήδη σε αναλόγιο ή χορωδία']}
+        />
+        <TextArea name="chantingExperienceDetails" label="Αν ναι, γράψτε σύντομα πού και με ποιον τρόπο" required={false} />
+      </SectionCard>
+
+      <SectionCard title="6. Συμμετοχή στην κατασκήνωση">
+        <RadioGroup
+          name="campParticipation"
+          label="Το παιδί συμμετείχε ή θα συμμετάσχει στην κατασκήνωση «Άξιον Εστί» στη Μακρυνίτσα Σερρών;"
+          options={['Ναι', 'Όχι', 'Δεν γνωρίζω ακόμη']}
+        />
+      </SectionCard>
+
+      <SectionCard title="7. Ειδικές παρατηρήσεις">
+        <TextArea
+          name="notes"
+          label="Υπάρχει κάτι που θα θέλατε να γνωρίζουμε για το παιδί;"
+          placeholder="Π.χ. μαθησιακές δυσκολίες, ιδιαίτερη συστολή, δυσκολία συγκέντρωσης, έντονο ενδιαφέρον για μουσική, ανάγκη προσαρμογής."
+          required={false}
+        />
+      </SectionCard>
+
+      <SectionCard title="8. Ενημέρωση">
+        <RadioGroup
+          name="notificationPreference"
+          label="Επιθυμείτε να λάβετε ενημέρωση όταν οριστικοποιηθούν τα παιδικά τμήματα;"
+          options={['Ναι, μέσω τηλεφώνου', 'Ναι, μέσω email', 'Ναι, μέσω Viber / WhatsApp', 'Όχι']}
+        />
+      </SectionCard>
+
+      <SectionCard title="9. Συγκατάθεση">
+        <ConsentCheckbox name="consentAccuracy">
+          Δηλώνω ότι τα στοιχεία που συμπληρώνω είναι ακριβή.
+        </ConsentCheckbox>
+        <ConsentCheckbox name="consentDataUse">
+          Επιτρέπω τη χρήση των στοιχείων αποκλειστικά για την οργάνωση και ενημέρωση σχετικά με το Παιδικό Φροντιστήριο Ψαλτικής της ενορίας.
+        </ConsentCheckbox>
+        <ConsentCheckbox name="consentInterestOnly">
+          Κατανοώ ότι η παρούσα φόρμα είναι δήλωση ενδιαφέροντος και όχι οριστική εγγραφή.
+        </ConsentCheckbox>
       </SectionCard>
     </>
   );
@@ -234,6 +279,10 @@ function SectionCard({ title, children }: { title: string; children: ReactNode }
       <div className="grid gap-4 pt-2 md:grid-cols-2">{children}</div>
     </fieldset>
   );
+}
+
+function SectionNote({ children }: { children: ReactNode }) {
+  return <p className="text-sm leading-relaxed text-muted md:col-span-2">{children}</p>;
 }
 
 function TextField({
@@ -340,10 +389,12 @@ function RadioGroup({
 function TextArea({
   name,
   label,
+  placeholder,
   required = true,
 }: {
   name: string;
   label: string;
+  placeholder?: string;
   required?: boolean;
 }) {
   return (
@@ -352,7 +403,25 @@ function TextArea({
         {label}
         {required && <span className="text-red"> *</span>}
       </span>
-      <textarea className="input input--full min-h-28 resize-y" name={name} required={required} maxLength={2000} />
+      <textarea
+        className="input input--full min-h-28 resize-y"
+        name={name}
+        required={required}
+        maxLength={2000}
+        placeholder={placeholder}
+      />
+    </label>
+  );
+}
+
+function ConsentCheckbox({ name, children }: { name: string; children: ReactNode }) {
+  return (
+    <label className="flex items-start gap-3 rounded-xl border border-subtle bg-white/70 p-3 text-sm leading-relaxed text-black md:col-span-2">
+      <input className="mt-1" type="checkbox" name={name} required />
+      <span>
+        {children}
+        <span className="text-red"> *</span>
+      </span>
     </label>
   );
 }

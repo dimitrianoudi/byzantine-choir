@@ -246,9 +246,6 @@ export default function FeedbackForm({ initialEmail = '' }: { initialEmail?: str
         <SectionCard title="Στοιχεία επικοινωνίας">
           <label className="grid gap-2 rounded-2xl border border-subtle bg-white/75 p-4 text-sm font-medium text-muted">
             <span className="text-black">Email επικοινωνίας *</span>
-            <span className="text-sm font-normal leading-relaxed text-muted">
-              Το χρειαζόμαστε για να γνωρίζουμε ποιος/ποια έστειλε την ανατροφοδότηση.
-            </span>
             <input
               className="input input--full"
               name="contactEmail"

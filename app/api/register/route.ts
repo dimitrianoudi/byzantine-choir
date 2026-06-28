@@ -3,8 +3,7 @@ export const runtime = 'nodejs';
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
 import { sendEmail } from '@/lib/email';
-
-const REGISTRATION_EMAIL = process.env.REGISTRATION_EMAIL || 'stathisnikolaos@gmail.com';
+import { getFormRecipientEmails } from '@/lib/formRecipients';
 
 const gradeOptions = ["Α'", "Β'", "Γ'", "Δ'", "Ε'", "ΣΤ'"] as const;
 const yesNoOptions = ['Όχι', 'Ναι'] as const;
@@ -216,7 +215,7 @@ export async function POST(req: Request) {
 
   const email = buildEmail(parsed.data);
   const result = await sendEmail({
-    to: REGISTRATION_EMAIL,
+    to: getFormRecipientEmails(),
     subject: email.subject,
     text: email.text,
     html: email.html,

@@ -3,8 +3,7 @@ export const runtime = 'nodejs';
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
 import { sendEmail } from '@/lib/email';
-
-const FEEDBACK_EMAIL = process.env.REGISTRATION_EMAIL || 'stathisnikolaos@gmail.com';
+import { getFormRecipientEmails } from '@/lib/formRecipients';
 
 const satisfactionOptions = ['Καθόλου', 'Λίγο', 'Αρκετά', 'Πολύ', 'Πάρα πολύ'] as const;
 
@@ -192,7 +191,7 @@ export async function POST(req: Request) {
 
   const email = buildEmail(parsed.data);
   const result = await sendEmail({
-    to: FEEDBACK_EMAIL,
+    to: getFormRecipientEmails(),
     subject: email.subject,
     text: email.text,
     html: email.html,

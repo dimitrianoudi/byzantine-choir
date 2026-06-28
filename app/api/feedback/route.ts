@@ -9,6 +9,7 @@ const satisfactionOptions = ['Καθόλου', 'Λίγο', 'Αρκετά', 'Πο
 
 const feedbackSchema = z.object({
   website: z.string().trim().max(300).optional().default(''),
+  contactEmail: z.string().trim().email().max(300),
   mainDepartment: z.enum([
     'Παιδικής φωνής / Μουσική Προπαιδεία',
     'Γυναικείας φωνής',
@@ -113,6 +114,7 @@ function submittedAt() {
 
 function rowsForFeedback(data: FeedbackData): EmailRow[] {
   return [
+    ['Email αποστολέα', data.contactEmail],
     ['Τμήμα συμμετοχής', data.mainDepartment],
     ['Συχνότητα παρακολούθησης', data.attendanceFrequency],
     ['Συμμετοχή σε ακολουθίες / αναλόγιο', data.chantStandParticipation],
@@ -195,6 +197,7 @@ export async function POST(req: Request) {
     subject: email.subject,
     text: email.text,
     html: email.html,
+    replyTo: parsed.data.contactEmail,
   });
 
   if (!result.ok) {

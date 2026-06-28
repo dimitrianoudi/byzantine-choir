@@ -155,7 +155,7 @@ const preferredScheduleOptions = [
   'Δεν γνωρίζω ακόμη',
 ] as const;
 
-export default function FeedbackForm() {
+export default function FeedbackForm({ initialEmail = '' }: { initialEmail?: string }) {
   const [busy, setBusy] = useState(false);
   const [status, setStatus] = useState<SubmitStatus>({ type: 'idle', message: '' });
 
@@ -242,6 +242,23 @@ export default function FeedbackForm() {
             <input name="website" tabIndex={-1} autoComplete="off" />
           </label>
         </div>
+
+        <SectionCard title="Στοιχεία επικοινωνίας">
+          <label className="grid gap-2 rounded-2xl border border-subtle bg-white/75 p-4 text-sm font-medium text-muted">
+            <span className="text-black">Email επικοινωνίας *</span>
+            <span className="text-sm font-normal leading-relaxed text-muted">
+              Το χρειαζόμαστε για να γνωρίζουμε ποιος/ποια έστειλε την ανατροφοδότηση.
+            </span>
+            <input
+              className="input input--full"
+              name="contactEmail"
+              type="email"
+              autoComplete="email"
+              defaultValue={initialEmail}
+              required
+            />
+          </label>
+        </SectionCard>
 
         {radioQuestions.map((section) => (
           <SectionCard key={section.section} title={section.section} note={'note' in section ? section.note : undefined}>

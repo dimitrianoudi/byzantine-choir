@@ -179,6 +179,14 @@ export default function FeedbackForm({ initialEmail = '' }: { initialEmail?: str
       }
     });
 
+    if (!payload.nextYearWishes) {
+      setStatus({
+        type: 'error',
+        message: 'Παρακαλώ επιλέξτε τουλάχιστον μία απάντηση στην ερώτηση 18.',
+      });
+      return;
+    }
+
     setBusy(true);
     setStatus({ type: 'idle', message: '' });
 

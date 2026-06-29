@@ -6,6 +6,18 @@ import { sendEmail } from '@/lib/email';
 import { getFormRecipientEmails } from '@/lib/formRecipients';
 
 const satisfactionOptions = ['Καθόλου', 'Λίγο', 'Αρκετά', 'Πολύ', 'Πάρα πολύ'] as const;
+const nextYearWishOption = z.enum([
+  'Περισσότερη θεωρία',
+  'Περισσότερη παραλλαγή',
+  'Περισσότερη πρακτική ψαλμωδία',
+  'Περισσότερες πρόβες χορού',
+  'Περισσότερη συμμετοχή στο αναλόγιο',
+  'Περισσότερες ηχογραφήσεις για μελέτη',
+  'Περισσότερο έντυπο υλικό',
+  'Περισσότερα παιδικά / εισαγωγικά τεύχη',
+  'Περισσότερη οργάνωση ανά επίπεδο',
+  'Περισσότερες ακολουθίες με συμμετοχή μαθητών',
+]);
 
 const feedbackSchema = z.object({
   website: z.string().trim().max(300).optional().default(''),
@@ -64,22 +76,10 @@ const feedbackSchema = z.object({
     'Όλα μαζί',
   ]),
   continueNextYear: z.enum(['Ναι, σίγουρα', 'Μάλλον ναι', 'Δεν είμαι ακόμη βέβαιος/η', 'Μάλλον όχι', 'Όχι']),
-  nextYearWishes: z
-    .array(
-      z.enum([
-        'Περισσότερη θεωρία',
-        'Περισσότερη παραλλαγή',
-        'Περισσότερη πρακτική ψαλμωδία',
-        'Περισσότερες πρόβες χορού',
-        'Περισσότερη συμμετοχή στο αναλόγιο',
-        'Περισσότερες ηχογραφήσεις για μελέτη',
-        'Περισσότερο έντυπο υλικό',
-        'Περισσότερα παιδικά / εισαγωγικά τεύχη',
-        'Περισσότερη οργάνωση ανά επίπεδο',
-        'Περισσότερες ακολουθίες με συμμετοχή μαθητών',
-      ]),
-    )
-    .min(1),
+  nextYearWishes: z.preprocess(
+    (value) => (typeof value === 'string' ? [value] : value),
+    z.array(nextYearWishOption).min(1),
+  ),
   preferredSchedule: z.enum([
     'Τετάρτη, όπως φέτος',
     'Δευτέρα',
@@ -185,6 +185,7 @@ export async function POST(req: Request) {
   const parsed = feedbackSchema.safeParse(body);
 
   if (!parsed.success) {
+    console.warn('FEEDBACK_VALIDATION_FAILED', parsed.error.flatten().fieldErrors);
     return NextResponse.json(
       { error: 'Παρακαλώ ελέγξτε τα υποχρεωτικά πεδία και δοκιμάστε ξανά.' },
       { status: 400 },

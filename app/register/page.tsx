@@ -15,7 +15,7 @@ export default function RegisterPage() {
         <section className="px-2 py-2 text-center sm:px-4">
           <div className="mx-auto max-w-3xl space-y-2.5">
             <h1 className="font-heading text-red" style={{ fontSize: 'clamp(24px, 3vw, 34px)', fontWeight: 800 }}>
-              Εγγραφή για φυσική παρουσία στο Φροντιστήριο
+              Άιτηση εγγραφής
             </h1>
             <p className="text-[14px] leading-relaxed text-muted">
               Επιλέξτε φόρμα για παιδιά ή ενήλικες. Η δήλωση δεν δημιουργεί λογαριασμό και δεν συνδέεται με Google.

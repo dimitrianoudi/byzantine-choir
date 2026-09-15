@@ -22,7 +22,7 @@ export default function HomePage() {
         <section className="stack">
           <div className="actions justify-center gap-4 sm:gap-6 block-gap">
             <Link href="/register" className="btn btn-gold">
-              Εγγραφή για φυσική παρουσία στο Φροντιστήριο
+              Άιτηση εγγραφής
             </Link>
             <a href="/calendar" className="btn btn-outline">Πρόγραμμα</a>
           </div>

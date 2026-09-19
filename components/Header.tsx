@@ -143,20 +143,26 @@ export default function Header({
         <div className="header-right">
           {/* Top row: nav — login button sits inline here when logged out */}
           <nav className="nav">
-            <NavLink href="/" label="Αρχική" />
-            <NavLink href="/material" label="Υλικό" />
-            <NavLink href="/akolouthies" label="Ακολουθίες" />
-            <NavLink href="/calendar" label="Ημερολόγιο" />
-            <NavLink href="/gallery" label="Στιγμιότυπα" />
+            <div className="nav-row">
+              <NavLink href="/" label="Αρχική" />
+              <NavLink href="/material" label="Υλικό" />
+              <NavLink href="/akolouthies" label="Ακολουθίες" />
+              <NavLink href="/typiko" label="Τυπικό" />
+            </div>
 
-            {user?.role === 'admin' && <NavLink href="/upload" label="Ανέβασμα" />}
+            <div className="nav-row">
+              <NavLink href="/calendar" label="Ημερολόγιο" />
+              <NavLink href="/gallery" label="Στιγμιότυπα" />
 
-            {!isLoggedIn && (
-              <button className="btn login-btn btn-gold" onClick={login}>
-                <User size={18} strokeWidth={2.2} aria-hidden="true" />
-                <span>Σύνδεση</span>
-              </button>
-            )}
+              {user?.role === 'admin' && <NavLink href="/upload" label="Ανέβασμα" />}
+
+              {!isLoggedIn && (
+                <button className="btn login-btn btn-gold" onClick={login}>
+                  <User size={18} strokeWidth={2.2} aria-hidden="true" />
+                  <span>Σύνδεση</span>
+                </button>
+              )}
+            </div>
           </nav>
 
           {/* Bottom row: user dropdown (only when logged in) */}

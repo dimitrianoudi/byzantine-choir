@@ -6,6 +6,7 @@ import Script from "next/script";
 import ActivityTracker from "@/components/ActivityTracker";
 import ButtonMotionEnhancer from "@/components/ButtonMotionEnhancer";
 import UsefulOfflineRegistration from "@/components/UsefulOfflineRegistration";
+import type { Metadata } from "next";
 
 const heading = EB_Garamond({
   subsets: ["greek", "latin"],
@@ -18,9 +19,42 @@ const text = Noto_Sans({
   display: "swap",
 });
 
-export const metadata = {
+const siteUrl =
+  process.env.NEXT_PUBLIC_SITE_URL ||
+  process.env.VERCEL_PROJECT_PRODUCTION_URL ||
+  process.env.VERCEL_URL ||
+  "http://localhost:3000";
+const metadataBase = new URL(
+  siteUrl.startsWith("http://") || siteUrl.startsWith("https://")
+    ? siteUrl
+    : `https://${siteUrl}`,
+);
+
+export const metadata: Metadata = {
+  metadataBase,
   title: "Ψαλτική Παιδεία",
   description: "Εκπαίδευση στη Βυζαντινή Μουσική",
+  openGraph: {
+    title: "Ψαλτική Παιδεία",
+    description: "Εκπαίδευση στη Βυζαντινή Μουσική",
+    siteName: "Ψαλτική Παιδεία",
+    locale: "el_GR",
+    type: "website",
+    images: [
+      {
+        url: "/social-card.jpg",
+        width: 1200,
+        height: 630,
+        alt: "Φροντιστήριο Ψαλτικής Αγίου Αθανασίου και Ευαγγελισμού Ευόσμου",
+      },
+    ],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Ψαλτική Παιδεία",
+    description: "Εκπαίδευση στη Βυζαντινή Μουσική",
+    images: ["/social-card.jpg"],
+  },
 };
 
 export default async function RootLayout({

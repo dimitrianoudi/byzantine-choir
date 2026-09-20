@@ -3,6 +3,7 @@ import { LIVE_STREAM, getYouTubeLiveEmbedUrl, getYouTubeLivePageUrl } from '@/li
 export const metadata = {
   title: `${LIVE_STREAM.title} | Ψαλτική Παιδεία`,
   description: 'Παρακολουθήστε τις ζωντανές μεταδόσεις του καναλιού του Φροντιστηρίου από μία σταθερή σελίδα.',
+  alternates: { canonical: '/live' },
 };
 
 export default function LivePage() {

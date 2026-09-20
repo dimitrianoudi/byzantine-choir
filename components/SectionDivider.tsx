@@ -4,6 +4,8 @@ export default function SectionDivider() {
       <img
         src="/divider.svg"
         alt=""
+        width={382}
+        height={63}
         className="divider-img"
         loading="lazy"
       />

@@ -1,18 +1,113 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import SectionDivider from "@/components/SectionDivider";
+import {
+  absoluteUrl,
+  SITE_DESCRIPTION,
+  SITE_NAME,
+  SITE_TITLE,
+} from "@/lib/site";
+
+export const metadata: Metadata = {
+  title: SITE_TITLE,
+  description: SITE_DESCRIPTION,
+  alternates: { canonical: "/" },
+  openGraph: {
+    title: SITE_TITLE,
+    description: SITE_DESCRIPTION,
+    url: "/",
+    siteName: SITE_NAME,
+    locale: "el_GR",
+    type: "website",
+    images: [
+      {
+        url: "/social-card.jpg",
+        width: 1200,
+        height: 630,
+        alt: "Φροντιστήριο Ψαλτικής Αγίου Αθανασίου και Ευαγγελισμού Ευόσμου",
+      },
+    ],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: SITE_TITLE,
+    description: SITE_DESCRIPTION,
+    images: ["/social-card.jpg"],
+  },
+};
+
+const structuredData = {
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "Organization",
+      "@id": absoluteUrl("/#organization"),
+      name: "Ενοριακό Φροντιστήριο Ψαλτικής Αγίου Αθανασίου και Ευαγγελισμού Ευόσμου",
+      alternateName: SITE_NAME,
+      url: absoluteUrl("/"),
+      logo: {
+        "@type": "ImageObject",
+        url: absoluteUrl("/icon.png"),
+        width: 512,
+        height: 512,
+      },
+      image: absoluteUrl("/social-card.jpg"),
+      description: SITE_DESCRIPTION,
+      telephone: "+30 697 3439673",
+      address: {
+        "@type": "PostalAddress",
+        addressLocality: "Εύοσμος",
+        addressRegion: "Θεσσαλονίκη",
+        addressCountry: "GR",
+      },
+      areaServed: {
+        "@type": "AdministrativeArea",
+        name: "Εύοσμος Θεσσαλονίκης",
+      },
+      parentOrganization: {
+        "@type": "Organization",
+        name: "Ιερός Ναός Αγίου Αθανασίου και Ευαγγελισμού της Θεοτόκου Ευόσμου",
+      },
+      contactPoint: {
+        "@type": "ContactPoint",
+        telephone: "+30 697 3439673",
+        contactType: "Πληροφορίες και εγγραφές",
+        availableLanguage: "el",
+      },
+      sameAs: [
+        "https://www.youtube.com/channel/UCBVdCrn2tfUQKu3Tgn0mb5w",
+      ],
+    },
+    {
+      "@type": "WebSite",
+      "@id": absoluteUrl("/#website"),
+      url: absoluteUrl("/"),
+      name: SITE_NAME,
+      description: SITE_DESCRIPTION,
+      inLanguage: "el-GR",
+      publisher: { "@id": absoluteUrl("/#organization") },
+    },
+  ],
+};
 
 export default function HomePage() {
   return (
-    <main className="container container--flush-left section section--flush-left">
+    <div className="container container--flush-left section section--flush-left">
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{
+          __html: JSON.stringify(structuredData).replace(/</g, "\\u003c"),
+        }}
+      />
       <div className="space-y-8 sm:space-y-10">   {/* <-- vertical gaps */}
         {/* Hero */}
         <section className="p-8 sm:p-10 text-center space-y-4">
           <h1 className="font-heading text-red" style={{ fontWeight: 800, fontSize: "clamp(22px, 3.2vw, 34px)" }}>
             Η Ψαλτική ως Τέχνη και διακονία της Εκκλησίας
           </h1>
-          <span className="font-heading text-muted" style={{ fontSize: "clamp(16px, 2.2vw, 20px)" }}>
-            Ενορία Αγίου Αθανασίου &amp; Ευαγγελισμού Ευόσμου
-          </span>
+          <p className="font-heading text-muted" style={{ fontSize: "clamp(16px, 2.2vw, 20px)" }}>
+            Ενορία Αγίου Αθανασίου &amp; Ευαγγελισμού Ευόσμου Θεσσαλονίκης
+          </p>
         </section>
 
         <SectionDivider />
@@ -22,9 +117,9 @@ export default function HomePage() {
         <section className="stack">
           <div className="actions justify-center gap-4 sm:gap-6 block-gap">
             <Link href="/register" className="btn btn-gold">
-              Άιτηση εγγραφής
+              Αίτηση εγγραφής
             </Link>
-            <a href="/calendar" className="btn btn-outline">Πρόγραμμα</a>
+            <Link href="/calendar" className="btn btn-outline">Πρόγραμμα</Link>
           </div>
         </section>
 
@@ -36,7 +131,7 @@ export default function HomePage() {
             </h2>
 
             <p className="text-[15px] leading-relaxed text-muted max-w-6xl mx-auto">
-              Με την ευλογία του Σεβασμιωτάτου Μητροπολίτου Νεαπόλεως και Σταυρουπόλεως κ.κ. Βαρνάβα, και σε αγαστή συνεργασία με τη Σχολή Βυζαντινής Μουσικής «Ιωσήφ ο Υμνογράφος», το "Φροντιστήριο Ψαλτικής", αποτελεί ενοριακό έργο του Ιερού Ναού Αγίου Αθανασίου και Ευαγγελισμού της Θεοτόκου Ευόσμου.
+              Με την ευλογία του Σεβασμιωτάτου Μητροπολίτου Νεαπόλεως και Σταυρουπόλεως κ.κ. Βαρνάβα, και σε αγαστή συνεργασία με τη Σχολή Βυζαντινής Μουσικής «Ιωσήφ ο Υμνογράφος», το «Φροντιστήριο Ψαλτικής» αποτελεί ενοριακό έργο του Ιερού Ναού Αγίου Αθανασίου και Ευαγγελισμού της Θεοτόκου Ευόσμου.
             </p>
 
             <p className="text-[15px] leading-relaxed text-muted max-w-6xl mx-auto">
@@ -59,7 +154,7 @@ export default function HomePage() {
               Η κοινότητα του Φροντιστηρίου λειτουργεί ως οικογένεια πίστης και προσφοράς· οι μαθητές μοιράζονται ηχογραφήσεις, ασκήσεις και μικρούς εβδομαδιαίους στόχους, προχωρώντας όλοι μαζί με πνεύμα συνεργασίας και αλληλοενίσχυσης.
             </p>
 
-            <p className="text-[15px] leading-relaxed text-muted max-w-xv mx-auto">
+            <p className="text-[15px] leading-relaxed text-muted max-w-6xl mx-auto">
               Όποιος κι αν είναι ο βαθμός εμπειρίας του, ο καθένας βρίσκει εδώ έναν δρόμο μαθητείας και προόδου· έναν τρόπο να ενωθεί με τη ζωντανή παράδοση της Εκκλησίας και να προσφέρει τη φωνή του ως δώρο λατρείας και ευγνωμοσύνης.
             </p>
 
@@ -67,6 +162,6 @@ export default function HomePage() {
         </section>
 
       </div>
-    </main>
+    </div>
   );
 }

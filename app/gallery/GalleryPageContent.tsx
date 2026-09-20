@@ -10,8 +10,8 @@ export default async function GalleryPageContent({
   const role = session.user?.role || "member";
 
   return (
-    <main className="container section">
+    <div className="container section">
       <Gallery role={role} prefix={prefix} />
-    </main>
+    </div>
   );
 }

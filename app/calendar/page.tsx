@@ -4,6 +4,7 @@ export const metadata: Metadata = {
   title: "Πρόγραμμα Μαθημάτων | Ψαλτική Παιδεία",
   description:
     "Εβδομαδιαίο πρόγραμμα μαθημάτων Ψαλτικής, αργίες, διακοπές και πρακτική συμμετοχή στα αναλόγια.",
+  alternates: { canonical: "/calendar" },
 };
 
 const weeklySchedule = [

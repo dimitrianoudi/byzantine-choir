@@ -8,6 +8,7 @@ import { getUpcomingLiturgicalSunday } from "@/lib/liturgicalCalendar";
 export const metadata: Metadata = {
   title: "Τυπικό | Ψαλτική Παιδεία",
   description: "Ο ήχος της επόμενης Κυριακής και οδηγός για τον Κυριακάτικο Όρθρο.",
+  alternates: { canonical: "/typiko" },
 };
 
 const toneRows = [

@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import Image from 'next/image';
 import { usePathname, useRouter } from 'next/navigation';
 import clsx from 'clsx';
 import { User } from 'lucide-react';
@@ -123,9 +124,13 @@ export default function Header({
       <div className="header-inner container">
 
         <Link href="/" className="flex items-center gap-3 min-w-0 no-underline">
-          <img
+          <Image
             src="/logo_frontistirio_psaltikis.png"
             alt="Ψαλτικοί Χοροί Αγ. Αθανασίου & Ευαγγελισμού Ευόσμου"
+            width={738}
+            height={208}
+            sizes="369px"
+            priority
             className="h-[104px] w-auto shrink-0 mr-2 sm:mr-3 lg:mr-4"
           />
           {/* <span

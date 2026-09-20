@@ -3,6 +3,7 @@ import RegistrationForm from '@/components/RegistrationForm';
 export const metadata = {
   title: 'Εγγραφή ενηλίκου | Φροντιστήριο Ψαλτικής',
   description: 'Φόρμα δήλωσης ενδιαφέροντος για ενήλικες στο Φροντιστήριο Ψαλτικής.',
+  alternates: { canonical: '/register/adults' },
 };
 
 export default function AdultsRegisterPage() {

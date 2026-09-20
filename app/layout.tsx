@@ -1,12 +1,18 @@
 import "./globals.css";
+import type { Metadata } from "next";
 import { EB_Garamond, Noto_Sans } from "next/font/google";
+import Script from "next/script";
 import Header from "@/components/Header";
 import { getSession } from "@/lib/session";
-import Script from "next/script";
 import ActivityTracker from "@/components/ActivityTracker";
 import ButtonMotionEnhancer from "@/components/ButtonMotionEnhancer";
 import UsefulOfflineRegistration from "@/components/UsefulOfflineRegistration";
-import type { Metadata } from "next";
+import {
+  SITE_DESCRIPTION,
+  SITE_NAME,
+  SITE_TITLE,
+  SITE_URL,
+} from "@/lib/site";
 
 const heading = EB_Garamond({
   subsets: ["greek", "latin"],
@@ -19,25 +25,34 @@ const text = Noto_Sans({
   display: "swap",
 });
 
-const siteUrl =
-  process.env.NEXT_PUBLIC_SITE_URL ||
-  process.env.VERCEL_PROJECT_PRODUCTION_URL ||
-  process.env.VERCEL_URL ||
-  "http://localhost:3000";
-const metadataBase = new URL(
-  siteUrl.startsWith("http://") || siteUrl.startsWith("https://")
-    ? siteUrl
-    : `https://${siteUrl}`,
-);
+const googleSiteVerification = process.env.GOOGLE_SITE_VERIFICATION;
 
 export const metadata: Metadata = {
-  metadataBase,
-  title: "Ψαλτική Παιδεία",
-  description: "Εκπαίδευση στη Βυζαντινή Μουσική",
+  metadataBase: new URL(SITE_URL),
+  applicationName: SITE_NAME,
+  title: SITE_TITLE,
+  description: SITE_DESCRIPTION,
+  creator: SITE_NAME,
+  publisher: SITE_NAME,
+  category: "education",
+  robots: {
+    index: true,
+    follow: true,
+    googleBot: {
+      index: true,
+      follow: true,
+      "max-image-preview": "large",
+      "max-snippet": -1,
+      "max-video-preview": -1,
+    },
+  },
+  verification: googleSiteVerification
+    ? { google: googleSiteVerification }
+    : undefined,
   openGraph: {
-    title: "Ψαλτική Παιδεία",
-    description: "Εκπαίδευση στη Βυζαντινή Μουσική",
-    siteName: "Ψαλτική Παιδεία",
+    title: SITE_TITLE,
+    description: SITE_DESCRIPTION,
+    siteName: SITE_NAME,
     locale: "el_GR",
     type: "website",
     images: [
@@ -51,8 +66,8 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: "summary_large_image",
-    title: "Ψαλτική Παιδεία",
-    description: "Εκπαίδευση στη Βυζαντινή Μουσική",
+    title: SITE_TITLE,
+    description: SITE_DESCRIPTION,
     images: ["/social-card.jpg"],
   },
 };

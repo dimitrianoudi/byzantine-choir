@@ -3,6 +3,7 @@ import RegistrationForm from '@/components/RegistrationForm';
 export const metadata = {
   title: 'Εγγραφή παιδιού | Φροντιστήριο Ψαλτικής',
   description: 'Φόρμα δήλωσης ενδιαφέροντος για το παιδικό Φροντιστήριο Ψαλτικής.',
+  alternates: { canonical: '/register/kids' },
 };
 
 export default function KidsRegisterPage() {

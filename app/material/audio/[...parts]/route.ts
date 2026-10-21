@@ -17,8 +17,14 @@ import {
   materialAudioContentType,
 } from "@/lib/material";
 
-async function findAudioKey(courseSlug: string, year: string, lesson: string, name: string) {
-  const prefix = getMaterialPodcastPrefix(courseSlug, year, lesson);
+async function findAudioKey(
+  courseSlug: string,
+  year: string,
+  lesson: string,
+  name: string,
+  group?: string
+) {
+  const prefix = getMaterialPodcastPrefix(courseSlug, year, lesson, group);
   if (!prefix) return null;
 
   let token: string | undefined;
@@ -71,15 +77,18 @@ export async function GET(
   }
 
   const { parts } = await params;
-  if (!Array.isArray(parts) || parts.length !== 4) {
+  if (!Array.isArray(parts) || (parts.length !== 4 && parts.length !== 5)) {
     return new Response("Audio not found", {
       status: 404,
       headers: { "Content-Type": "text/plain; charset=utf-8", "Cache-Control": "no-store" },
     });
   }
 
-  const [courseSlug, year, lesson, name] = parts;
-  const key = await findAudioKey(courseSlug, year, lesson, name);
+  const [courseSlug, year] = parts;
+  const group = parts.length === 5 ? parts[2] : undefined;
+  const lesson = parts[parts.length - 2];
+  const name = parts[parts.length - 1];
+  const key = await findAudioKey(courseSlug, year, lesson, name, group);
 
   if (!key) {
     return new Response("Audio not found", {

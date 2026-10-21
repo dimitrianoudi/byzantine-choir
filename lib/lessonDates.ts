@@ -1,11 +1,24 @@
 import { GetObjectCommand, PutObjectCommand } from "@aws-sdk/client-s3";
 import { BUCKET, s3 } from "@/lib/s3";
+import {
+  getMaterialCourse,
+  getMaterialGroup,
+  getMaterialLessonCount,
+  getMaterialLessonDate,
+  getMaterialYear,
+  type MaterialCourseSlug,
+} from "@/lib/materialCatalog";
 
 export type LessonDateMap = Record<string, string>;
+type StoredLessonDateMap = Record<string, string | null>;
 
 type LessonParentPrefix = {
+  courseSlug: MaterialCourseSlug;
   courseFolder: string;
   year: string;
+  yearFolder: string;
+  group?: string;
+  groupFolder?: string;
   prefix: string;
 };
 
@@ -38,67 +51,89 @@ export function parseLessonFolderName(folderName: string) {
 export function parseMaterialLessonParentPrefix(prefix: string): LessonParentPrefix | null {
   const trimmed = safe(prefix).replace(/\/+$/, "");
   const parts = trimmed.split("/").filter(Boolean);
-  if (parts.length !== 3) return null;
+  if (parts.length !== 3 && parts.length !== 4) return null;
 
-  const [root, courseFolder, year] = parts;
-  if (root !== "Μαθήματα" || !/^\d{4}$/.test(year)) return null;
+  const [root, courseFolder, yearFolder, groupFolder] = parts;
+  if (root !== "Μαθήματα") return null;
+
+  const course = getMaterialCourse(courseFolder);
+  const year = getMaterialYear(yearFolder);
+  if (!course || !year) return null;
+
+  const group = year.grouped
+    ? getMaterialGroup(course.slug, year.id, groupFolder)
+    : null;
+  if (year.grouped ? parts.length !== 4 || !group : parts.length !== 3) {
+    return null;
+  }
+
+  const canonicalParts = ["Μαθήματα", course.folder, year.folder];
+  if (group) canonicalParts.push(group.folder);
 
   return {
-    courseFolder,
-    year,
-    prefix: `${trimmed}/`,
+    courseSlug: course.slug,
+    courseFolder: course.folder,
+    year: year.id,
+    yearFolder: year.folder,
+    group: group?.slug,
+    groupFolder: group?.folder,
+    prefix: `${canonicalParts.join("/")}/`,
   };
 }
 
 export function parseMaterialLessonFolderPrefix(prefix: string): LessonFolderPrefix | null {
   const trimmed = safe(prefix).replace(/\/+$/, "");
   const parts = trimmed.split("/").filter(Boolean);
-  if (parts.length !== 4) return null;
+  if (parts.length !== 4 && parts.length !== 5) return null;
 
-  const [root, courseFolder, year, lessonFolder] = parts;
+  const lessonFolder = parts[parts.length - 1];
   const lesson = parseLessonFolderName(lessonFolder);
-  if (root !== "Μαθήματα" || !/^\d{4}$/.test(year) || !lesson) return null;
+  const parent = parseMaterialLessonParentPrefix(parts.slice(0, -1).join("/"));
+  if (!parent || !lesson) return null;
 
   return {
-    courseFolder,
-    year,
+    ...parent,
     lesson,
-    prefix: `Μαθήματα/${courseFolder}/${year}/`,
     lessonPrefix: `${trimmed}/`,
   };
 }
 
-function lessonDatesKey(courseFolder: string, year: string) {
-  return `Μαθήματα/${courseFolder}/${year}/${LESSON_DATES_FILENAME}`;
+function lessonDatesKey(parentPrefix: string) {
+  return `${parentPrefix}${LESSON_DATES_FILENAME}`;
 }
 
-function sanitizeLessonDateMap(raw: unknown): LessonDateMap {
+function sanitizeStoredLessonDateMap(raw: unknown): StoredLessonDateMap {
   if (!raw || typeof raw !== "object") return {};
 
-  const out: LessonDateMap = {};
+  const out: StoredLessonDateMap = {};
   for (const [key, value] of Object.entries(raw as Record<string, unknown>)) {
     const lesson = normalizeLessonNumber(key);
+    if (!lesson) continue;
+    if (value === null) {
+      out[lesson] = null;
+      continue;
+    }
     const date = typeof value === "string" ? value.trim() : "";
-    if (!lesson || !isIsoLessonDate(date)) continue;
+    if (!isIsoLessonDate(date)) continue;
     out[lesson] = date;
   }
   return out;
 }
 
-export async function getLessonDateMap(courseFolder: string, year: string): Promise<LessonDateMap> {
+async function getStoredLessonDateMap(parentPrefix: string): Promise<StoredLessonDateMap> {
   if (!BUCKET) return {};
 
   try {
     const res = await s3.send(
       new GetObjectCommand({
         Bucket: BUCKET,
-        Key: lessonDatesKey(courseFolder, year),
+        Key: lessonDatesKey(parentPrefix),
       })
     );
 
     const raw = await res.Body?.transformToString();
     if (!raw) return {};
-    return sanitizeLessonDateMap(JSON.parse(raw));
+    return sanitizeStoredLessonDateMap(JSON.parse(raw));
   } catch (err: any) {
     const code = err?.name || err?.Code || err?.code;
     if (code === "NoSuchKey" || code === "NotFound") return {};
@@ -107,10 +142,49 @@ export async function getLessonDateMap(courseFolder: string, year: string): Prom
   }
 }
 
+function getDefaultLessonDateMap(parent: LessonParentPrefix): LessonDateMap {
+  if (!parent.group) return {};
+
+  const count = getMaterialLessonCount(
+    parent.courseSlug,
+    parent.year,
+    parent.group
+  );
+  const dates: LessonDateMap = {};
+  for (let lesson = 1; lesson <= count; lesson += 1) {
+    const date = getMaterialLessonDate(
+      parent.courseSlug,
+      parent.year,
+      parent.group,
+      lesson
+    );
+    if (date) dates[String(lesson).padStart(2, "0")] = date;
+  }
+  return dates;
+}
+
+export async function getLessonDateMap(
+  courseFolder: string,
+  yearFolder: string,
+  groupFolder?: string
+): Promise<LessonDateMap> {
+  const prefix = ["Μαθήματα", courseFolder, yearFolder, groupFolder]
+    .filter(Boolean)
+    .join("/");
+  return getLessonDateMapForParentPrefix(prefix);
+}
+
 export async function getLessonDateMapForParentPrefix(prefix: string) {
   const parsed = parseMaterialLessonParentPrefix(prefix);
   if (!parsed) return {};
-  return getLessonDateMap(parsed.courseFolder, parsed.year);
+
+  const dates = getDefaultLessonDateMap(parsed);
+  const storedDates = await getStoredLessonDateMap(parsed.prefix);
+  for (const [lesson, date] of Object.entries(storedDates)) {
+    if (date) dates[lesson] = date;
+    else delete dates[lesson];
+  }
+  return dates;
 }
 
 export async function saveLessonDateForPrefix(prefix: string, date: string) {
@@ -121,9 +195,18 @@ export async function saveLessonDateForPrefix(prefix: string, date: string) {
 
   if (!BUCKET) return;
 
-  const dates = await getLessonDateMap(parsed.courseFolder, parsed.year);
-  if (date) {
+  const dates = await getStoredLessonDateMap(parsed.prefix);
+  const defaultDate = getMaterialLessonDate(
+    parsed.courseSlug,
+    parsed.year,
+    parsed.group,
+    parsed.lesson
+  );
+
+  if (date && date !== defaultDate) {
     dates[parsed.lesson] = date;
+  } else if (!date && defaultDate) {
+    dates[parsed.lesson] = null;
   } else {
     delete dates[parsed.lesson];
   }
@@ -131,7 +214,7 @@ export async function saveLessonDateForPrefix(prefix: string, date: string) {
   await s3.send(
     new PutObjectCommand({
       Bucket: BUCKET,
-      Key: lessonDatesKey(parsed.courseFolder, parsed.year),
+      Key: lessonDatesKey(parsed.prefix),
       ContentType: "application/json",
       Body: JSON.stringify(dates, null, 2),
     })

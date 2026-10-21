@@ -1,8 +1,17 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
+import {
+  MATERIAL_COURSES,
+  MATERIAL_YEAR_OPTIONS,
+  buildMaterialLessonPrefix,
+  getMaterialGroups,
+  getMaterialLessonCount,
+  getMaterialLessonDate,
+  getMaterialYear,
+  type MaterialCourseSlug,
+} from '@/lib/materialCatalog';
 
-type CourseKey = 'kids' | 'women' | 'men';
 type Dest = 'lessons' | 'akolouthies' | 'useful';
 type Kind = 'podcast' | 'pdf';
 type InitialSearchParams = {
@@ -12,13 +21,7 @@ type InitialSearchParams = {
   date?: string;
 };
 
-const COURSES: { key: CourseKey; label: string }[] = [
-  { key: 'kids', label: 'Ψαλτική παιδικής φωνής' },
-  { key: 'women', label: 'Ψαλτική γυναικείας φωνής' },
-  { key: 'men', label: 'Ψαλτική ανδρικής φωνής' },
-];
-
-const YEARS = [2025, 2026];
+const DEFAULT_YEAR = MATERIAL_YEAR_OPTIONS[MATERIAL_YEAR_OPTIONS.length - 1]?.id || '2026';
 
 type UploadFile = {
   id: string;
@@ -116,16 +119,15 @@ function parseInitialAkDate(initialSearchParams?: InitialSearchParams): string {
   return date && /^\d{4}-\d{2}-\d{2}$/.test(date) ? date : isoToday();
 }
 
-function getLessonCountForYear(year: number) {
-  return year === 2026 ? 33 : 30;
-}
-
 export default function Uploader({ initialSearchParams }: { initialSearchParams?: InitialSearchParams }) {
   const [dest, setDest] = useState<Dest>(() => parseInitialDest(initialSearchParams));
   const [kind, setKind] = useState<Kind>('podcast');
 
-  const [course, setCourse] = useState<CourseKey>('men');
-  const [year, setYear] = useState<number>(YEARS[YEARS.length - 1]);
+  const [course, setCourse] = useState<MaterialCourseSlug>('men');
+  const [year, setYear] = useState<string>(DEFAULT_YEAR);
+  const [group, setGroup] = useState<string>(
+    () => getMaterialGroups('men', DEFAULT_YEAR)[0]?.slug || ''
+  );
   const [lesson, setLesson] = useState<number>(1);
   const [lessonDate, setLessonDate] = useState<string>('');
 
@@ -136,15 +138,33 @@ export default function Uploader({ initialSearchParams }: { initialSearchParams?
   const [busy, setBusy] = useState(false);
   const [status, setStatus] = useState<string | null>(null);
   const [dragOver, setDragOver] = useState(false);
-  const lessonOptions = useMemo(
-    () => Array.from({ length: getLessonCountForYear(year) }, (_, i) => i + 1),
-    [year]
+  const groupOptions = useMemo(
+    () => getMaterialGroups(course, year),
+    [course, year]
   );
+  const lessonOptions = useMemo(() => {
+    const count = getMaterialLessonCount(course, year, group || undefined);
+    return Array.from({ length: count }, (_, i) => i + 1);
+  }, [course, group, year]);
 
   useEffect(() => {
-    const maxLesson = getLessonCountForYear(year);
-    if (lesson > maxLesson) setLesson(maxLesson);
-  }, [lesson, year]);
+    setGroup((current) =>
+      groupOptions.some((option) => option.slug === current)
+        ? current
+        : groupOptions[0]?.slug || ''
+    );
+  }, [groupOptions]);
+
+  useEffect(() => {
+    const maxLesson = getMaterialLessonCount(course, year, group || undefined);
+    if (maxLesson > 0 && lesson > maxLesson) setLesson(maxLesson);
+  }, [course, group, lesson, year]);
+
+  useEffect(() => {
+    setLessonDate(
+      getMaterialLessonDate(course, year, group || undefined, lesson)
+    );
+  }, [course, group, lesson, year]);
 
   const accept = useMemo(() => {
     if (dest === 'akolouthies') return 'audio/mpeg,audio/mp4,audio/aac,audio/x-m4a';
@@ -284,6 +304,7 @@ export default function Uploader({ initialSearchParams }: { initialSearchParams?
           payload.kind = kind;
           payload.course = course;
           payload.year = year;
+          if (getMaterialYear(year)?.grouped) payload.group = group;
           payload.lesson = lesson;
         }
 
@@ -341,10 +362,13 @@ export default function Uploader({ initialSearchParams }: { initialSearchParams?
 
     let lessonDateMessage = '';
     if (successCount > 0 && dest === 'lessons' && lessonDate.trim()) {
-      const courseFolder = COURSES.find((c) => c.key === course)?.label;
-      const lessonPrefix = courseFolder
-        ? `Μαθήματα/${courseFolder}/${year}/Μάθημα ${String(lesson).padStart(2, '0')}/`
-        : '';
+      const lessonPrefix =
+        buildMaterialLessonPrefix(
+          course,
+          year,
+          lesson,
+          getMaterialYear(year)?.grouped ? group : undefined
+        ) || '';
 
       if (lessonPrefix) {
         try {
@@ -422,28 +446,53 @@ export default function Uploader({ initialSearchParams }: { initialSearchParams?
               </div>
             </div>
 
-            <div className="grid sm:grid-cols-4 gap-4">
+            <div className="grid gap-4 sm:grid-cols-2">
               <div>
                 <label className="text-sm text-muted">Κατηγορία</label>
-                <select className="input mt-1" value={course} onChange={(e) => setCourse(e.target.value as CourseKey)}>
-                  {COURSES.map((c) => (
-                    <option key={c.key} value={c.key}>
-                      {c.label}
+                <select
+                  className="input mt-1"
+                  value={course}
+                  onChange={(e) => setCourse(e.target.value as MaterialCourseSlug)}
+                >
+                  {MATERIAL_COURSES.map((c) => (
+                    <option key={c.slug} value={c.slug}>
+                      {c.folder}
                     </option>
                   ))}
                 </select>
               </div>
 
               <div>
-                <label className="text-sm text-muted">Έτος</label>
-                <select className="input mt-1" value={year} onChange={(e) => setYear(Number(e.target.value))}>
-                  {YEARS.map((y) => (
-                    <option key={y} value={y}>
-                      {y}
+                <label className="text-sm text-muted">Σχολικό έτος</label>
+                <select
+                  className="input mt-1"
+                  value={year}
+                  onChange={(e) => setYear(e.target.value)}
+                >
+                  {MATERIAL_YEAR_OPTIONS.map((option) => (
+                    <option key={option.id} value={option.id}>
+                      {option.label}
                     </option>
                   ))}
                 </select>
               </div>
+
+              {groupOptions.length > 0 && (
+                <div>
+                  <label className="text-sm text-muted">Τμήμα</label>
+                  <select
+                    className="input mt-1"
+                    value={group}
+                    onChange={(e) => setGroup(e.target.value)}
+                  >
+                    {groupOptions.map((option) => (
+                      <option key={option.slug} value={option.slug}>
+                        {option.folder}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
 
               <div>
                 <label className="text-sm text-muted">Μάθημα #</label>
@@ -464,6 +513,11 @@ export default function Uploader({ initialSearchParams }: { initialSearchParams?
                   value={lessonDate}
                   onChange={(e) => setLessonDate(e.target.value)}
                 />
+                {getMaterialYear(year)?.grouped && (
+                  <p className="mt-1 text-xs text-muted">
+                    Συμπληρώνεται αυτόματα από το πρόγραμμα.
+                  </p>
+                )}
               </div>
             </div>
           </>

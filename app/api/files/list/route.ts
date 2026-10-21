@@ -17,6 +17,7 @@ import {
   readListingCache,
   writeListingCache,
 } from "@/lib/listingCache";
+import { getConfiguredMaterialChildPrefixes } from "@/lib/materialCatalog";
 
 const USEFUL_ROOT = "Χρήσιμα/";
 
@@ -97,6 +98,18 @@ function prioritizeRootFolders(folders: string[], currentPrefix: string) {
 
   const seen = new Set<string>();
   return [USEFUL_ROOT, ...folders].filter((folder) => {
+    if (!folder || seen.has(folder)) return false;
+    seen.add(folder);
+    return true;
+  });
+}
+
+function mergeConfiguredFolders(folders: string[], currentPrefix: string) {
+  const seen = new Set<string>();
+  return [
+    ...getConfiguredMaterialChildPrefixes(currentPrefix),
+    ...folders,
+  ].filter((folder) => {
     if (!folder || seen.has(folder)) return false;
     seen.add(folder);
     return true;
@@ -243,7 +256,13 @@ export async function GET(req: Request) {
       return (b.lastModified || "").localeCompare(a.lastModified || "");
     });
 
-    const orderedFolders = sortFoldersForPrefix(prioritizeRootFolders(folders, prefix), prefix);
+    const mergedFolders = isSearch
+      ? folders
+      : mergeConfiguredFolders(folders, prefix);
+    const orderedFolders = sortFoldersForPrefix(
+      prioritizeRootFolders(mergedFolders, prefix),
+      prefix
+    );
     const folderEntries = await buildFolderEntries(orderedFolders, prefix);
     const body = { items, folders: folderEntries, prefix, query };
 

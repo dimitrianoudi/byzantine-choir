@@ -7,14 +7,11 @@ import { standardAudioContentType } from "@/lib/audioMime";
 import { PutObjectCommand } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import * as Sentry from "@sentry/nextjs";
+import {
+  buildMaterialLessonPrefix,
+  getMaterialCourse,
+} from "@/lib/materialCatalog";
 
-const courseMap = {
-  kids: "Ψαλτική παιδικής φωνής",
-  women: "Ψαλτική γυναικείας φωνής",
-  men: "Ψαλτική ανδρικής φωνής",
-} as const;
-
-type CourseKey = keyof typeof courseMap;
 type Kind = "podcast" | "pdf";
 
 function sanitizeFilename(name: string): string {
@@ -104,14 +101,39 @@ export async function POST(req: Request) {
       }
       key = `Χρήσιμα/${Date.now()}-${safe}`;
     } else {
-      const course = b?.course as CourseKey | undefined;
-      const year = Number(b?.year);
+      const courseValue = typeof b?.course === "string" ? b.course : "";
+      const course = getMaterialCourse(courseValue);
+      const year =
+        typeof b?.year === "string" || typeof b?.year === "number"
+          ? String(b.year)
+          : "";
       const lesson = Number(b?.lesson);
+      const group = typeof b?.group === "string" ? b.group : undefined;
+      const hasLessonTarget =
+        b?.course !== undefined ||
+        b?.year !== undefined ||
+        b?.lesson !== undefined ||
+        b?.group !== undefined;
 
-      if (course && courseMap[course] && year && lesson) {
-        const courseFolder = courseMap[course];
-        const lessonStr = String(lesson).padStart(2, "0");
-        key = `Μαθήματα/${courseFolder}/${year}/Μάθημα ${lessonStr}/${typeFolder}/${Date.now()}-${safe}`;
+      if (course && year && lesson) {
+        const lessonPrefix = buildMaterialLessonPrefix(
+          course.slug,
+          year,
+          lesson,
+          group
+        );
+        if (!lessonPrefix) {
+          return NextResponse.json(
+            { error: "Μη έγκυρο έτος, τμήμα ή μάθημα." },
+            { status: 400 }
+          );
+        }
+        key = `${lessonPrefix}${typeFolder}/${Date.now()}-${safe}`;
+      } else if (hasLessonTarget) {
+        return NextResponse.json(
+          { error: "Μη έγκυρη κατηγορία, έτος ή μάθημα." },
+          { status: 400 }
+        );
       } else {
         const legacyPrefix = mime === "application/pdf" ? "pdfs" : "podcasts";
         key = `${legacyPrefix}/${Date.now()}-${safe}`;

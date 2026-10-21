@@ -1,20 +1,25 @@
 import { standardAudioContentType } from "@/lib/audioMime";
+import {
+  MATERIAL_COURSES,
+  buildMaterialLessonPrefix,
+  getMaterialCourse,
+  getMaterialGroup,
+  getMaterialYear,
+  type MaterialCourseSlug,
+} from "@/lib/materialCatalog";
 
-export const MATERIAL_COURSE_FOLDER_BY_SLUG = {
-  kids: "Ψαλτική παιδικής φωνής",
-  women: "Ψαλτική γυναικείας φωνής",
-  men: "Ψαλτική ανδρικής φωνής",
-} as const;
+export type { MaterialCourseSlug } from "@/lib/materialCatalog";
 
-export const MATERIAL_COURSE_SLUG_BY_FOLDER = {
-  "Ψαλτική παιδικής φωνής": "kids",
-  "Ψαλτική γυναικείας φωνής": "women",
-  "Ψαλτική ανδρικής φωνής": "men",
-} as const;
+export const MATERIAL_COURSE_FOLDER_BY_SLUG = Object.fromEntries(
+  MATERIAL_COURSES.map((course) => [course.slug, course.folder])
+) as Record<MaterialCourseSlug, string>;
+
+export const MATERIAL_COURSE_SLUG_BY_FOLDER = Object.fromEntries(
+  MATERIAL_COURSES.map((course) => [course.folder, course.slug])
+) as Record<string, MaterialCourseSlug>;
 
 const USEFUL_ROOT = "Χρήσιμα/";
 
-export type MaterialCourseSlug = keyof typeof MATERIAL_COURSE_FOLDER_BY_SLUG;
 type MaterialTypeFolder = "podcasts" | "pdfs";
 
 export function isMaterialAudioKey(key: string) {
@@ -45,24 +50,36 @@ export function materialPdfContentType() {
 
 function parseMaterialKey(key: string, typeFolder: MaterialTypeFolder) {
   const parts = key.split("/").filter(Boolean);
-  if (parts.length !== 6) return null;
+  if (parts.length !== 6 && parts.length !== 7) return null;
 
-  const [root, courseFolder, year, lessonFolder, actualTypeFolder] = parts;
-  if (root !== "Μαθήματα" || actualTypeFolder !== typeFolder) return null;
-  if (!/^\d{4}$/.test(year)) return null;
+  const [root, courseFolder, yearFolder] = parts;
+  if (root !== "Μαθήματα") return null;
 
-  const courseSlug = MATERIAL_COURSE_SLUG_BY_FOLDER[
-    courseFolder as keyof typeof MATERIAL_COURSE_SLUG_BY_FOLDER
-  ];
-  if (!courseSlug) return null;
+  const course = getMaterialCourse(courseFolder);
+  const year = getMaterialYear(yearFolder);
+  if (!course || !year) return null;
+
+  const grouped = parts.length === 7;
+  if (grouped !== year.grouped) return null;
+
+  const groupFolder = grouped ? parts[3] : undefined;
+  const lessonFolder = parts[grouped ? 4 : 3];
+  const actualTypeFolder = parts[grouped ? 5 : 4];
+  if (actualTypeFolder !== typeFolder) return null;
+
+  const group = grouped
+    ? getMaterialGroup(course.slug, year.id, groupFolder)
+    : null;
+  if (grouped && !group) return null;
 
   const lessonMatch = lessonFolder.match(/^Μάθημα\s+(\d{1,2})$/);
   if (!lessonMatch) return null;
 
   return {
-    courseFolder,
-    courseSlug,
-    year,
+    courseFolder: course.folder,
+    courseSlug: course.slug,
+    year: year.id,
+    group: group?.slug,
     lesson: lessonMatch[1].padStart(2, "0"),
     name: displayMaterialFilename(key),
   };
@@ -82,9 +99,14 @@ export function buildMaterialAudioPathFromKey(key: string) {
   const parsed = parseMaterialPodcastKey(key);
   if (!parsed) return null;
 
-  return `/material/audio/${encodeURIComponent(parsed.courseSlug)}/${encodeURIComponent(
-    parsed.year
-  )}/${encodeURIComponent(parsed.lesson)}/${encodeURIComponent(parsed.name)}`;
+  const parts = [
+    parsed.courseSlug,
+    parsed.year,
+    ...(parsed.group ? [parsed.group] : []),
+    parsed.lesson,
+    parsed.name,
+  ];
+  return `/material/audio/${parts.map((part) => encodeURIComponent(part)).join("/")}`;
 }
 
 export function buildMaterialPdfPathFromKey(key: string) {
@@ -97,20 +119,39 @@ export function buildMaterialPdfPathFromKey(key: string) {
   return `/material/pdf/${encodedKey}`;
 }
 
-function getMaterialPrefix(courseSlug: string, year: string, lesson: string, typeFolder: MaterialTypeFolder) {
-  const courseFolder =
-    MATERIAL_COURSE_FOLDER_BY_SLUG[courseSlug as keyof typeof MATERIAL_COURSE_FOLDER_BY_SLUG];
-  if (!courseFolder) return null;
-  if (!/^\d{4}$/.test(year)) return null;
-  if (!/^\d{1,2}$/.test(lesson)) return null;
+function getMaterialPrefix(
+  courseSlug: string,
+  year: string,
+  lesson: string,
+  typeFolder: MaterialTypeFolder,
+  group?: string
+) {
+  const course = getMaterialCourse(courseSlug);
+  if (!course) return null;
 
-  return `Μαθήματα/${courseFolder}/${year}/Μάθημα ${lesson.padStart(2, "0")}/${typeFolder}/`;
+  const lessonPrefix = buildMaterialLessonPrefix(
+    course.slug,
+    year,
+    lesson,
+    group
+  );
+  return lessonPrefix ? `${lessonPrefix}${typeFolder}/` : null;
 }
 
-export function getMaterialPodcastPrefix(courseSlug: string, year: string, lesson: string) {
-  return getMaterialPrefix(courseSlug, year, lesson, "podcasts");
+export function getMaterialPodcastPrefix(
+  courseSlug: string,
+  year: string,
+  lesson: string,
+  group?: string
+) {
+  return getMaterialPrefix(courseSlug, year, lesson, "podcasts", group);
 }
 
-export function getMaterialPdfPrefix(courseSlug: string, year: string, lesson: string) {
-  return getMaterialPrefix(courseSlug, year, lesson, "pdfs");
+export function getMaterialPdfPrefix(
+  courseSlug: string,
+  year: string,
+  lesson: string,
+  group?: string
+) {
+  return getMaterialPrefix(courseSlug, year, lesson, "pdfs", group);
 }

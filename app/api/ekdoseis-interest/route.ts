@@ -9,6 +9,10 @@ import { publications } from "@/lib/publications";
 const WINDOW_MS = 10 * 60 * 1000;
 const MAX_REQUESTS_PER_WINDOW = 5;
 const MAX_BODY_BYTES = 16_000;
+const DEFAULT_RECIPIENTS = [
+  "psaltikievosmou@gmail.com",
+  "stathisnikolaos@gmail.com",
+];
 
 type RateLimitEntry = {
   count: number;
@@ -83,6 +87,19 @@ function checkRateLimit(fingerprint: string) {
 
   current.count += 1;
   return { allowed: true, retryAfterSeconds: 0 };
+}
+
+function interestRecipients() {
+  const configuredRecipients = (
+    process.env.PUBLICATIONS_INTEREST_EMAIL || ""
+  )
+    .split(",")
+    .map((email) => email.trim())
+    .filter(Boolean);
+
+  return Array.from(
+    new Set([...configuredRecipients, ...DEFAULT_RECIPIENTS]),
+  );
 }
 
 function noStoreJson(
@@ -199,9 +216,7 @@ export async function POST(req: Request) {
     .join("");
 
   const result = await sendEmail({
-    to:
-      process.env.PUBLICATIONS_INTEREST_EMAIL ||
-      "psaltikievosmou@gmail.com",
+    to: interestRecipients(),
     subject,
     text: `${subject}\n\n${text}`,
     html: `

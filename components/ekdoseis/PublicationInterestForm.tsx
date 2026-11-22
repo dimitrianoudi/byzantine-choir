@@ -219,34 +219,22 @@ export default function PublicationInterestForm({
             {state.type === "submitting" ? "Αποστολή…" : "Αποστολή ενδιαφέροντος"}
           </button>
 
-          <p
-            className={
-              state.type === "error"
-                ? "text-sm font-medium text-red-700"
-                : state.type === "success"
-                  ? "text-sm font-medium text-green-800"
-                  : "text-sm text-[#6e665c]"
-            }
-            role={state.type === "error" ? "alert" : "status"}
-            aria-live="polite"
-          >
-            {state.message ||
-              "Παραλήπτης: psaltikievosmou@gmail.com"}
-          </p>
-        </div>
-
-        {state.type === "error" && (
-          <p className="text-sm text-[#6e665c] sm:col-span-2">
-            Εναλλακτικά, στείλτε μήνυμα στο{" "}
-            <a
-              href="mailto:psaltikievosmou@gmail.com"
-              className="font-semibold text-[#5a1e2e] underline underline-offset-4"
+          {state.message && (
+            <p
+              className={
+                state.type === "error"
+                  ? "text-sm font-medium text-red-700"
+                  : state.type === "success"
+                    ? "text-sm font-medium text-green-800"
+                    : "text-sm text-[#6e665c]"
+              }
+              role={state.type === "error" ? "alert" : "status"}
+              aria-live="polite"
             >
-              psaltikievosmou@gmail.com
-            </a>
-            .
-          </p>
-        )}
+              {state.message}
+            </p>
+          )}
+        </div>
       </form>
     </section>
   );

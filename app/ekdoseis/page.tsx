@@ -11,11 +11,18 @@ import {
   publicationSeries,
   publicationPath,
 } from "@/lib/publications";
+import { getSession } from "@/lib/session";
 import { absoluteUrl, SITE_NAME, SITE_URL } from "@/lib/site";
 
 const pageTitle = "Εκδόσεις Ψαλτικής Παιδείας";
 const pageDescription =
   "Βιβλία, διδακτικά τεύχη, μελέτες και εικονογραφημένο υλικό του Ενοριακού Φροντιστηρίου Ψαλτικής για παιδιά και ενήλικες.";
+const subscriberOnlyCoverSlugs = new Set([
+  "21-spoydi-sto-theoritiko-avraam-eythymiadi",
+  "22-spoydi-sto-theoritiko-ioannoy-d-margazioti",
+]);
+
+export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
   title: `${pageTitle} | ${SITE_NAME}`,
@@ -45,7 +52,8 @@ export const metadata: Metadata = {
   },
 };
 
-export default function PublicationsPage() {
+export default async function PublicationsPage() {
+  const session = await getSession();
   const cards: PublicationCardData[] = publications.map((publication) => ({
     id: publication.id,
     slug: publication.slug,
@@ -57,7 +65,11 @@ export default function PublicationsPage() {
     seriesColor: publication.seriesColor,
     pages: publication.pages,
     formats: publication.formats,
-    cover: publication.images.cover!,
+    cover:
+      session.isLoggedIn ||
+      !subscriberOnlyCoverSlugs.has(publication.slug)
+        ? publication.images.cover!
+        : null,
     landscapeCover: publication.landscapeCover,
   }));
 

@@ -2,7 +2,6 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { LockKeyhole } from "lucide-react";
 import { useEffect, useMemo, useState, type CSSProperties } from "react";
 import type {
   PublicationAudience,
@@ -20,7 +19,7 @@ export type PublicationCardData = {
   seriesColor: string;
   pages: number | null;
   formats: string[];
-  cover: string | null;
+  cover: string;
   landscapeCover: boolean;
 };
 
@@ -40,30 +39,17 @@ function PublicationCard({ publication }: { publication: PublicationCardData }) 
       style={{ "--series-color": publication.seriesColor } as CSSProperties}
     >
       <div className="relative aspect-[3/4] overflow-hidden rounded-[0.6rem_1rem_1rem_0.6rem] border border-[#eadfcb] bg-[#fbf8f1] shadow-[inset_5px_0_0_rgba(90,30,46,0.08)]">
-        {publication.cover ? (
-          <Image
-            src={publication.cover}
-            alt={`Εξώφυλλο: ${publication.title}`}
-            fill
-            sizes="(max-width: 480px) 45vw, (max-width: 768px) 30vw, (max-width: 1024px) 22vw, 190px"
-            className={
-              publication.landscapeCover
-                ? "object-contain p-3 transition duration-300 group-hover:scale-[1.02]"
-                : "object-cover transition duration-300 group-hover:scale-[1.025]"
-            }
-          />
-        ) : (
-          <div className="flex h-full flex-col items-center justify-center gap-3 bg-[#f3ecdf] px-4 text-center text-[#7b6c58]">
-            <LockKeyhole
-              size={30}
-              strokeWidth={1.6}
-              aria-hidden="true"
-            />
-            <span className="text-xs font-semibold leading-5">
-              Σύνδεση για προβολή εξωφύλλου
-            </span>
-          </div>
-        )}
+        <Image
+          src={publication.cover}
+          alt={`Εξώφυλλο: ${publication.title}`}
+          fill
+          sizes="(max-width: 480px) 45vw, (max-width: 768px) 30vw, (max-width: 1024px) 22vw, 190px"
+          className={
+            publication.landscapeCover
+              ? "object-contain p-3 transition duration-300 group-hover:scale-[1.02]"
+              : "object-cover transition duration-300 group-hover:scale-[1.025]"
+          }
+        />
       </div>
 
       <div

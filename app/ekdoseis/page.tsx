@@ -54,7 +54,12 @@ export const metadata: Metadata = {
 
 export default async function PublicationsPage() {
   const session = await getSession();
-  const cards: PublicationCardData[] = publications.map((publication) => ({
+  const visiblePublications = publications.filter(
+    (publication) =>
+      session.isLoggedIn ||
+      !subscriberOnlyCoverSlugs.has(publication.slug),
+  );
+  const cards: PublicationCardData[] = visiblePublications.map((publication) => ({
     id: publication.id,
     slug: publication.slug,
     title: publication.title,
@@ -65,18 +70,14 @@ export default async function PublicationsPage() {
     seriesColor: publication.seriesColor,
     pages: publication.pages,
     formats: publication.formats,
-    cover:
-      session.isLoggedIn ||
-      !subscriberOnlyCoverSlugs.has(publication.slug)
-        ? publication.images.cover!
-        : null,
+    cover: publication.images.cover!,
     landscapeCover: publication.landscapeCover,
   }));
 
-  const adultCount = publications.filter(
+  const adultCount = visiblePublications.filter(
     (publication) => publication.audience === "adult",
   ).length;
-  const childrenCount = publications.length - adultCount;
+  const childrenCount = visiblePublications.length - adultCount;
   const collectionSchema = {
     "@context": "https://schema.org",
     "@type": "CollectionPage",
@@ -90,8 +91,8 @@ export default async function PublicationsPage() {
     },
     mainEntity: {
       "@type": "ItemList",
-      numberOfItems: publications.length,
-      itemListElement: publications.map((publication, index) => ({
+      numberOfItems: visiblePublications.length,
+      itemListElement: visiblePublications.map((publication, index) => ({
         "@type": "ListItem",
         position: index + 1,
         url: absoluteUrl(publicationPath(publication)),
@@ -152,7 +153,7 @@ export default async function PublicationsPage() {
           <div>
             <dt className="text-xs text-[#6e665c]">Σύνολο</dt>
             <dd className="font-heading text-2xl font-bold text-[#5a1e2e]">
-              {publications.length}
+              {visiblePublications.length}
             </dd>
           </div>
           <div>
@@ -179,7 +180,7 @@ export default async function PublicationsPage() {
       </div>
 
       <PublicationInterestForm
-        publications={publications.map((publication) => ({
+        publications={visiblePublications.map((publication) => ({
           id: publication.id,
           title: publication.title,
         }))}

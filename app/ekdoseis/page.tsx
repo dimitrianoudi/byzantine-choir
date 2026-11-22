@@ -4,6 +4,7 @@ import PublicationsCatalog, {
   type PublicationCardData,
 } from "@/components/ekdoseis/PublicationsCatalog";
 import PublicationInterestForm from "@/components/ekdoseis/PublicationInterestForm";
+import TrumpetingAngel from "@/components/ekdoseis/TrumpetingAngel";
 import {
   publicationAudiences,
   publications,
@@ -96,10 +97,7 @@ export default function PublicationsPage() {
         }}
       />
       <section className="relative overflow-hidden rounded-[1.6rem] border border-[#e3d5bc] bg-[#f6f1e7] px-5 py-8 shadow-[0_14px_38px_rgba(67,45,26,0.1)] sm:px-8 sm:py-10">
-        <div
-          className="pointer-events-none absolute -right-20 -top-28 h-72 w-72 rounded-full border-[54px] border-[#b8893a]/10"
-          aria-hidden="true"
-        />
+        <TrumpetingAngel className="pointer-events-none absolute -right-5 top-2 h-32 w-52 opacity-30 sm:right-5 sm:top-5 sm:h-44 sm:w-72" />
         <div
           className="pointer-events-none absolute -bottom-28 -left-24 h-64 w-64 rounded-full bg-[#5a1e2e]/[0.06]"
           aria-hidden="true"

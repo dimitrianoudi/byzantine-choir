@@ -156,6 +156,7 @@ export default function Header({
             </div>
 
             <div className="nav-row">
+              <NavLink href="/ekdoseis" label="Εκδόσεις" />
               <NavLink href="/calendar" label="Ημερολόγιο" />
               <NavLink href="/gallery" label="Στιγμιότυπα" />
 

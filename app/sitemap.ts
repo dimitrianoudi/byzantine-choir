@@ -1,4 +1,5 @@
 import type { MetadataRoute } from "next";
+import { publicationPath, publications } from "@/lib/publications";
 import { absoluteUrl } from "@/lib/site";
 
 const publicRoutes = [
@@ -6,6 +7,7 @@ const publicRoutes = [
   { path: "/typiko", changeFrequency: "weekly", priority: 0.9 },
   { path: "/calendar", changeFrequency: "monthly", priority: 0.9 },
   { path: "/akolouthies", changeFrequency: "weekly", priority: 0.8 },
+  { path: "/ekdoseis", changeFrequency: "monthly", priority: 0.8 },
   { path: "/gallery", changeFrequency: "weekly", priority: 0.7 },
   { path: "/live", changeFrequency: "weekly", priority: 0.7 },
   { path: "/register", changeFrequency: "monthly", priority: 0.7 },
@@ -14,9 +16,17 @@ const publicRoutes = [
 ] as const;
 
 export default function sitemap(): MetadataRoute.Sitemap {
-  return publicRoutes.map((route) => ({
+  const routes = publicRoutes.map((route) => ({
     url: absoluteUrl(route.path),
     changeFrequency: route.changeFrequency,
     priority: route.priority,
   }));
+
+  const publicationRoutes = publications.map((publication) => ({
+    url: absoluteUrl(publicationPath(publication)),
+    changeFrequency: "monthly" as const,
+    priority: 0.7,
+  }));
+
+  return [...routes, ...publicationRoutes];
 }

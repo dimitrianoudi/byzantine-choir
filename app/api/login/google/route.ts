@@ -2,15 +2,14 @@ import { NextResponse } from "next/server";
 import { OAuth2Client } from "google-auth-library";
 import { getSession } from "@/lib/session";
 import { recordLoginAudit } from "@/lib/loginAudit";
+import {
+  decideGoogleLoginAccess,
+  normalizeEmail,
+  splitEmailList,
+} from "@/lib/members/access";
+import { getManagedMemberManifest } from "@/lib/members/repository";
 
 const client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
-
-function splitCSV(val?: string | null) {
-  return (val ?? "")
-    .split(",")
-    .map(s => s.trim().toLowerCase())
-    .filter(Boolean);
-}
 
 export async function POST(req: Request) {
   const ip =
@@ -36,7 +35,7 @@ export async function POST(req: Request) {
       audience: process.env.GOOGLE_CLIENT_ID,
     });
     const payload = ticket.getPayload();
-    const email = (payload?.email || "").toLowerCase();
+    const email = normalizeEmail(payload?.email || "");
     const verified = !!payload?.email_verified;
 
     if (!email || !verified) {
@@ -51,14 +50,24 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Unverified Google account" }, { status: 401 });
     }
 
-    // Access policy
-    const allowedDomain = (process.env.ALLOWED_GOOGLE_DOMAIN || "").toLowerCase();
-    const allowedEmails = splitCSV(process.env.ALLOWED_GOOGLE_EMAILS);
+    const adminEmails = splitEmailList(process.env.ADMIN_GOOGLE_EMAILS);
+    const isConfiguredAdmin = adminEmails.includes(email);
+    const storedMembers = isConfiguredAdmin
+      ? null
+      : await getManagedMemberManifest();
+    const access = decideGoogleLoginAccess({
+      email,
+      allowedDomain: process.env.ALLOWED_GOOGLE_DOMAIN,
+      configuredMemberEmails: splitEmailList(
+        process.env.ALLOWED_GOOGLE_EMAILS,
+      ),
+      managedMemberEmails:
+        storedMembers?.manifest.members.map((member) => member.email) || [],
+      adminEmails,
+      managedAllowlistExists: storedMembers?.source === "s3",
+    });
 
-    const domainOK = allowedDomain ? email.endsWith(`@${allowedDomain}`) : true;
-    const emailOK = allowedEmails.length ? allowedEmails.includes(email) : true;
-
-    if (!(domainOK && emailOK)) {
+    if (!access.allowed) {
       void recordLoginAudit({
         email,
         status: "failure",
@@ -70,25 +79,21 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Not allowed" }, { status: 403 });
     }
 
-    // Role
-    const adminEmails = splitCSV(process.env.ADMIN_GOOGLE_EMAILS);
-    const role: "member" | "admin" = adminEmails.includes(email) ? "admin" : "member";
-
     // Create same iron-session you already use
     const session = await getSession();
     session.isLoggedIn = true;
-    session.user = { email, role };
+    session.user = { email, role: access.role };
     await session.save();
     void recordLoginAudit({
       email,
-      role,
+      role: access.role,
       status: "success",
       method: "google",
       ip,
       userAgent,
     });
 
-    return NextResponse.json({ ok: true, role });
+    return NextResponse.json({ ok: true, role: access.role });
   } catch (err: any) {
     void recordLoginAudit({
       status: "failure",

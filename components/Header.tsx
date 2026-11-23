@@ -207,14 +207,24 @@ export default function Header({
                     </div>
                     <div className="border-t border-subtle" />
                     {user?.role === 'admin' && (
-                      <Link
-                        href="/admin/ekdoseis"
-                        role="menuitem"
-                        className="menu-item"
-                        onClick={() => setOpen(false)}
-                      >
-                        Διαχείριση Εκδόσεων
-                      </Link>
+                      <>
+                        <Link
+                          href="/admin/members"
+                          role="menuitem"
+                          className="menu-item"
+                          onClick={() => setOpen(false)}
+                        >
+                          Διαχείριση Μελών
+                        </Link>
+                        <Link
+                          href="/admin/ekdoseis"
+                          role="menuitem"
+                          className="menu-item"
+                          onClick={() => setOpen(false)}
+                        >
+                          Διαχείριση Εκδόσεων
+                        </Link>
+                      </>
                     )}
                     <button className="menu-item" onClick={openSettings}>Ρυθμίσεις</button>
                     <button className="menu-item" onClick={() => alert('Σύντομα')}>Πληρωμές (σύντομα)</button>

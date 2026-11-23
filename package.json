@@ -8,7 +8,9 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "test:publications": "node --experimental-strip-types --test tests/publications.test.mjs"
+    "test": "node --experimental-strip-types --test tests/*.test.mjs",
+    "test:publications": "node --experimental-strip-types --test tests/publications.test.mjs",
+    "test:members": "node --experimental-strip-types --test tests/members.test.mjs"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.908.0",

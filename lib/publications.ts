@@ -215,9 +215,9 @@ export const comicReaders: Record<string, ComicReaderData> = Object.fromEntries(
   ]),
 );
 
-if (publications.length !== 29) {
+if (publications.length !== 35) {
   throw new Error(
-    `Expected 29 publications, received ${publications.length}`,
+    `Expected 35 publications, received ${publications.length}`,
   );
 }
 

@@ -122,9 +122,7 @@ export default function MemberManager({
           </h1>
         </div>
         <p className="max-w-2xl text-sm text-muted">
-          Προσθέστε το ακριβές email του Google λογαριασμού του σπουδαστή.
-          Η πρόσβαση ενεργοποιείται αμέσως, χωρίς αλλαγή ρυθμίσεων ή νέα
-          δημοσίευση του site.
+          Προσθέστε το email του Google λογαριασμού του σπουδαστή.
         </p>
       </header>
 

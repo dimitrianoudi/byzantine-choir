@@ -12,33 +12,47 @@ export default function LoginPage() {
   const googleOnly = process.env.NEXT_PUBLIC_AUTH_MODE === "google_only";
 
   useEffect(() => {
-    // Initialize Google Identity button when script + client id are available
     const clientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID;
-    if (!clientId || !window.google) return;
+    if (!clientId) return;
 
-    window.google.accounts.id.initialize({
-      client_id: clientId,
-      callback: async (response: any) => {
-        try {
-          const res = await fetch("/api/login/google", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ credential: response.credential }),
-          });
-          if (res.ok) {
-            window.location.replace("/");
-          } else {
-            const data = await res.json().catch(() => ({}));
-            alert(data?.error || "Αποτυχία σύνδεσης με Google");
+    let cancelled = false;
+    let retryCount = 0;
+    let retryTimer: ReturnType<typeof setTimeout> | undefined;
+    let googleButtonObserver: MutationObserver | undefined;
+    let edgeFixFrame: number | undefined;
+
+    const renderGoogleButton = () => {
+      if (cancelled) return;
+      if (!window.google?.accounts?.id) {
+        retryCount += 1;
+        if (retryCount >= 100) return;
+        retryTimer = setTimeout(renderGoogleButton, 100);
+        return;
+      }
+
+      window.google.accounts.id.initialize({
+        client_id: clientId,
+        callback: async (response: any) => {
+          try {
+            const res = await fetch("/api/login/google", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ credential: response.credential }),
+            });
+            if (res.ok) {
+              window.location.replace("/");
+            } else {
+              const data = await res.json().catch(() => ({}));
+              alert(data?.error || "Αποτυχία σύνδεσης με Google");
+            }
+          } catch {
+            alert("Αποτυχία σύνδεσης με Google");
           }
-        } catch {
-          alert("Αποτυχία σύνδεσης με Google");
-        }
-      },
-    });
+        },
+      });
 
-    const el = document.getElementById("google-btn");
-    if (el) {
+      const el = document.getElementById("google-btn");
+      if (!el) return;
       const availableWidth = Math.floor(
         el.getBoundingClientRect().width,
       );
@@ -46,6 +60,36 @@ export default function LoginPage() {
         316,
         Math.max(120, availableWidth - 8),
       );
+      el.replaceChildren();
+      const addPersonalizedButtonBreathingRoom = () => {
+        const button = el.querySelector<HTMLElement>('[role="button"]');
+        if (!button || button.dataset.edgeSpacingApplied === "true") {
+          return;
+        }
+
+        const renderedWidth = Math.ceil(
+          button.getBoundingClientRect().width,
+        );
+        if (!renderedWidth) return;
+
+        button.dataset.edgeSpacingApplied = "true";
+        button.style.setProperty(
+          "width",
+          `${Math.min(renderedWidth + 4, availableWidth - 4)}px`,
+          "important",
+        );
+        button.style.setProperty("max-width", "none", "important");
+        button.style.transform = "translateX(-2px)";
+      };
+
+      googleButtonObserver?.disconnect();
+      googleButtonObserver = new MutationObserver(
+        addPersonalizedButtonBreathingRoom,
+      );
+      googleButtonObserver.observe(el, {
+        childList: true,
+        subtree: true,
+      });
       window.google.accounts.id.renderButton(el, {
         theme: "outline",
         size: "large",
@@ -53,9 +97,19 @@ export default function LoginPage() {
         text: "continue_with",
         width: buttonWidth,
       });
-    }
-    // Optional: One-tap prompt
-    // window.google.accounts.id.prompt();
+      addPersonalizedButtonBreathingRoom();
+      edgeFixFrame = requestAnimationFrame(
+        addPersonalizedButtonBreathingRoom,
+      );
+    };
+
+    renderGoogleButton();
+    return () => {
+      cancelled = true;
+      if (retryTimer) clearTimeout(retryTimer);
+      if (edgeFixFrame) cancelAnimationFrame(edgeFixFrame);
+      googleButtonObserver?.disconnect();
+    };
   }, []);
 
   return (
@@ -70,6 +124,14 @@ export default function LoginPage() {
         id="google-btn"
         className="flex w-full min-w-0 justify-center px-1"
       />
+
+      <style jsx global>{`
+        #google-btn,
+        #google-btn > div,
+        #google-btn > div > div {
+          overflow: visible !important;
+        }
+      `}</style>
 
       {googleOnly && (
         <p className="text-xs text-muted mt-6 text-center">

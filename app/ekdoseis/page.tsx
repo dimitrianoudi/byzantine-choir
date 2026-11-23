@@ -6,22 +6,16 @@ import PublicationsCatalog, {
 import PublicationInterestForm from "@/components/ekdoseis/PublicationInterestForm";
 import TrumpetingAngel from "@/components/ekdoseis/TrumpetingAngel";
 import {
-  publicationAudiences,
-  publications,
-  publicationSeries,
+  getPublicationCatalog,
   publicationPath,
 } from "@/lib/publications";
+import { canListPublication } from "@/lib/publications/access";
 import { getSession } from "@/lib/session";
 import { absoluteUrl, SITE_NAME, SITE_URL } from "@/lib/site";
 
 const pageTitle = "Εκδόσεις Ψαλτικής Παιδείας";
 const pageDescription =
   "Βιβλία, διδακτικά τεύχη, μελέτες και εικονογραφημένο υλικό του Ενοριακού Φροντιστηρίου Ψαλτικής για παιδιά και ενήλικες.";
-const subscriberOnlyCoverSlugs = new Set([
-  "21-spoydi-sto-theoritiko-avraam-eythymiadi",
-  "22-spoydi-sto-theoritiko-ioannoy-d-margazioti",
-]);
-
 export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
@@ -54,10 +48,9 @@ export const metadata: Metadata = {
 
 export default async function PublicationsPage() {
   const session = await getSession();
-  const visiblePublications = publications.filter(
-    (publication) =>
-      session.isLoggedIn ||
-      !subscriberOnlyCoverSlugs.has(publication.slug),
+  const catalog = await getPublicationCatalog();
+  const visiblePublications = catalog.publications.filter(
+    (publication) => canListPublication(publication, session),
   );
   const cards: PublicationCardData[] = visiblePublications.map((publication) => ({
     id: publication.id,
@@ -174,8 +167,8 @@ export default async function PublicationsPage() {
       <div id="catalog" className="scroll-mt-32">
         <PublicationsCatalog
           publications={cards}
-          series={publicationSeries}
-          audienceLabels={publicationAudiences}
+          series={catalog.series}
+          audienceLabels={catalog.audiences}
         />
       </div>
 

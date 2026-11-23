@@ -206,7 +206,16 @@ export default function Header({
                       {user.email || '—'}
                     </div>
                     <div className="border-t border-subtle" />
-                    {/* Future entries */}
+                    {user?.role === 'admin' && (
+                      <Link
+                        href="/admin/ekdoseis"
+                        role="menuitem"
+                        className="menu-item block no-underline"
+                        onClick={() => setOpen(false)}
+                      >
+                        Διαχείριση Εκδόσεων
+                      </Link>
+                    )}
                     <button className="menu-item" onClick={openSettings}>Ρυθμίσεις</button>
                     <button className="menu-item" onClick={() => alert('Σύντομα')}>Πληρωμές (σύντομα)</button>
                     <div className="border-t border-subtle" />

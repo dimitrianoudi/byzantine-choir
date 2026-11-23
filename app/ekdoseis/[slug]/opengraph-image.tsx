@@ -1,15 +1,34 @@
 import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { ImageResponse } from "next/og";
-import { getPublicationBySlug } from "@/lib/publications";
+import { getPublicationCatalog } from "@/lib/publications";
 
 export const runtime = "nodejs";
 export const alt = "Έκδοση Ψαλτικής Παιδείας";
 export const size = { width: 1200, height: 630 };
 export const contentType = "image/png";
 
-function dataUrl(buffer: Buffer, type: "jpeg" | "png") {
+function dataUrl(
+  buffer: Buffer,
+  type: "jpeg" | "png" | "webp",
+) {
   return `data:image/${type};base64,${buffer.toString("base64")}`;
+}
+
+async function imageSource(url: string) {
+  if (url.startsWith("https://")) return url;
+  const normalized = url.replace(/^\/+/, "");
+  const buffer = await readFile(
+    path.join(process.cwd(), "public", normalized),
+  );
+  const extension = normalized.split(".").pop()?.toLowerCase();
+  const type =
+    extension === "png"
+      ? "png"
+      : extension === "webp"
+        ? "webp"
+        : "jpeg";
+  return dataUrl(buffer, type);
 }
 
 export default async function PublicationOpenGraphImage({
@@ -18,14 +37,19 @@ export default async function PublicationOpenGraphImage({
   params: Promise<{ slug: string }>;
 }) {
   const { slug } = await params;
-  const publication = getPublicationBySlug(slug);
-  if (!publication) {
+  const catalog = await getPublicationCatalog();
+  const publication = catalog.publications.find(
+    (item) =>
+      item.slug === slug &&
+      item.status === "published" &&
+      item.routeAccess === "public",
+  );
+  if (!publication || !publication.images.cover) {
     throw new Error(`Publication not found: ${slug}`);
   }
 
-  const coverPath = publication.images.cover!.replace(/^\/+/, "");
-  const [coverBuffer, logoBuffer] = await Promise.all([
-    readFile(path.join(process.cwd(), "public", coverPath)),
+  const [coverSource, logoBuffer] = await Promise.all([
+    imageSource(publication.images.cover),
     readFile(
       path.join(
         process.cwd(),
@@ -116,7 +140,7 @@ export default async function PublicationOpenGraphImage({
           }}
         >
           <img
-            src={dataUrl(coverBuffer, "jpeg")}
+            src={coverSource}
             alt=""
             width={340}
             height={500}

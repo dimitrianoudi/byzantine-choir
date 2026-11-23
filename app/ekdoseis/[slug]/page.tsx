@@ -8,19 +8,17 @@ import PublicationMedia, {
   type PublicationMediaItem,
 } from "@/components/ekdoseis/PublicationMedia";
 import {
-  getComicReader,
-  getPublicationBySlug,
-  publicationImageLabels,
+  getPublicationCatalog,
   publicationPath,
-  publications,
 } from "@/lib/publications";
+import {
+  canAccessPublication,
+  canDownloadPublicationFile,
+} from "@/lib/publications/access";
+import { getSession } from "@/lib/session";
 import { absoluteUrl, SITE_NAME, SITE_URL } from "@/lib/site";
 
-export function generateStaticParams() {
-  return publications.map((publication) => ({
-    slug: publication.slug,
-  }));
-}
+export const dynamic = "force-dynamic";
 
 function metadataDescription(value: string) {
   if (value.length <= 170) return value;
@@ -33,8 +31,19 @@ export async function generateMetadata({
   params: Promise<{ slug: string }>;
 }): Promise<Metadata> {
   const { slug } = await params;
-  const publication = getPublicationBySlug(slug);
-  if (!publication) return {};
+  const [catalog, session] = await Promise.all([
+    getPublicationCatalog(),
+    getSession(),
+  ]);
+  const publication = catalog.publications.find(
+    (item) => item.slug === slug,
+  );
+  if (
+    !publication ||
+    !canAccessPublication(publication, session)
+  ) {
+    return { robots: { index: false, follow: false } };
+  }
 
   const title = `${publication.title} | Εκδόσεις Ψαλτικής Παιδείας`;
   const description = metadataDescription(publication.description);
@@ -76,20 +85,30 @@ export default async function PublicationDetailPage({
   params: Promise<{ slug: string }>;
 }) {
   const { slug } = await params;
-  const publication = getPublicationBySlug(slug);
-  if (!publication) notFound();
+  const [catalog, session] = await Promise.all([
+    getPublicationCatalog(),
+    getSession(),
+  ]);
+  const publication = catalog.publications.find(
+    (item) => item.slug === slug,
+  );
+  if (
+    !publication ||
+    !canAccessPublication(publication, session)
+  ) {
+    notFound();
+  }
 
-  const images: PublicationMediaItem[] = Object.entries(
-    publication.images,
-  ).map(([slot, src]) => ({
-    slot,
-    src,
-    label:
-      publicationImageLabels[
-        slot as keyof typeof publicationImageLabels
-      ] || slot,
-  }));
-  const comicReader = getComicReader(publication.id);
+  const images: PublicationMediaItem[] = publication.media.map(
+    (media) => ({
+      slot: media.id,
+      src: media.url,
+      label: media.label,
+    }),
+  );
+  const availableFiles = publication.files.filter((file) =>
+    canDownloadPublicationFile(file, session),
+  );
   const path = publicationPath(publication);
   const bookSchema = {
     "@context": "https://schema.org",
@@ -249,18 +268,42 @@ export default async function PublicationDetailPage({
 
       <PublicationMedia title={publication.title} images={images} />
 
-      {comicReader && (
+      {availableFiles.length > 0 && (
+        <section className="rounded-[1.25rem] border border-[#e7ddc8] bg-[#fbf8f1] p-5 sm:p-6">
+          <h2 className="font-heading text-2xl font-bold text-[#5a1e2e]">
+            Διαθέσιμα αρχεία
+          </h2>
+          <div className="mt-4 flex flex-wrap gap-3">
+            {availableFiles.map((file) => (
+              <a
+                key={file.id}
+                href={`/api/ekdoseis/${encodeURIComponent(publication.id)}/files/${encodeURIComponent(file.id)}`}
+                className="inline-flex min-h-11 items-center rounded-xl border border-[#cdbb98] bg-white px-4 py-2 text-sm font-semibold text-[#5a1e2e] no-underline transition hover:border-[#8a6a2f]"
+              >
+                {file.name}
+                <span className="ml-2 text-xs text-[#8a6a2f]">
+                  {file.format}
+                </span>
+              </a>
+            ))}
+          </div>
+        </section>
+      )}
+
+      {publication.comicReader && (
         <ComicFrameReader
           publicationTitle={publication.title}
-          reader={comicReader}
+          reader={publication.comicReader}
         />
       )}
 
       <PublicationInterestForm
-        publications={publications.map((item) => ({
-          id: item.id,
-          title: item.title,
-        }))}
+        publications={catalog.publications
+          .filter((item) => canAccessPublication(item, session))
+          .map((item) => ({
+            id: item.id,
+            title: item.title,
+          }))}
         initialPublicationId={publication.id}
         heading="Ενδιαφέρομαι για αυτή την έκδοση"
       />

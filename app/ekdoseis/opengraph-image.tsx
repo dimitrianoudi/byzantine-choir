@@ -1,21 +1,42 @@
 import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { ImageResponse } from "next/og";
+import { getPublicationCatalog } from "@/lib/publications";
 
 export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
 export const alt = "Εκδόσεις Ψαλτικής Παιδείας";
 export const size = { width: 1200, height: 630 };
 export const contentType = "image/png";
 
-async function imageData(relativePath: string) {
+async function imageData(url: string) {
+  if (url.startsWith("https://")) return url;
+  const relativePath = url.replace(/^\/+/, "");
   const buffer = await readFile(
     path.join(process.cwd(), "public", relativePath),
   );
-  return `data:image/jpeg;base64,${buffer.toString("base64")}`;
+  const extension = relativePath.split(".").pop()?.toLowerCase();
+  const type =
+    extension === "png"
+      ? "png"
+      : extension === "webp"
+        ? "webp"
+        : "jpeg";
+  return `data:image/${type};base64,${buffer.toString("base64")}`;
 }
 
 export default async function PublicationsOpenGraphImage() {
-  const [logo, cover1, cover2, cover3, cover4] = await Promise.all([
+  const catalog = await getPublicationCatalog();
+  const coverUrls = catalog.publications
+    .filter(
+      (publication) =>
+        publication.status === "published" &&
+        publication.catalogVisibility === "public" &&
+        publication.images.cover,
+    )
+    .slice(0, 4)
+    .map((publication) => publication.images.cover);
+  const [logo, covers] = await Promise.all([
     readFile(
       path.join(
         process.cwd(),
@@ -25,13 +46,8 @@ export default async function PublicationsOpenGraphImage() {
     ).then(
       (buffer) => `data:image/png;base64,${buffer.toString("base64")}`,
     ),
-    imageData("ekdoseis/images/b01/cover.jpg"),
-    imageData("ekdoseis/images/b11/cover.jpg"),
-    imageData("ekdoseis/images/b12/cover.jpg"),
-    imageData("ekdoseis/images/b20/cover.jpg"),
+    Promise.all(coverUrls.map(imageData)),
   ]);
-
-  const covers = [cover1, cover2, cover3, cover4];
 
   return new ImageResponse(
     (

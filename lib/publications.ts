@@ -1,13 +1,23 @@
-import booksData from "@/data/ekdoseis/books.json";
-import comicsFramesData from "@/data/ekdoseis/comics-frames.json";
+import { getPublicationManifest } from "@/lib/publications/repository";
+import type {
+  ComicFrame,
+  ComicPage,
+  ComicReaderData,
+  PublicationAudience,
+  PublicationFileRecord,
+  PublicationMediaRecord,
+  PublicationRecord,
+  PublicationSeriesRecord,
+} from "@/lib/publications/types";
 
-export type PublicationAudience = "adult" | "kids";
-export type PublicationImageSlot =
-  | "cover"
-  | "back"
-  | "toc"
-  | "sample"
-  | "sample2";
+export type {
+  ComicFrame,
+  ComicPage,
+  ComicReaderData,
+  PublicationAudience,
+  PublicationFileRecord,
+  PublicationMediaRecord,
+};
 
 export type PublicationSeries = {
   id: string;
@@ -19,7 +29,7 @@ export type Publication = {
   order: number;
   id: string;
   slug: string;
-  editionNumber: number;
+  editionNumber: number | null;
   title: string;
   subtitle: string;
   audience: PublicationAudience;
@@ -29,223 +39,107 @@ export type Publication = {
   pages: number | null;
   formats: string[];
   description: string;
-  images: Partial<Record<PublicationImageSlot, string>>;
-  hasFrameReader: boolean;
+  status: PublicationRecord["status"];
+  catalogVisibility: PublicationRecord["catalogVisibility"];
+  routeAccess: PublicationRecord["routeAccess"];
+  media: PublicationMediaRecord[];
+  images: Record<string, string>;
+  files: PublicationFileRecord[];
+  comicReader?: ComicReaderData;
   landscapeCover: boolean;
+  createdAt: string;
+  updatedAt: string;
 };
 
-export type ComicFrame = [x: number, y: number, width: number, height: number];
-
-export type ComicPage = {
-  title: string;
-  image: string;
-  width: number;
-  height: number;
-  frames: ComicFrame[];
-};
-
-export type ComicReaderData = {
-  bookTitle: string;
-  pages: ComicPage[];
-};
-
-type RawBook = {
-  order: number;
-  id: string;
-  edition_number: number;
-  title: string;
-  subtitle: string;
-  audience: PublicationAudience;
-  series: string;
-  series_name: string;
-  pages: number | null;
-  formats: string[];
-  description: string;
-  images: Partial<Record<PublicationImageSlot, string>>;
-  has_frame_reader: boolean;
-};
-
-type RawBooksData = {
+export type PublicationCatalog = {
+  revision: number;
   audiences: Record<
     PublicationAudience,
     { title: string; subtitle: string }
   >;
-  series: Record<string, { name: string; color: string }>;
-  image_slots: Record<PublicationImageSlot, string>;
-  books: RawBook[];
+  series: PublicationSeries[];
+  publications: Publication[];
 };
 
-type RawComicReaderData = {
-  bookTitle: string;
-  pages: {
-    title: string;
-    image: string;
-    width: number;
-    height: number;
-    frames: number[][];
-  }[];
-};
-
-const rawCatalog = booksData as RawBooksData;
-const rawComics = comicsFramesData as Record<string, RawComicReaderData>;
-
-const GREEK_TO_LATIN: Record<string, string> = {
-  α: "a",
-  β: "v",
-  γ: "g",
-  δ: "d",
-  ε: "e",
-  ζ: "z",
-  η: "i",
-  θ: "th",
-  ι: "i",
-  κ: "k",
-  λ: "l",
-  μ: "m",
-  ν: "n",
-  ξ: "x",
-  ο: "o",
-  π: "p",
-  ρ: "r",
-  σ: "s",
-  ς: "s",
-  τ: "t",
-  υ: "y",
-  φ: "f",
-  χ: "ch",
-  ψ: "ps",
-  ω: "o",
-};
-
-function slugifyGreek(value: string) {
-  const normalized = value
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .toLocaleLowerCase("el-GR");
-  const transliterated = Array.from(normalized)
-    .map((character) => GREEK_TO_LATIN[character] ?? character)
-    .join("");
-
-  return transliterated
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "")
-    .replace(/-{2,}/g, "-");
-}
-
-function publicationSlug(book: RawBook) {
-  const edition = String(book.edition_number).padStart(2, "0");
-  return `${edition}-${slugifyGreek(book.title)}`;
-}
-
-function publicAssetPath(path: string) {
-  return `/ekdoseis/${path.replace(/^\/+/, "")}`;
-}
-
-function normalizePublication(book: RawBook): Publication {
-  const series = rawCatalog.series[book.series];
-  if (!series) {
-    throw new Error(`Unknown publication series "${book.series}" for ${book.id}`);
-  }
-
+function normalizePublication(
+  publication: PublicationRecord,
+  series: PublicationSeriesRecord,
+): Publication {
   return {
-    order: book.order,
-    id: book.id,
-    slug: publicationSlug(book),
-    editionNumber: book.edition_number,
-    title: book.title,
-    subtitle: book.subtitle,
-    audience: book.audience,
-    series: book.series,
-    seriesName: book.series_name,
+    order: publication.order,
+    id: publication.id,
+    slug: publication.slug,
+    editionNumber: publication.editionNumber,
+    title: publication.title,
+    subtitle: publication.subtitle,
+    audience: publication.audience,
+    series: publication.seriesId,
+    seriesName: series.name,
     seriesColor: series.color,
-    pages: book.pages,
-    formats: [...book.formats],
-    description: book.description,
+    pages: publication.pages,
+    formats: [...publication.formats],
+    description: publication.description,
+    status: publication.status,
+    catalogVisibility: publication.catalogVisibility,
+    routeAccess: publication.routeAccess,
+    media: publication.media.map((item) => ({ ...item })),
     images: Object.fromEntries(
-      Object.entries(book.images).map(([slot, path]) => [
-        slot,
-        publicAssetPath(path),
-      ]),
+      publication.media.map((item) => [item.id, item.url]),
     ),
-    hasFrameReader: book.has_frame_reader,
-    landscapeCover: book.id === "wfq3ecli6wum5ebncvnm",
+    files: publication.files.map((item) => ({ ...item })),
+    comicReader: publication.comicReader,
+    landscapeCover: publication.landscapeCover,
+    createdAt: publication.createdAt,
+    updatedAt: publication.updatedAt,
   };
 }
 
-function normalizeComicReader(data: RawComicReaderData): ComicReaderData {
+export async function getPublicationCatalog(): Promise<PublicationCatalog> {
+  const manifest = await getPublicationManifest();
+  const seriesById = new Map(
+    manifest.series.map((series) => [series.id, series]),
+  );
+  const publications = manifest.publications
+    .map((publication) => {
+      const series = seriesById.get(publication.seriesId);
+      if (!series) {
+        throw new Error(
+          `Unknown publication series "${publication.seriesId}"`,
+        );
+      }
+      return normalizePublication(publication, series);
+    })
+    .sort((left, right) => left.order - right.order);
+
   return {
-    bookTitle: data.bookTitle,
-    pages: data.pages.map((page) => ({
-      title: page.title,
-      image: publicAssetPath(page.image),
-      width: page.width,
-      height: page.height,
-      frames: page.frames.map((frame) => {
-        if (
-          frame.length !== 4 ||
-          frame.some((value) => !Number.isFinite(value) || value < 0)
-        ) {
-          throw new Error(`Invalid comic frame in "${data.bookTitle}"`);
-        }
-        return frame as ComicFrame;
-      }),
-    })),
+    revision: manifest.revision,
+    audiences: manifest.audiences,
+    series: manifest.series
+      .slice()
+      .sort((left, right) => left.order - right.order)
+      .map(({ id, name, color }) => ({ id, name, color })),
+    publications,
   };
 }
 
-export const publicationAudiences = rawCatalog.audiences;
-export const publicationImageLabels = rawCatalog.image_slots;
-
-export const publicationSeries: PublicationSeries[] = Object.entries(
-  rawCatalog.series,
-).map(([id, series]) => ({
-  id,
-  name: series.name,
-  color: series.color,
-}));
-
-export const publications: Publication[] = rawCatalog.books
-  .map(normalizePublication)
-  .sort((left, right) => left.order - right.order);
-
-export const comicReaders: Record<string, ComicReaderData> = Object.fromEntries(
-  Object.entries(rawComics).map(([bookId, data]) => [
-    bookId,
-    normalizeComicReader(data),
-  ]),
-);
-
-if (publications.length !== 35) {
-  throw new Error(
-    `Expected 35 publications, received ${publications.length}`,
-  );
-}
-
-const uniqueSlugs = new Set(publications.map((publication) => publication.slug));
-if (uniqueSlugs.size !== publications.length) {
-  throw new Error("Publication slugs must be unique");
-}
-
-for (const publication of publications) {
-  if (!publication.images.cover) {
-    throw new Error(`Missing publication cover for ${publication.id}`);
-  }
-  if (publication.hasFrameReader && !comicReaders[publication.id]) {
-    throw new Error(`Missing comic reader data for ${publication.id}`);
-  }
-}
-
-export function getPublicationBySlug(slug: string) {
+export async function getPublicationBySlug(slug: string) {
+  const { publications } = await getPublicationCatalog();
   return (
-    publications.find((publication) => publication.slug === slug) || null
+    publications.find((publication) => publication.slug === slug) ||
+    null
   );
 }
 
-export function getComicReader(publicationId: string) {
-  return comicReaders[publicationId] || null;
+export async function getPublicationById(id: string) {
+  const { publications } = await getPublicationCatalog();
+  return (
+    publications.find((publication) => publication.id === id) ||
+    null
+  );
 }
 
-export function publicationPath(publication: Publication) {
+export function publicationPath(
+  publication: Pick<Publication, "slug">,
+) {
   return `/ekdoseis/${publication.slug}`;
 }
-

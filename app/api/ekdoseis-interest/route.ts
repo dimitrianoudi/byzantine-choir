@@ -4,7 +4,9 @@ import { createHash } from "node:crypto";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { sendEmail } from "@/lib/email";
-import { publications } from "@/lib/publications";
+import { getPublicationCatalog } from "@/lib/publications";
+import { canAccessPublication } from "@/lib/publications/access";
+import { getSession } from "@/lib/session";
 
 const WINDOW_MS = 10 * 60 * 1000;
 const MAX_REQUESTS_PER_WINDOW = 5;
@@ -173,8 +175,16 @@ export async function POST(req: Request) {
   }
 
   const data = parsed.data;
+  const [catalog, session] = await Promise.all([
+    getPublicationCatalog(),
+    getSession(),
+  ]);
   const publication = data.publicationId
-    ? publications.find((item) => item.id === data.publicationId)
+    ? catalog.publications.find(
+        (item) =>
+          item.id === data.publicationId &&
+          canAccessPublication(item, session),
+      )
     : null;
 
   if (data.publicationId && !publication) {

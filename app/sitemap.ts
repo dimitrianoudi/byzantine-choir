@@ -1,6 +1,11 @@
 import type { MetadataRoute } from "next";
-import { publicationPath, publications } from "@/lib/publications";
+import {
+  getPublicationCatalog,
+  publicationPath,
+} from "@/lib/publications";
 import { absoluteUrl } from "@/lib/site";
+
+export const dynamic = "force-dynamic";
 
 const publicRoutes = [
   { path: "/", changeFrequency: "weekly", priority: 1 },
@@ -15,18 +20,25 @@ const publicRoutes = [
   { path: "/register/adults", changeFrequency: "monthly", priority: 0.6 },
 ] as const;
 
-export default function sitemap(): MetadataRoute.Sitemap {
+export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
+  const catalog = await getPublicationCatalog();
   const routes = publicRoutes.map((route) => ({
     url: absoluteUrl(route.path),
     changeFrequency: route.changeFrequency,
     priority: route.priority,
   }));
 
-  const publicationRoutes = publications.map((publication) => ({
-    url: absoluteUrl(publicationPath(publication)),
-    changeFrequency: "monthly" as const,
-    priority: 0.7,
-  }));
+  const publicationRoutes = catalog.publications
+    .filter(
+      (publication) =>
+        publication.status === "published" &&
+        publication.routeAccess === "public",
+    )
+    .map((publication) => ({
+      url: absoluteUrl(publicationPath(publication)),
+      changeFrequency: "monthly" as const,
+      priority: 0.7,
+    }));
 
   return [...routes, ...publicationRoutes];
 }

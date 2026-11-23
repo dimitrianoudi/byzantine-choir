@@ -210,7 +210,7 @@ export default function Header({
                       <Link
                         href="/admin/ekdoseis"
                         role="menuitem"
-                        className="menu-item block no-underline"
+                        className="menu-item"
                         onClick={() => setOpen(false)}
                       >
                         Διαχείριση Εκδόσεων
@@ -331,9 +331,15 @@ export default function Header({
           gap: 8px;
           margin-top: 14px;
         }
-        .menu-item {
+        :global(.dropdown .menu-item) {
+          box-sizing: border-box;
+          display: flex;
+          align-items: center;
           width: 100%;
+          min-height: 2.375rem;
           text-align: left;
+          text-decoration: none;
+          font-family: inherit;
           background: #fff;
           color: var(--text);
           border: 0;
@@ -342,7 +348,7 @@ export default function Header({
           line-height: 1.25;
           cursor: pointer;
         }
-        .menu-item:hover {
+        :global(.dropdown .menu-item:hover) {
           background: var(--blue-200);
           color: var(--blue-700);
         }

@@ -1,7 +1,6 @@
 'use client';
 
 import { useEffect } from "react";
-import { useRouter } from "next/navigation";
 
 declare global {
   interface Window {
@@ -10,7 +9,6 @@ declare global {
 }
 
 export default function LoginPage() {
-  const router = useRouter();
   const googleOnly = process.env.NEXT_PUBLIC_AUTH_MODE === "google_only";
 
   useEffect(() => {
@@ -28,7 +26,7 @@ export default function LoginPage() {
             body: JSON.stringify({ credential: response.credential }),
           });
           if (res.ok) {
-            router.push("/");
+            window.location.replace("/");
           } else {
             const data = await res.json().catch(() => ({}));
             alert(data?.error || "Αποτυχία σύνδεσης με Google");
@@ -41,17 +39,24 @@ export default function LoginPage() {
 
     const el = document.getElementById("google-btn");
     if (el) {
+      const availableWidth = Math.floor(
+        el.getBoundingClientRect().width,
+      );
+      const buttonWidth = Math.min(
+        316,
+        Math.max(120, availableWidth - 8),
+      );
       window.google.accounts.id.renderButton(el, {
         theme: "outline",
         size: "large",
         shape: "pill",
         text: "continue_with",
-        width: 320,
+        width: buttonWidth,
       });
     }
     // Optional: One-tap prompt
     // window.google.accounts.id.prompt();
-  }, [router]);
+  }, []);
 
   return (
     <div className="max-w-md mx-auto mt-16 card p-6 text-center">
@@ -61,7 +66,10 @@ export default function LoginPage() {
       </p>
 
       {/* Google button mount point */}
-      <div id="google-btn" className="flex justify-center" />
+      <div
+        id="google-btn"
+        className="flex w-full min-w-0 justify-center px-1"
+      />
 
       {googleOnly && (
         <p className="text-xs text-muted mt-6 text-center">

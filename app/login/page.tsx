@@ -18,8 +18,6 @@ export default function LoginPage() {
     let cancelled = false;
     let retryCount = 0;
     let retryTimer: ReturnType<typeof setTimeout> | undefined;
-    let googleButtonObserver: MutationObserver | undefined;
-    let edgeFixFrame: number | undefined;
 
     const renderGoogleButton = () => {
       if (cancelled) return;
@@ -61,35 +59,6 @@ export default function LoginPage() {
         Math.max(120, availableWidth - 8),
       );
       el.replaceChildren();
-      const addPersonalizedButtonBreathingRoom = () => {
-        const button = el.querySelector<HTMLElement>('[role="button"]');
-        if (!button || button.dataset.edgeSpacingApplied === "true") {
-          return;
-        }
-
-        const renderedWidth = Math.ceil(
-          button.getBoundingClientRect().width,
-        );
-        if (!renderedWidth) return;
-
-        button.dataset.edgeSpacingApplied = "true";
-        button.style.setProperty(
-          "width",
-          `${Math.min(renderedWidth + 4, availableWidth - 4)}px`,
-          "important",
-        );
-        button.style.setProperty("max-width", "none", "important");
-        button.style.transform = "translateX(-2px)";
-      };
-
-      googleButtonObserver?.disconnect();
-      googleButtonObserver = new MutationObserver(
-        addPersonalizedButtonBreathingRoom,
-      );
-      googleButtonObserver.observe(el, {
-        childList: true,
-        subtree: true,
-      });
       window.google.accounts.id.renderButton(el, {
         theme: "outline",
         size: "large",
@@ -97,18 +66,12 @@ export default function LoginPage() {
         text: "continue_with",
         width: buttonWidth,
       });
-      addPersonalizedButtonBreathingRoom();
-      edgeFixFrame = requestAnimationFrame(
-        addPersonalizedButtonBreathingRoom,
-      );
     };
 
     renderGoogleButton();
     return () => {
       cancelled = true;
       if (retryTimer) clearTimeout(retryTimer);
-      if (edgeFixFrame) cancelAnimationFrame(edgeFixFrame);
-      googleButtonObserver?.disconnect();
     };
   }, []);
 
@@ -130,6 +93,10 @@ export default function LoginPage() {
         #google-btn > div,
         #google-btn > div > div {
           overflow: visible !important;
+        }
+
+        #google-btn iframe {
+          max-width: none !important;
         }
       `}</style>
 
